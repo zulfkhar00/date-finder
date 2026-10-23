@@ -19,3 +19,6 @@ deploy/*.zip
 *.gate.lock*
 .beadhub
 .aw/
+
+# Claude Code agent worktrees
+.claude/worktrees/

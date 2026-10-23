@@ -160,3 +160,8 @@ bdh :aweb chat history <alias>  # Full conversation history
 bdh :aweb chat extend-wait <alias> "need more time"  # Ask for patience
 ```
 <!-- BEADHUB:END -->
+## Agent coordination (read first)
+
+Before any substantial change, follow **[docs/agent-coordination.md](docs/agent-coordination.md)**:
+check the other agent's work for overlap, create and claim a task with `bdh`, work on its own branch,
+close the task when done. Do it automatically, without being asked.
