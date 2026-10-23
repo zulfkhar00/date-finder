@@ -32,6 +32,9 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your_server_only_supabase_secret
 STRIPE_SECRET_KEY=sk_test_key_for_first_deployment
 STRIPE_WEBHOOK_SECRET=whsec_from_the_public_endpoint_for_this_environment
+# Admin dashboard, optional: /admin shows a setup message until both are set. See section 7.
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_from_supabase_api_keys
+ADMIN_EMAILS=founder1@example.com,founder2@example.com
 ```
 
 Keep all three secret values in Dokploy's runtime environment settings, not in Git or Docker build arguments. There are no `NEXT_PUBLIC_` secrets. The `STRIPE_WEBHOOK_SECRET` printed by a local `stripe listen` session is for local testing only; create a separate signing secret for the deployed endpoint.
@@ -53,3 +56,22 @@ Open the deployed HTTPS site, reserve with a test email, and complete a Stripe t
 Test and live Stripe payments should not share the same launch queue. Use a separate Supabase project for staging or clear only your test reservations and reset the counter before switching the same project to live payments. Replace both Stripe keys with live-mode values and create a live-mode webhook destination when you are ready to accept real $1 payments.
 
 The app needs a configured support contact and payment receipts in Stripe before public launch, because the privacy and reservation terms refer customers to that contact.
+
+## 7. Admin dashboard
+
+`/admin` shows the funnel (KPIs, a 30-day chart, conversion by variant and `utm_campaign`) and `/admin/leads` lists reservations with filters, a detail page per lead with a stage and notes, and a CSV export at `/admin/leads/export`. Only the founders can open it.
+
+1. **SQL.** In the Supabase SQL editor, apply [`supabase/2026-10-23-funnel-tracking.sql`](supabase/2026-10-23-funnel-tracking.sql) if it isn't already, then [`supabase/2026-10-23-admin.sql`](supabase/2026-10-23-admin.sql). Both are idempotent. The admin file adds the `lead_notes` table and three read-only report functions; RLS is on and only `service_role` gets access.
+2. **Env.** In Dokploy, add `SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys → publishable key; the legacy `anon` key works too and can be set as `SUPABASE_ANON_KEY` instead) and `ADMIN_EMAILS`, a comma-separated list of the founders' emails. Both are server-only. Never add a `NEXT_PUBLIC_` copy. Redeploy. Until both are set, `/admin` shows a setup message.
+3. **Supabase Auth.** Under Authentication → URL Configuration, set **Site URL** to `SITE_URL` and add `https://morrow.zulfkhar.dev/admin/auth/callback` (and the noswipe.app equivalent once it's live) to **Redirect URLs**. Under Authentication → Sign In / Providers, keep **Email** enabled. Under Authentication → Emails → **Magic Link**, replace the body with this, so the link works in any browser and the code works on any device:
+
+   ```html
+   <h2>Sign in to NoSwipe admin</h2>
+   <p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">Sign in</a></p>
+   <p>Or enter this code: <strong>{{ .Token }}</strong></p>
+   ```
+
+   The default template also works, but only in the browser that requested the link. Supabase's built-in email sender is limited to a few emails an hour; set up custom SMTP (Authentication → Emails → SMTP) if you hit that.
+4. **Sign in.** Open `/admin`, enter an allowlisted email, then click the link or type the code. Sign-in emails are only sent to `ADMIN_EMAILS`; the form shows the same message for any address. A signed-in account that is not on the list gets a 404 on every admin page and on the CSV export.
+
+Every admin page, server action and the export check the session and `ADMIN_EMAILS` on the server. Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.

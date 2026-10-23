@@ -51,3 +51,7 @@ Apply [`supabase/2026-10-23-funnel-tracking.sql`](supabase/2026-10-23-funnel-tra
 6. Run [`supabase/funnel.sql`](supabase/funnel.sql) for daily counts per event and visitor→paid % by variant and `utm_campaign`.
 
 No third-party trackers are loaded. UTM values containing `@` are dropped and referrers are cut to their origin, so the funnel stores no personal data.
+
+### Admin dashboard
+
+`/admin` (founders only) shows the funnel and leads; set-up is in [DEPLOYMENT.md §7](DEPLOYMENT.md#7-admin-dashboard). Apply [`supabase/2026-10-23-admin.sql`](supabase/2026-10-23-admin.sql) after the funnel SQL, set `SUPABASE_PUBLISHABLE_KEY` and `ADMIN_EMAILS`, and sign in with an emailed link or code. To check it: an allowlisted email can sign in and sees KPI tiles matching `supabase/funnel.sql`; any other signed-in email gets a 404 on `/admin`, `/admin/leads/<id>` and `/admin/leads/export`; signed out, `/admin/leads/export` returns 404.
