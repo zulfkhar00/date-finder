@@ -2,13 +2,20 @@
 
 The app runs as one Next.js container and uses the existing hosted Supabase project. The included `Dockerfile` builds Next.js standalone output and serves it on port 3000.
 
-## 1. Upload the source bundle
+## 1. Push a private GitHub repository
 
-Use `deploy/morrow-dokploy-test.zip` for the first deployment. It contains the application source and Dockerfile, with `.env.local` and build files excluded. Dokploy supports a **Drag and Drop .zip** source for Applications. You can connect a private Git repository later for automated deployments.
+Create an empty **private** repository on GitHub, then push this project's `main` branch. Do not initialize the GitHub repository with a README, license, or `.gitignore`; those files are already in this project. From this directory, run:
+
+```sh
+git remote add origin https://github.com/YOUR_ACCOUNT/morrow-concierge.git
+git push -u origin main
+```
+
+The repository excludes `.env.local`, build output, and local test artifacts. Confirm the GitHub repository is private before connecting it to Dokploy.
 
 ## 2. Create the Dokploy Application
 
-In your Dokploy project, create an **Application** with the **Drag and Drop .zip** source. Set **Build Type** to **Dockerfile**, **Dockerfile Path** to `Dockerfile`, and **Docker Context Path** to `.`. Upload the ZIP to trigger the deployment. The container listens on port `3000`. The image needs no persistent volume because reservation data lives in Supabase.
+In Dokploy, open **Git**, select **GitHub**, and create and install the Dokploy GitHub App. Grant it access to the private repository. In your Dokploy project, create an **Application**, select the GitHub source, the repository, and branch `main`. Set the build path to `/`, **Build Type** to **Dockerfile**, **Dockerfile Path** to `Dockerfile`, and **Docker Context Path** to `.`. Deploy the application. Dokploy can redeploy when new commits are pushed to `main`. The container listens on port `3000`. The image needs no persistent volume because reservation data lives in Supabase.
 
 ## 3. Connect the domain
 
