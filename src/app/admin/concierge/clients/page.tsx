@@ -1,8 +1,10 @@
-import { requireAdmin } from "@/lib/admin-auth";
-import { inviteLink, loadClients, storageConfigured, type TrackerRow } from "@/lib/concierge/operator";
-import { ConfigNotices, OperatorHeader } from "../header";
+import { requireAdminPage } from "@/lib/admin-auth";
+import { inviteLink, loadClients, type TrackerRow } from "@/lib/concierge/operator";
+import { safeErrorText } from "@/lib/concierge/telegram";
+import { SetupNotice } from "../../_components/notices";
+import { ConciergeHeader, ConfigNotices } from "../header";
 import { ClientEditForm, InviteForm, NewCodeForm, TrackerForm } from "../ui";
-import styles from "../operator.module.css";
+import styles from "../concierge.module.css";
 
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
 const num = (value: number | null | undefined) => (value ?? "–");
@@ -12,13 +14,22 @@ function Snapshot({ row }: { row: TrackerRow | null }) {
   return <span>{num(row.matches_week)} / {num(row.convos)} / {num(row.dates_scheduled)} <span className={styles.meta}>{day(row.created_at)}</span></span>;
 }
 
-export default async function OperatorClients() {
-  const admin = await requireAdmin("/operator/clients");
-  const clients = storageConfigured() ? await loadClients() : [];
+export default async function ConciergeClients() {
+  const access = await requireAdminPage();
+  if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
+  let clients: Awaited<ReturnType<typeof loadClients>> = [];
+  let loadFailed = false;
+  try {
+    clients = await loadClients();
+  } catch (error) {
+    loadFailed = true;
+    console.error("Concierge clients load failed", safeErrorText(error));
+  }
   return (
     <main className={styles.page}>
-      <OperatorHeader email={admin.email} active="clients" />
+      <ConciergeHeader active="clients" />
       <ConfigNotices />
+      {loadFailed && <p className={styles.notice}>Couldn&apos;t load clients. Has <code>supabase/2026-10-23-concierge.sql</code> been applied? The server log has the error code.</p>}
       <section className={styles.section}>
         <InviteForm />
       </section>

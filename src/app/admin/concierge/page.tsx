@@ -1,10 +1,12 @@
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { finalMessage } from "@/lib/concierge/format";
-import { loadQueue, storageConfigured, type DraftRow } from "@/lib/concierge/operator";
+import { loadQueue, type DraftRow } from "@/lib/concierge/operator";
+import { safeErrorText } from "@/lib/concierge/telegram";
 import { KIND_LABELS, type DraftOutput } from "@/lib/concierge/types";
-import { ConfigNotices, OperatorHeader } from "./header";
+import { SetupNotice } from "../_components/notices";
+import { ConciergeHeader, ConfigNotices } from "./header";
 import { DraftDecision } from "./ui";
-import styles from "./operator.module.css";
+import styles from "./concierge.module.css";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 
@@ -29,7 +31,7 @@ function Details({ output }: { output: DraftOutput }) {
   }
 }
 
-function DraftCard({ draft, mode }: { draft: DraftRow; mode: "pending" | "undelivered" | "failed" | "recent" }) {
+function DraftCard({ draft, mode }: { draft: DraftRow; mode: "pending" | "undelivered" | "sending" | "failed" | "recent" }) {
   const output = draft.output as DraftOutput;
   const hasOutput = typeof output?.message === "string";
   return (
@@ -43,9 +45,10 @@ function DraftCard({ draft, mode }: { draft: DraftRow; mode: "pending" | "undeli
       {hasOutput && <Details output={output} />}
       {hasOutput && output.operator_flags?.length > 0 && <div className={styles.flags}><h4>Check before approving</h4><ul>{output.operator_flags.map((flag, index) => <li key={index}>{flag}</li>)}</ul></div>}
       {mode === "recent" && hasOutput && <details className={`${styles.details} ${styles.block}`}><summary>Message</summary><p className={styles.pre}>{finalMessage(output)}</p></details>}
-      {mode === "pending" && hasOutput && <DraftDecision id={draft.id} message={finalMessage(output)} canSend />}
-      {mode === "undelivered" && hasOutput && <DraftDecision id={draft.id} message={finalMessage(output)} canSend sendLabel="Resend" />}
-      {mode === "failed" && <DraftDecision id={draft.id} message="" canSend={false} />}
+      {mode === "sending" && <p className={styles.meta}>Sending since {when(draft.send_started_at)}. If it is still here after a couple of minutes, the send was interrupted: check his chat, then release it.</p>}
+      {(mode === "pending" || mode === "undelivered") && hasOutput && <DraftDecision id={draft.id} message={finalMessage(output)} mode={mode} />}
+      {mode === "sending" && <DraftDecision id={draft.id} message="" mode="sending" />}
+      {mode === "failed" && <DraftDecision id={draft.id} message="" mode="failed" />}
     </article>
   );
 }
@@ -60,16 +63,24 @@ function Section({ title, rows, mode, empty }: { title: string; rows: DraftRow[]
   );
 }
 
-export default async function OperatorQueue() {
-  const admin = await requireAdmin("/operator");
-  const queue = storageConfigured() ? await loadQueue() : null;
+export default async function ConciergeQueue() {
+  const access = await requireAdminPage();
+  if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
+  let queue: Awaited<ReturnType<typeof loadQueue>> | null = null;
+  try {
+    queue = await loadQueue();
+  } catch (error) {
+    console.error("Concierge queue load failed", safeErrorText(error));
+  }
   return (
     <main className={styles.page}>
-      <OperatorHeader email={admin.email} active="queue" />
+      <ConciergeHeader active="queue" />
       <ConfigNotices />
-      <p className={styles.meta}>Every draft needs your approval before it reaches the client. He sends every message himself. Screenshots are never stored; only the summary below is kept.</p>
+      <p className={styles.meta}>Every draft needs your approval before it reaches the client. He sends every message himself. Screenshots are never stored; only the summary below is kept, with contact details removed, and drafts are deleted after 30 days.</p>
+      {!queue && <p className={styles.notice}>Couldn&apos;t load drafts. Has <code>supabase/2026-10-23-concierge.sql</code> been applied? The server log has the error code.</p>}
       {queue && <>
         <Section title="Waiting for review" rows={queue.pending} mode="pending" empty="Nothing waiting. New drafts appear here when a client sends a screenshot." />
+        <Section title="Sending" rows={queue.sending} mode="sending" />
         <Section title="Approved, not delivered" rows={queue.undelivered} mode="undelivered" />
         <Section title="Failed" rows={queue.failed} mode="failed" />
         <Section title="Recently handled" rows={queue.recent} mode="recent" />

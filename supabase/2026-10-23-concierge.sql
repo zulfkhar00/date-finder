@@ -38,15 +38,23 @@ create table if not exists public.drafts (
   kind text not null check (kind in ('profile', 'opener', 'reply', 'date_plan')),
   input_summary text not null default '' check (char_length(input_summary) <= 1000),
   output jsonb not null default '{}'::jsonb,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'edited', 'rejected', 'sent_to_client', 'failed')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'edited', 'sending', 'rejected', 'sent_to_client', 'failed')),
   operator_note text check (operator_note is null or char_length(operator_note) <= 2000),
   decided_at timestamptz,
   decided_by text,
   sent_at timestamptz
 );
 
+-- 'sending' = one request owns the Telegram call (claimed with a conditional update), so a draft
+-- can't be delivered twice. Re-created idempotently so older installs pick up the new value.
+alter table public.drafts add column if not exists send_started_at timestamptz;
+alter table public.drafts drop constraint if exists drafts_status_check;
+alter table public.drafts add constraint drafts_status_check
+  check (status in ('pending', 'approved', 'edited', 'sending', 'rejected', 'sent_to_client', 'failed'));
+
 create index if not exists drafts_status_created_idx on public.drafts (status, created_at);
 create index if not exists drafts_client_created_idx on public.drafts (client_id, created_at);
+create index if not exists drafts_created_idx on public.drafts (created_at);
 
 -- Telegram retries a webhook delivery until it gets a 2xx. One row per update_id makes the
 -- handler idempotent. Rows hold no message content.
@@ -66,5 +74,30 @@ grant select, insert, update on public.clients to service_role;
 grant select, insert on public.client_events to service_role;
 grant select, insert, update on public.drafts to service_role;
 grant select, insert, delete on public.telegram_updates to service_role;
+
+-- Retention: drafts (input summary, draft text, operator notes) are kept for 30 days, then deleted.
+-- service_role has no delete on drafts, so this definer function is the only way rows go away.
+-- Run it daily: from pg_cron (see DEPLOYMENT.md) or by hand in the SQL editor:
+--   select public.purge_old_drafts();
+create or replace function public.purge_old_drafts(retain interval default interval '30 days')
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  removed integer;
+begin
+  if retain < interval '1 day' then
+    raise exception 'retain must be at least 1 day';
+  end if;
+  delete from public.drafts where created_at < now() - retain;
+  get diagnostics removed = row_count;
+  return removed;
+end;
+$$;
+
+revoke all on function public.purge_old_drafts(interval) from public, anon, authenticated;
+grant execute on function public.purge_old_drafts(interval) to service_role;
 
 notify pgrst, 'reload schema';

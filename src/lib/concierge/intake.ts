@@ -2,12 +2,17 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { draft, hasAnthropicKey, type DraftImage } from "./draft";
 import { downloadImage, imageFileId, safeErrorText, sendMessageQuietly, type TelegramMessage, type TelegramUpdate } from "./telegram";
+import { scrubDeep, scrubText } from "./scrub";
 import { KIND_LABELS, parseCaption, type DraftKind } from "./types";
 
 type ClientRow = { id: string; name: string; voice_notes: string; apps: string[]; status: string };
 type Job = { chatId: number; client: ClientRow; kind: DraftKind | null; note: string; fileIds: string[] };
 
 const MAX_IMAGES_PER_JOB = 10;
+/** Per-client cap on draft jobs, counted from the drafts table over a rolling 24 hours. */
+export const MAX_JOBS_PER_DAY = 20;
+const RATE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const RATE_LIMITED = `You've sent ${MAX_JOBS_PER_DAY} requests in the last 24 hours, which is the daily limit for the pilot. Your concierge is still working through them. Send this one again tomorrow and we'll pick it up.`;
 /** Telegram delivers each photo of an album as its own update; wait this long to collect them. */
 const ALBUM_WINDOW_MS = 2500;
 
@@ -145,10 +150,27 @@ async function linkChat(chatId: number, rawCode: string) {
   await sendMessageQuietly(chatId, `Welcome, ${data.name}. You're in the pilot.\n\n${HELP}`);
 }
 
+/** Draft jobs started for this client in the last 24 hours (every job leaves one drafts row). */
+async function jobsInLastDay(clientId: string) {
+  const { count, error } = await getSupabaseAdmin()
+    .from("drafts")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .gte("created_at", new Date(Date.now() - RATE_WINDOW_MS).toISOString());
+  if (error) throw error;
+  return count ?? 0;
+}
+
 async function runJob(job: Job) {
   const kind = job.kind as DraftKind;
-  await sendMessageQuietly(job.chatId, `Got it. Your ${KIND_LABELS[kind].toLowerCase()} draft is coming soon.`);
   const supabase = getSupabaseAdmin();
+
+  if ((await jobsInLastDay(job.client.id)) >= MAX_JOBS_PER_DAY) {
+    await sendMessageQuietly(job.chatId, RATE_LIMITED);
+    return;
+  }
+
+  await sendMessageQuietly(job.chatId, `Got it. Your ${KIND_LABELS[kind].toLowerCase()} draft is coming soon.`);
 
   if (!hasAnthropicKey()) {
     await supabase.from("drafts").insert({
@@ -177,8 +199,9 @@ async function runJob(job: Job) {
     });
     images = []; // drop the only reference to the image bytes as soon as drafting is done
     if (!result) throw new Error("Drafting is not configured");
+    // Scrub contact details out of everything stored (the summary and every string in the draft).
     const { error } = await supabase.from("drafts").insert({
-      client_id: job.client.id, kind, status: "pending", input_summary: result.inputSummary, output: result.output
+      client_id: job.client.id, kind, status: "pending", input_summary: scrubText(result.inputSummary).slice(0, 1000), output: scrubDeep(result.output)
     });
     if (error) throw error;
   } catch (error) {
@@ -187,7 +210,7 @@ async function runJob(job: Job) {
     await supabase.from("drafts").insert({
       client_id: job.client.id, kind, status: "failed",
       input_summary: `${job.fileIds.length} image(s) received; drafting failed.`,
-      operator_note: `Drafting failed: ${safeErrorText(error)}`.slice(0, 2000)
+      operator_note: scrubText(`Drafting failed: ${safeErrorText(error)}`).slice(0, 2000)
     });
     await sendMessageQuietly(job.chatId, "Something went wrong with that one. Please send it again in a few minutes.");
   }

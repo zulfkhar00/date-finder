@@ -81,25 +81,29 @@ The app needs a configured support contact and payment receipts in Stripe before
 
 Every admin page, server action and the export check the session, a confirmed email and `ADMIN_EMAILS` on the server (shared helpers in `src/lib/admin-auth.ts`). Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
 
-## 7. Concierge pilot (Telegram bot, drafting, operator console)
+## 8. Concierge pilot (Telegram bot, drafting, console)
 
-Everything below is optional. Each part switches itself off while its variables are missing.
+Everything below is optional. Each part switches itself off while its variables are missing. The console at `/admin/concierge` uses the admin sign-in from §7 (same `ADMIN_EMAILS`, same users, same callback), so set up §7 first.
 
-**Database.** Run [`supabase/2026-10-23-concierge.sql`](supabase/2026-10-23-concierge.sql) once in the Supabase SQL editor, after `schema.sql`. It is idempotent, enables RLS, revokes all browser roles, and grants only `service_role`.
+**Database.** Run [`supabase/2026-10-23-concierge.sql`](supabase/2026-10-23-concierge.sql) in the Supabase SQL editor, after `schema.sql`. It is idempotent: re-running it on an older install adds the `sending` status, the `send_started_at` column and the retention function. It enables RLS, revokes all browser roles, and grants only `service_role`.
+
+**Retention (30 days).** `public.purge_old_drafts()` deletes drafts (input summary, draft text, operator notes) older than 30 days and returns how many it removed. It is `security definer`, and only `service_role` may execute it. Schedule it daily with pg_cron (Supabase → Integrations → Cron, or Database → Extensions → enable `pg_cron`), then run this once in the SQL editor:
+
+```sql
+select cron.schedule('purge-concierge-drafts', '17 4 * * *', $$select public.purge_old_drafts()$$);
+```
+
+Check it with `select * from cron.job_run_details order by start_time desc limit 5;`. Without pg_cron, run `select public.purge_old_drafts();` by hand at least once a week. The privacy page promises 30 days, so don't skip this.
 
 **Create the bot.** In Telegram, message [@BotFather](https://t.me/BotFather): send `/newbot`, choose a name and a username ending in `bot`, and copy the token. Then send `/setjoingroups` and choose Disable (the bot only handles private chats). Optionally set `/setdescription`.
 
-**Environment** (Dokploy → Environment, runtime only, never `NEXT_PUBLIC_`):
+**Environment** (Dokploy → Environment, runtime only, never `NEXT_PUBLIC_`), in addition to the §7 variables:
 
 ```dotenv
 TELEGRAM_BOT_TOKEN=123456:token_from_botfather
 TELEGRAM_WEBHOOK_SECRET=output_of_openssl_rand_hex_32
 TELEGRAM_BOT_USERNAME=your_bot_username
 ANTHROPIC_API_KEY=sk-ant-...
-ADMIN_EMAILS=first@example.com,second@example.com
-# Optional:
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_...   # falls back to SUPABASE_SECRET_KEY
-ADMIN_SESSION_SECRET=at_least_32_random_chars # derived from SUPABASE_SECRET_KEY if unset
 ```
 
 Generate the webhook secret with `openssl rand -hex 32`. Redeploy after setting the variables.
@@ -117,6 +121,4 @@ curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
 
 Use the domain the app actually serves (`https://morrow.zulfkhar.dev` until the move), and re-run `setWebhook` with the new URL after a domain change.
 
-**Operator sign-in (Supabase Auth).** In Supabase → Authentication → URL Configuration, add `https://<your-domain>/operator/auth/callback` to **Redirect URLs** and keep the Email provider enabled. The magic link must be opened in the browser that requested it (PKCE). For links that work in any browser, change the Magic Link email template to link to `{{ .SiteURL }}/operator/auth/callback?token_hash={{ .TokenHash }}&type=email`. The callback accepts both forms.
-
-**Check it.** Sign in at `/operator`, create an invite under **Clients**, open the invite link on your phone, and send a screenshot captioned `opener`. The bot should acknowledge it, a draft should appear in the queue within a minute, and **Approve & send** should deliver it to the chat. `getWebhookInfo` should show no `last_error_message`.
+**Check it.** Sign in at `/admin/login`, open **Concierge → Clients**, create an invite, open the invite link on your phone, and send a screenshot captioned `opener`. The bot should acknowledge it, a draft should appear in the queue within a minute, and **Approve & send** should deliver it to the chat once. `getWebhookInfo` should show no `last_error_message`.

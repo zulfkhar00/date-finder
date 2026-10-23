@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { createInvite, decideDraft, newInviteCode, requestMagicLink, saveClient, saveTracker, signOut, type ActionState } from "./actions";
-import styles from "./operator.module.css";
+import { createInvite, decideDraft, newInviteCode, saveClient, saveTracker, type ActionState } from "./actions";
+import styles from "./concierge.module.css";
 
 const APPS = ["Tinder", "Bumble", "Hinge", "Badoo"];
 
@@ -24,43 +24,31 @@ function Status({ state }: { state: ActionState }) {
   return <span role="status" className={state.ok ? styles.ok : styles.err}>{state.message}</span>;
 }
 
-export function LoginForm({ next }: { next: string }) {
-  const [state, action] = useActionState(requestMagicLink, null);
-  return (
-    <form action={action}>
-      <input type="hidden" name="next" value={next} />
-      <label className={styles.label} htmlFor="email">Operator email</label>
-      <input className={styles.input} id="email" name="email" type="email" autoComplete="email" required />
-      <div className={styles.row}>
-        <SubmitButton pendingLabel="Sending link…">Email me a sign-in link</SubmitButton>
-      </div>
-      <p><Status state={state} /></p>
-    </form>
-  );
-}
-
-export function SignOutButton() {
-  return (
-    <form action={signOut}>
-      <SubmitButton ghost pendingLabel="Signing out…">Sign out</SubmitButton>
-    </form>
-  );
-}
-
-export function DraftDecision({ id, message, canSend, sendLabel = "Approve & send" }: { id: string; message: string; canSend: boolean; sendLabel?: string }) {
+/**
+ * Actions on one draft. The mode follows its status:
+ * pending → edit + Approve & send / Reject; undelivered (approved, edited) → Resend / Reject;
+ * sending → Release (only once the send is stuck); failed → Dismiss.
+ */
+export function DraftDecision({ id, message, mode }: { id: string; message: string; mode: "pending" | "undelivered" | "sending" | "failed" }) {
   const [state, action] = useActionState(decideDraft, null);
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
-      {canSend && <>
+      {mode === "pending" && <>
         <label className={styles.label} htmlFor={`message-${id}`}>Message to the client (edit before sending if needed)</label>
         <textarea className={styles.textarea} id={`message-${id}`} name="message" defaultValue={message} />
+        <p className={styles.meta}>Phone numbers, @handles, emails and links are removed before the draft is stored and sent.</p>
       </>}
-      <label className={styles.label} htmlFor={`note-${id}`}>Note (kept with the draft if you reject)</label>
-      <input className={styles.input} id={`note-${id}`} name="note" maxLength={2000} />
+      {mode === "undelivered" && <details className={`${styles.details} ${styles.block}`}><summary>Approved message</summary><p className={styles.pre}>{message}</p></details>}
+      {(mode === "pending" || mode === "undelivered" || mode === "failed") && <>
+        <label className={styles.label} htmlFor={`note-${id}`}>Note (kept with the draft if you reject)</label>
+        <input className={styles.input} id={`note-${id}`} name="note" maxLength={2000} />
+      </>}
       <div className={styles.row}>
-        {canSend && <SubmitButton intent="send" pendingLabel="Sending…">{sendLabel}</SubmitButton>}
-        <SubmitButton intent="reject" ghost pendingLabel="Rejecting…">{canSend ? "Reject" : "Dismiss"}</SubmitButton>
+        {mode === "pending" && <SubmitButton intent="send" pendingLabel="Sending…">Approve &amp; send</SubmitButton>}
+        {mode === "undelivered" && <SubmitButton intent="resend" pendingLabel="Sending…">Resend</SubmitButton>}
+        {mode === "sending" && <SubmitButton intent="release" ghost pendingLabel="Releasing…">Release (send looks stuck)</SubmitButton>}
+        {mode !== "sending" && <SubmitButton intent="reject" ghost pendingLabel="Rejecting…">{mode === "failed" ? "Dismiss" : "Reject"}</SubmitButton>}
         <Status state={state} />
       </div>
     </form>

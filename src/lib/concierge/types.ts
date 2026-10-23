@@ -1,7 +1,7 @@
 export const DRAFT_KINDS = ["profile", "opener", "reply", "date_plan"] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
 
-export const DRAFT_STATUSES = ["pending", "approved", "edited", "rejected", "sent_to_client", "failed"] as const;
+export const DRAFT_STATUSES = ["pending", "approved", "edited", "sending", "rejected", "sent_to_client", "failed"] as const;
 export type DraftStatus = (typeof DRAFT_STATUSES)[number];
 
 export const CLIENT_STATUSES = ["pilot", "paused", "done"] as const;

@@ -2,6 +2,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { finalMessage } from "./format";
+import { scrubDeep, scrubText } from "./scrub";
 import { botUsername, safeErrorText, sendMessage, telegramToken } from "./telegram";
 import type { ClientStatus, DraftKind, DraftOutput, DraftStatus } from "./types";
 
@@ -17,6 +18,7 @@ export type DraftRow = {
   decided_at: string | null;
   decided_by: string | null;
   sent_at: string | null;
+  send_started_at: string | null;
   clients: { name: string; telegram_chat_id: number | null } | null;
 };
 
@@ -40,15 +42,12 @@ export const APP_OPTIONS = ["Tinder", "Bumble", "Hinge", "Badoo"] as const;
 const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const INVITE_TTL_DAYS = 14;
 
-export function storageConfigured() {
-  return Boolean(process.env.SUPABASE_URL && (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY));
-}
 
 export async function loadQueue() {
   const supabase = getSupabaseAdmin();
-  const select = "id, created_at, client_id, kind, input_summary, output, status, operator_note, decided_at, decided_by, sent_at, clients(name, telegram_chat_id)";
+  const select = "id, created_at, client_id, kind, input_summary, output, status, operator_note, decided_at, decided_by, sent_at, send_started_at, clients(name, telegram_chat_id)";
   const [open, recent] = await Promise.all([
-    supabase.from("drafts").select(select).in("status", ["pending", "approved", "edited", "failed"]).order("created_at", { ascending: true }).limit(200),
+    supabase.from("drafts").select(select).in("status", ["pending", "approved", "edited", "sending", "failed"]).order("created_at", { ascending: true }).limit(200),
     supabase.from("drafts").select(select).in("status", ["sent_to_client", "rejected"]).order("decided_at", { ascending: false }).limit(15)
   ]);
   if (open.error) throw open.error;
@@ -57,6 +56,7 @@ export async function loadQueue() {
   return {
     pending: rows.filter((row) => row.status === "pending"),
     undelivered: rows.filter((row) => row.status === "approved" || row.status === "edited"),
+    sending: rows.filter((row) => row.status === "sending"),
     failed: rows.filter((row) => row.status === "failed"),
     recent: (recent.data ?? []) as unknown as DraftRow[]
   };
@@ -139,7 +139,7 @@ export async function updateClient(clientId: string, input: { voiceNotes: string
 
 export async function recordTracker(clientId: string, input: { matchesWeek: number | null; convos: number | null; datesScheduled: number | null; note: string }) {
   const { error } = await getSupabaseAdmin().from("client_events").insert({
-    client_id: clientId, matches_week: input.matchesWeek, convos: input.convos, dates_scheduled: input.datesScheduled, note: input.note || null
+    client_id: clientId, matches_week: input.matchesWeek, convos: input.convos, dates_scheduled: input.datesScheduled, note: scrubText(input.note) || null
   });
   if (error) throw error;
 }
@@ -152,45 +152,126 @@ async function loadDraft(id: string) {
 }
 
 /**
- * Approves a draft (recording an edit if the text changed) and delivers it to the client on
- * Telegram. The client then sends it himself. If delivery fails, the draft stays approved and
- * can be re-sent from the console.
+ * Draft lifecycle for delivery (every step is a conditional update, so two clicks, two tabs or two
+ * operators can never deliver the same draft twice):
+ *
+ *   pending ──approve──▶ approved | edited ──claim──▶ sending ──ok──▶ sent_to_client
+ *                               ▲                        │
+ *                               └──── send failed ───────┘  (operator_note says why)
+ *
+ * "approved"/"edited" is the failed-send state: approved by an operator but not delivered.
+ * Approve & send works only from "pending"; Resend works only from "approved"/"edited".
+ * A draft is in "sending" only while one request owns the Telegram call.
  */
-export async function approveAndSend(id: string, text: string, operator: string): Promise<{ ok: true; sent: boolean; notice?: string } | { ok: false; error: string }> {
+type SendResult = { ok: true; sent: boolean; notice?: string } | { ok: false; error: string };
+type UndeliveredStatus = "approved" | "edited";
+const UNDELIVERED: readonly UndeliveredStatus[] = ["approved", "edited"];
+/** A draft still "sending" after this long lost its request (crash or restart) and may be released. */
+export const STUCK_SENDING_MS = 2 * 60 * 1000;
+
+const SCRUB_NOTICE = " Contact details (phone, @handle, email or link) were removed from the message before storing and sending.";
+
+/** Approves a pending draft (recording an edit if the text changed), then delivers it. */
+export async function approveAndSend(id: string, text: string, operator: string): Promise<SendResult> {
   const draft = await loadDraft(id);
   if (!draft) return { ok: false, error: "Draft not found." };
-  if (!["pending", "approved", "edited"].includes(draft.status)) return { ok: false, error: "This draft was already handled." };
+  if (draft.status !== "pending") return { ok: false, error: "This draft was already handled." };
   const output = draft.output as DraftOutput;
-  const message = text.trim();
-  if (!message) return { ok: false, error: "The message is empty." };
-  if (message.length > 12000) return { ok: false, error: "The message is too long." };
+  // Browsers submit textarea line breaks as \r\n; normalise so an untouched draft isn't "edited".
+  const typed = text.replace(/\r\n?/g, "\n").trim();
+  if (!typed) return { ok: false, error: "The message is empty." };
+  if (typed.length > 12000) return { ok: false, error: "The message is too long." };
 
+  // What we store is what the client gets: the scrubbed text.
+  const message = scrubText(typed);
   const edited = message !== (output.message ?? "").trim();
-  const nextOutput = edited ? { ...output, edited_message: message } : { ...output, edited_message: undefined };
-  const { data: claimed, error } = await getSupabaseAdmin().from("drafts")
-    .update({ status: edited ? "edited" : "approved", output: nextOutput, decided_at: new Date().toISOString(), decided_by: operator })
-    .eq("id", id).in("status", ["pending", "approved", "edited"]).select("id").maybeSingle();
+  const nextOutput = scrubDeep(edited ? { ...output, edited_message: message } : { ...output, edited_message: undefined });
+  const status: UndeliveredStatus = edited ? "edited" : "approved";
+  const { data: approved, error } = await getSupabaseAdmin().from("drafts")
+    .update({ status, output: nextOutput, operator_note: null, decided_at: new Date().toISOString(), decided_by: operator })
+    .eq("id", id).eq("status", "pending").select("id").maybeSingle();
   if (error) throw error;
-  if (!claimed) return { ok: false, error: "This draft was already handled." };
+  if (!approved) return { ok: false, error: "This draft was already handled." };
 
-  const chatId = draft.clients?.telegram_chat_id;
-  if (!telegramToken()) return { ok: true, sent: false, notice: "Approved. TELEGRAM_BOT_TOKEN is not set, so nothing was sent." };
-  if (!chatId) return { ok: true, sent: false, notice: "Approved, but this client has no linked Telegram chat." };
+  const result = await deliver(id, status, draft.clients?.telegram_chat_id ?? null, finalMessage(nextOutput));
+  return result.ok && message !== typed ? { ...result, notice: `${result.notice ?? (result.sent ? "Sent to the client." : "")}${SCRUB_NOTICE}`.trim() } : result;
+}
+
+/** Re-delivers a draft that was approved but not delivered. Allowed only from that state. */
+export async function resendDraft(id: string): Promise<SendResult> {
+  const draft = await loadDraft(id);
+  if (!draft) return { ok: false, error: "Draft not found." };
+  if (!UNDELIVERED.includes(draft.status as UndeliveredStatus)) {
+    return { ok: false, error: draft.status === "sending" ? "This draft is being sent right now." : "Only an approved draft that wasn't delivered can be resent." };
+  }
+  return deliver(id, draft.status as UndeliveredStatus, draft.clients?.telegram_chat_id ?? null, finalMessage(draft.output as DraftOutput));
+}
+
+/**
+ * Claims the draft (from → sending) so only this request can call Telegram, sends, then records
+ * sent_to_client. On failure it reverts to `from` with an operator note, ready for Resend.
+ */
+async function deliver(id: string, from: UndeliveredStatus, chatId: number | null, message: string): Promise<SendResult> {
+  const supabase = getSupabaseAdmin();
+  const undelivered = async (note: string) => {
+    const { error } = await supabase.from("drafts").update({ operator_note: note }).eq("id", id).eq("status", from);
+    if (error) throw error;
+  };
+  if (!telegramToken()) {
+    await undelivered("Not delivered: TELEGRAM_BOT_TOKEN is not set.");
+    return { ok: true, sent: false, notice: "Approved. TELEGRAM_BOT_TOKEN is not set, so nothing was sent." };
+  }
+  if (!chatId) {
+    await undelivered("Not delivered: this client has no linked Telegram chat.");
+    return { ok: true, sent: false, notice: "Approved, but this client has no linked Telegram chat." };
+  }
+  if (!message) return { ok: false, error: "The message is empty." };
+
+  const { data: claimed, error: claimError } = await supabase.from("drafts")
+    .update({ status: "sending", send_started_at: new Date().toISOString() })
+    .eq("id", id).eq("status", from).select("id").maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimed) return { ok: false, error: "This draft is already being sent or was handled. Reload the queue." };
+
   try {
-    await sendMessage(chatId, `Your draft is ready:\n\n${finalMessage(nextOutput)}`);
+    await sendMessage(chatId, `Your draft is ready:\n\n${message}`);
   } catch (cause) {
-    console.error("Concierge delivery failed", id, safeErrorText(cause));
+    const reason = scrubText(safeErrorText(cause)).slice(0, 300);
+    console.error("Concierge delivery failed", id, reason);
+    const { error: revertError } = await supabase.from("drafts")
+      .update({ status: from, operator_note: `Telegram delivery failed at ${new Date().toISOString()}: ${reason}. Use Resend to try again.`.slice(0, 2000) })
+      .eq("id", id).eq("status", "sending");
+    if (revertError) throw revertError;
     return { ok: true, sent: false, notice: "Approved, but Telegram delivery failed. Use Resend to try again." };
   }
-  const { error: sentError } = await getSupabaseAdmin().from("drafts")
-    .update({ status: "sent_to_client", sent_at: new Date().toISOString() }).eq("id", id);
+
+  const { error: sentError } = await supabase.from("drafts")
+    .update({ status: "sent_to_client", sent_at: new Date().toISOString(), operator_note: null })
+    .eq("id", id).eq("status", "sending");
   if (sentError) throw sentError;
   return { ok: true, sent: true };
 }
 
+/**
+ * Releases a draft stuck in "sending" (its request died mid-send) back to the failed-send state.
+ * Only after STUCK_SENDING_MS, so a live send is never interrupted. The note warns that the
+ * message may have reached the client, so the operator checks before resending.
+ */
+export async function releaseStuckDraft(id: string) {
+  const draft = await loadDraft(id);
+  if (!draft || draft.status !== "sending") return false;
+  const output = draft.output as DraftOutput;
+  const { data, error } = await getSupabaseAdmin().from("drafts")
+    .update({ status: output.edited_message ? "edited" : "approved", operator_note: "Released after a stuck send. It may already have reached the client: check the chat before resending." })
+    .eq("id", id).eq("status", "sending").lt("send_started_at", new Date(Date.now() - STUCK_SENDING_MS).toISOString())
+    .select("id").maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export async function rejectDraft(id: string, note: string, operator: string) {
   const { data, error } = await getSupabaseAdmin().from("drafts")
-    .update({ status: "rejected", operator_note: note || null, decided_at: new Date().toISOString(), decided_by: operator })
+    .update({ status: "rejected", operator_note: scrubText(note) || null, decided_at: new Date().toISOString(), decided_by: operator })
     .eq("id", id).in("status", ["pending", "approved", "edited", "failed"]).select("id").maybeSingle();
   if (error) throw error;
   return Boolean(data);
