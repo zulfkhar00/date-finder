@@ -29,7 +29,6 @@ export function LandingPage() {
             <div className="hero-cta" id="hero-cta">
               <CtaLink location="hero" />
               <a href="#get" className="hero-alt">See what you get <ArrowDown size={16} strokeWidth={2.5} /></a>
-              <p className="fine">We’re onboarding in small batches. A $1 fee, nonrefundable except where required by law, reserves your spot in the next one. It doesn’t buy dates.</p>
             </div>
           </div>
           <div className="hero-art">
@@ -70,16 +69,6 @@ export function LandingPage() {
               <strong>Your real photos. Your real dates.</strong>
               <p>We pick and polish your best photos, never fake ones. We can’t promise how many dates you’ll get, and nobody honestly can. We do all the work to get them.</p>
             </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="section shell" aria-labelledby="pricing-title" style={{ paddingTop: 0 }}>
-          <div className="pay-band">
-            <div>
-              <p className="kicker">Pricing</p>
-              <h2 id="pricing-title" className="h2">Pay only for <span className="mark">dates you get.</span></h2>
-            </div>
-            <p>Planned: about $5 for each match that turns into a date. No subscription, nothing for swipes or chats that go nowhere. We’ll confirm the price before your batch starts, and you decide then.</p>
           </div>
         </section>
 
