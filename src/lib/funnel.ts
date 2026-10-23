@@ -14,8 +14,10 @@ type FunnelEvent = {
 /**
  * Records a funnel event. Never throws: if the funnel_events table is missing or the insert
  * fails, it logs the error code only and returns, so checkout and webhooks keep working.
+ * With a dedupeKey, resolves true if this call inserted the row, false if it already existed,
+ * and null when unknown (insert failed). Without one, resolves null.
  */
-export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelEvent): Promise<void> {
+export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelEvent): Promise<boolean | null> {
   try {
     const row = {
       event: input.event,
@@ -24,20 +26,28 @@ export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelE
       utm_campaign: input.utmCampaign ?? null,
       dedupe_key: input.dedupeKey ?? null
     };
-    const { error } = input.dedupeKey
-      ? await supabase.from("funnel_events").upsert(row, { onConflict: "dedupe_key", ignoreDuplicates: true })
-      : await supabase.from("funnel_events").insert(row);
+    if (input.dedupeKey) {
+      const { data, error } = await supabase.from("funnel_events").upsert(row, { onConflict: "dedupe_key", ignoreDuplicates: true }).select("id");
+      if (error) {
+        console.error("Funnel event insert failed", input.event, error.code);
+        return null;
+      }
+      return (data?.length ?? 0) > 0;
+    }
+    const { error } = await supabase.from("funnel_events").insert(row);
     if (error) console.error("Funnel event insert failed", input.event, error.code);
   } catch (error) {
     console.error("Funnel event insert failed", input.event, error instanceof Error ? error.name : "unknown error");
   }
+  return null;
 }
 
 /**
  * Records `paid` for a Checkout Session, copying the funnel session, variant and campaign from
  * the matching `checkout_created` event. Idempotent across webhook retries. Never throws.
+ * Resolves true on the first delivery for this session, false on a repeat, null if unknown.
  */
-export async function recordPaidEvent(supabase: SupabaseClient, checkoutSessionId: string): Promise<void> {
+export async function recordPaidEvent(supabase: SupabaseClient, checkoutSessionId: string): Promise<boolean | null> {
   let origin: { session_id: string | null; variant: string | null; utm_campaign: string | null } | null = null;
   try {
     const { data, error } = await supabase.from("funnel_events").select("session_id, variant, utm_campaign").eq("dedupe_key", `checkout_created:${checkoutSessionId}`).maybeSingle();
@@ -46,7 +56,7 @@ export async function recordPaidEvent(supabase: SupabaseClient, checkoutSessionI
   } catch (error) {
     console.error("Funnel checkout lookup failed", error instanceof Error ? error.name : "unknown error");
   }
-  await recordFunnelEvent(supabase, {
+  return recordFunnelEvent(supabase, {
     event: "paid",
     sessionId: origin?.session_id,
     variant: origin?.variant,
