@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env*
+.playwright-mcp
+*.tsbuildinfo
+playwright-report
+test-results
+.DS_Store
