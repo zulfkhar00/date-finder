@@ -12,12 +12,13 @@ export const reservationSchema = z.object({
 
 export type ReservationInput = z.infer<typeof reservationSchema>;
 
+// Display labels only. The enum keys above are what the database stores; never rename them.
 export const datingPreferenceLabels: Record<ReservationInput["datingPreference"], string> = {
-  women: "Women", men: "Men", all_genders: "People of any gender", discuss: "I'd rather discuss"
+  women: "Women", men: "Men", all_genders: "Anyone", discuss: "Rather not say"
 };
 export const relationshipGoalLabels: Record<ReservationInput["relationshipGoal"], string> = {
-  committed: "A committed relationship", meaningful: "A meaningful connection", exploring: "Open to exploring"
+  committed: "A relationship, something serious", meaningful: "Something real, see where it goes", exploring: "Dating around for now"
 };
 export const dateFrequencyLabels: Record<ReservationInput["dateFrequency"], string> = {
-  monthly: "About once a month", twice_monthly: "A couple of times a month", weekly: "Weekly, if it feels right"
+  monthly: "One good date a month", twice_monthly: "A couple a month", weekly: "Every week, let’s go"
 };

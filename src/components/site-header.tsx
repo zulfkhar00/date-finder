@@ -1,16 +1,20 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { Brand } from "@/components/brand";
+import { CtaLink } from "@/components/cta-link";
 
-export function SiteHeader({ dark = false }: { dark?: boolean }) {
+export function SiteHeader({ showCta = true }: { showCta?: boolean }) {
   return (
-    <header className={`site-header ${dark ? "site-header-dark" : ""}`}>
-      <Link href="/" className="wordmark" aria-label="Morrow home">morrow<span>.</span></Link>
-      <nav className="desktop-nav" aria-label="Main navigation">
-        <Link href="/#how">The idea</Link>
-        <Link href="/#experience">The experience</Link>
-        <Link href="/#pricing">Early access</Link>
-      </nav>
-      <Link href="/reserve" className="nav-reserve">Reserve your place <ArrowUpRight size={16} strokeWidth={1.5} /></Link>
+    <header className="site-header">
+      <div className="shell site-header-inner">
+        <Brand />
+        <nav className="nav" aria-label="Main navigation">
+          <Link href="/#demo">Demo</Link>
+          <Link href="/#how">How it works</Link>
+          <Link href="/#pricing">Pricing</Link>
+          <Link href="/#faq">FAQ</Link>
+        </nav>
+        {showCta ? <CtaLink location="header" className="btn btn-primary btn-small">$1 — get on the list</CtaLink> : <span />}
+      </div>
     </header>
   );
 }
