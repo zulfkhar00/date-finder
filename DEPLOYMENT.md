@@ -4,10 +4,9 @@ The app runs as one Next.js container and uses the existing hosted Supabase proj
 
 ## 1. Push a private GitHub repository
 
-Create an empty **private** repository on GitHub, then push this project's `main` branch. Do not initialize the GitHub repository with a README, license, or `.gitignore`; those files are already in this project. From this directory, run:
+This project's private GitHub repository is `zulfkhar00/date-finder`. Push the local `main` branch from this directory:
 
 ```sh
-git remote add origin https://github.com/YOUR_ACCOUNT/morrow-concierge.git
 git push -u origin main
 ```
 
