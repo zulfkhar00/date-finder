@@ -45,7 +45,7 @@ files change.
 
 - **Enforced:** `.claude/hooks/coord-guard.sh` (PreToolUse on Edit/Write) blocks edits to source files
   unless this workspace has an `in_progress` task assigned to it. Docs, `.beads/`, `.claude/`, and
-  `*.md` are exempt. Escape hatch for humans: `touch .beads/guard-off` (git-ignored).
+  `.claude/hooks`, `.claude/settings*.json` and `*.md` are exempt. A checkout with no Beads database (fresh clone) blocks edits until `bd bootstrap`; any in-progress claim by you passes the guard, so close stale claims. Escape hatch for humans: `touch .beads/guard-off` (git-ignored).
 - **Injected every prompt:** `.claude/hooks/coord-context.sh` (UserPromptSubmit) adds the live
   in-progress list so the agent sees the other agent's work before deciding anything.
 - **Instructed only:** semantic overlap judgement (steps 3–4). No tool can guarantee it.

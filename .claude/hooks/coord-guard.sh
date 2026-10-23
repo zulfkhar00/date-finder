@@ -9,8 +9,8 @@ case "$FILE" in
   "$CLAUDE_PROJECT_DIR"/*) REL=${FILE#"$CLAUDE_PROJECT_DIR"/};;
   *) exit 0;;  # outside the repo
 esac
-case "$REL" in docs/*|.beads/*|.claude/*|*.md) exit 0;; esac
-C=.beads/.guard-ok; if [ -f "$C" ] && [ $(( $(date +%s) - $(stat -f %m "$C") )) -lt 300 ]; then exit 0; fi  # bd takes ~7s; cache a pass for 5 min
+case "$REL" in docs/*|.beads/*|.claude/hooks/*|.claude/settings*.json|*.md) exit 0;; esac
+C=.beads/.guard-ok; if [ -n "$(find "$C" -mmin -5 2>/dev/null)" ]; then exit 0; fi  # bd takes ~7s; cache a pass for 5 min
 if [ -f .beadhub ] && command -v bdh >/dev/null 2>&1; then T=bdh; else T=bd; fi
 ME=${BEADS_ACTOR:-$(git config user.name)}
 JSON=$($T list --status in_progress --assignee "$ME" --json 2>/dev/null)
