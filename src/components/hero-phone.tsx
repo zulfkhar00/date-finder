@@ -28,7 +28,7 @@ export function HeroPhone() {
       <div className="phone-screen" aria-hidden="true">
         <div className="phone-notch" />
         <div className="chat-head">
-          <span className="avatar av-1">M</span>
+          <img className="avatar avatar-img" src="/avatars/maya.svg" alt="" width={38} height={38} />
           <span className="who"><strong>Maya</strong><span>New match on Hinge</span></span>
         </div>
         <div className="chat-body">

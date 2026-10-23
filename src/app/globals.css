@@ -169,6 +169,7 @@ h1,h2,h3,h4,p{margin:0}
 .stack-ghost.g2{transform:rotate(6deg) translate(12px,4px);background:var(--sky)}
 .match-title{font-family:var(--font-display),sans-serif;font-size:44px;line-height:1;color:var(--coral);-webkit-text-stroke:2px var(--grape);paint-order:stroke fill;text-align:center}
 .match-pair{display:flex;justify-content:center;margin:18px 0 8px}
+.avatar-img{padding:0;object-fit:cover;background:var(--paper)}
 .match-pair .avatar{width:84px;height:84px;font-size:28px;border-width:3px}
 .match-pair .avatar + .avatar{margin-left:-16px}
 .stack-card .caption{text-align:center;font-weight:700;color:var(--grape-2)}

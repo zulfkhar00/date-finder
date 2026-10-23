@@ -2,7 +2,7 @@ import { CalendarCheck, Check, MapPin } from "lucide-react";
 
 type Match = { name: string; initial: string; avatar: string; app: string; summary: string; into: string[]; day: string; time: string; place: string };
 
-// Made-up examples of what a client receives. No real people, no photos: initials only.
+// Made-up examples of what a client receives. Illustrated avatars (DiceBear "Lorelei", CC0), not real people.
 const matches: Match[] = [
   {
     name: "Maya", initial: "M", avatar: "av-1", app: "Hinge",
@@ -30,7 +30,7 @@ export function MatchCards() {
       {matches.map((m) => (
         <li className="match-card" key={m.name}>
           <div className="match-card-head">
-            <span className={`avatar ${m.avatar}`} aria-hidden="true">{m.initial}</span>
+            <img className="avatar avatar-img" src={`/avatars/${m.name.toLowerCase()}.svg`} alt="" width={38} height={38} />
             <span className="who"><strong>{m.name}</strong><span>Matched on {m.app}</span></span>
           </div>
           <p className="match-summary">{m.summary}</p>
