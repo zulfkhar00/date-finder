@@ -241,7 +241,10 @@ export async function getLeadFacets(): Promise<LeadFacets> {
 
 export type LeadNotes = { stage: LeadStage; notes: string; updated_at: string | null; updated_by: string | null; available: boolean };
 export type FunnelEventRow = { event: string; created_at: string; variant: string | null; utm_campaign: string | null };
+/** Onboarding answers (supabase/2026-10-23-onboarding.sql). available=false until that file is applied. */
+export type LeadOnboarding = { available: boolean; data: Record<string, unknown> | null };
 export type LeadDetail = LeadRow & {
+  onboarding: LeadOnboarding;
   age_confirmed_at: string;
   terms_accepted_at: string;
   refund_requested_at: string | null;
@@ -281,6 +284,15 @@ export async function getLead(id: string): Promise<LeadDetail | null> {
         available: true
       };
 
+  // Separate query so a missing onboarding column never breaks the rest of the lead page.
+  const onboardingResult = await supabase.from("reservations").select("onboarding").eq("id", id).maybeSingle();
+  if (onboardingResult.error) console.error("Admin query failed", "lead_onboarding", onboardingResult.error.code ?? "unknown");
+  const rawOnboarding = (onboardingResult.data as { onboarding?: unknown } | null)?.onboarding;
+  const onboarding: LeadOnboarding = {
+    available: !onboardingResult.error,
+    data: rawOnboarding && typeof rawOnboarding === "object" && !Array.isArray(rawOnboarding) ? (rawOnboarding as Record<string, unknown>) : null
+  };
+
   // The funnel session is linked to the reservation through its checkout_created event.
   let events: FunnelEventRow[] = [];
   if (checkoutId) {
@@ -294,7 +306,7 @@ export async function getLead(id: string): Promise<LeadDetail | null> {
     else events = (sessionEvents.data ?? []) as FunnelEventRow[];
   }
 
-  return { ...lead, has_checkout: Boolean(checkoutId), notes, events };
+  return { ...lead, has_checkout: Boolean(checkoutId), notes, onboarding, events };
 }
 
 export async function saveLeadNotes(id: string, stage: LeadStage, notes: string, adminEmail: string): Promise<"saved" | "missing" | "unavailable"> {

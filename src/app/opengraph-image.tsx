@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const alt = "NoSwipe — stop swiping, start dating";
+export const alt = "NoSwipe — we swipe, you date";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -17,18 +17,18 @@ export default async function OpengraphImage() {
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#FFF8F0", padding: "64px 72px", color: "#22104A", fontFamily: "Figtree" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 22, background: "#FF5A47", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Bagel", fontSize: 48, border: "4px solid #22104A" }}>N</div>
+          <img alt="" width={72} height={72} src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4gIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTQiIHI9IjQyIiBmaWxsPSIjMjIxMDRBIi8+ICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjQ4IiByPSI0MiIgZmlsbD0iI0M5RjI0RCIgc3Ryb2tlPSIjMjIxMDRBIiBzdHJva2Utd2lkdGg9IjUiLz4gIDxwYXRoIGQ9Ik0yOSA0MmgxMk01OSA0MmgxMiIgc3Ryb2tlPSIjMjIxMDRBIiBzdHJva2Utd2lkdGg9IjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPiAgPHBhdGggZD0iTTM2IDYycTE4IDQgMzItOSIgc3Ryb2tlPSIjMjIxMDRBIiBzdHJva2Utd2lkdGg9IjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==" />
           <div style={{ fontFamily: "Bagel", fontSize: 44 }}>NoSwipe</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontFamily: "Bagel", fontSize: 132, lineHeight: 0.95, letterSpacing: -2 }}>Stop swiping.</div>
+          <div style={{ fontFamily: "Bagel", fontSize: 132, lineHeight: 0.95, letterSpacing: -2 }}>We swipe.</div>
           <div style={{ display: "flex", fontFamily: "Bagel", fontSize: 132, lineHeight: 0.95, letterSpacing: -2 }}>
-            <span>Start&nbsp;</span>
-            <span style={{ background: "#C9F24D", borderRadius: 24, padding: "0 18px" }}>dating.</span>
+            <span>You&nbsp;</span>
+            <span style={{ background: "#C9F24D", borderRadius: 24, padding: "0 18px" }}>date.</span>
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 30 }}>
-          <span>We fix your profile and write your texts. You hit send.</span>
+          <span>We swipe, chat and book the date. You just show up.</span>
           <span style={{ background: "#FF5A47", border: "4px solid #22104A", borderRadius: 999, padding: "10px 26px" }}>noswipe.app</span>
         </div>
       </div>

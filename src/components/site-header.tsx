@@ -8,12 +8,12 @@ export function SiteHeader({ showCta = true }: { showCta?: boolean }) {
       <div className="shell site-header-inner">
         <Brand />
         <nav className="nav" aria-label="Main navigation">
-          <Link href="/#demo">Demo</Link>
+          <Link href="/#get">What you get</Link>
           <Link href="/#how">How it works</Link>
           <Link href="/#pricing">Pricing</Link>
           <Link href="/#faq">FAQ</Link>
         </nav>
-        {showCta ? <CtaLink location="header" className="btn btn-primary btn-small">$1 — get on the list</CtaLink> : <span />}
+        {showCta ? <CtaLink location="header" className="btn btn-primary btn-small" /> : <span />}
       </div>
     </header>
   );

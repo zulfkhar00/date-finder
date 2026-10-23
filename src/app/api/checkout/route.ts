@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { attributionSchema, sessionIdSchema, type Attribution } from "@/lib/attribution";
 import { recordFunnelEvent } from "@/lib/funnel";
-import { reservationSchema } from "@/lib/reservation";
+import { onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -34,6 +34,14 @@ export async function POST(request: Request) {
   const sessionIdResult = sessionIdSchema.safeParse(record.funnelSessionId);
   const funnelSessionId = sessionIdResult.success ? sessionIdResult.data : null;
 
+  // Onboarding answers: absent is fine (older cached form); present but invalid is a 400.
+  let onboarding: Onboarding | null = null;
+  if (record.onboarding !== undefined) {
+    const onboardingResult = onboardingSchema.safeParse(record.onboarding);
+    if (!onboardingResult.success) return NextResponse.json({ error: "Please check your answers and try again." }, { status: 400 });
+    onboarding = onboardingResult.data;
+  }
+
   const input = parsed.data;
   const baseRow = {
     email: input.email,
@@ -45,12 +53,19 @@ export async function POST(request: Request) {
     terms_accepted_at: new Date().toISOString(),
     status: "pending"
   };
-  let { data: reservation, error: insertError } = await supabase.from("reservations").insert({ ...baseRow, ...attributionColumns(attribution) }).select("id").single();
-  if (insertError && attribution && isUndefinedColumnError(insertError)) {
-    // The attribution columns may not exist yet (migration not applied); retry without them.
-    // Any other error (constraint, network, auth) is not retried and falls through to the 500 below.
-    console.error("Reservation insert with attribution failed; retrying without", insertError.code);
-    ({ data: reservation, error: insertError } = await supabase.from("reservations").insert(baseRow).select("id").single());
+  // Optional columns may not exist yet (migration not applied). Try the full row first, then drop
+  // the newest optional columns one group at a time. Only undefined-column errors are retried;
+  // anything else (constraint, network, auth) falls through to the 500 below.
+  const rows = [
+    { ...baseRow, ...attributionColumns(attribution), ...(onboarding ? { onboarding } : {}) },
+    ...(onboarding ? [{ ...baseRow, ...attributionColumns(attribution) }] : []),
+    ...(attribution ? [baseRow] : [])
+  ];
+  let { data: reservation, error: insertError } = await supabase.from("reservations").insert(rows[0]).select("id").single();
+  for (const row of rows.slice(1)) {
+    if (!insertError || !isUndefinedColumnError(insertError)) break;
+    console.error("Reservation insert failed on an optional column; retrying without it", insertError.code);
+    ({ data: reservation, error: insertError } = await supabase.from("reservations").insert(row).select("id").single());
   }
 
   if (insertError || !reservation) {

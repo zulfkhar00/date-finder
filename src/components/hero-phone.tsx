@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Check, Sparkles } from "lucide-react";
+import { CalendarCheck, PenLine } from "lucide-react";
 
-const OPENER = "Ok, “hey” was weak. Real question: is your dog always that photogenic or was that a lucky shot?";
+const OPENER = "Ok, real question: is your dog always that photogenic or was that a lucky shot?";
 // How long each step stays on screen before the next one (ms). Last entry = pause before looping.
 const STEP_MS = [1500, 2300, 1300, 1200, 1500, 1300, 3800];
 const LAST = STEP_MS.length - 1;
@@ -24,22 +24,20 @@ export function HeroPhone() {
   const s = reduce ? LAST : step;
 
   return (
-    <div className="phone" role="img" aria-label="Example chat: a dead “hey” gets a NoSwipe-written follow-up, she replies, and a date is set for Saturday.">
+    <div className="phone" role="img" aria-label="Example: NoSwipe chats with a new match for you, she replies, they set a Saturday date, and you get a text that the date is confirmed.">
       <div className="phone-screen" aria-hidden="true">
         <div className="phone-notch" />
         <div className="chat-head">
           <span className="avatar av-1">M</span>
-          <span className="who"><strong>Maya</strong><span>Matched on Hinge</span></span>
+          <span className="who"><strong>Maya</strong><span>New match on Hinge</span></span>
           <span className="example-tag">Example</span>
         </div>
         <div className="chat-body">
-          <motion.div layout className="bubble bubble-him">hey</motion.div>
-          <motion.div layout className="chat-meta">Seen Tuesday</motion.div>
+          <motion.div layout className="chat-divider">You matched today</motion.div>
           <AnimatePresence mode="popLayout">
-            {s >= 1 && <motion.div layout key="later" className="chat-divider" {...pop}>3 days later</motion.div>}
             {s === 1 && (
               <motion.div layout key="suggest" className="suggest" {...pop}>
-                <div className="suggest-label"><Sparkles size={14} strokeWidth={2.5} /> NoSwipe suggests</div>
+                <div className="suggest-label"><PenLine size={14} strokeWidth={2.5} /> NoSwipe is chatting for you</div>
                 <p>{OPENER}</p>
               </motion.div>
             )}
@@ -47,8 +45,8 @@ export function HeroPhone() {
             {s === 3 && <motion.div layout key="typing" className="typing" {...pop}><i /><i /><i /></motion.div>}
             {s >= 4 && <motion.div layout key="r1" className="bubble bubble-her" {...pop}>lol he’s a menace. but yes, always</motion.div>}
             {s >= 5 && <motion.div layout key="ask" className="bubble bubble-him bubble-sent" {...pop}>Then he’s invited. Coffee and a walk Saturday?</motion.div>}
-            {s >= 6 && <motion.div layout key="r2" className="bubble bubble-her" {...pop}>ok fine. sat at 11</motion.div>}
-            {s >= 6 && <motion.div layout key="date" className="date-pill" {...pop}><span className="check-dot"><Check size={14} strokeWidth={3.5} /></span> Date set · Sat 11:00 AM</motion.div>}
+            {s >= 6 && <motion.div layout key="r2" className="bubble bubble-her" {...pop}>ok fine. sat at 11, here’s my number</motion.div>}
+            {s >= 6 && <motion.div layout key="date" className="date-pill" {...pop}><span className="check-dot"><CalendarCheck size={14} strokeWidth={3} /></span> Text to you: date confirmed, Sat 11 AM</motion.div>}
           </AnimatePresence>
         </div>
       </div>

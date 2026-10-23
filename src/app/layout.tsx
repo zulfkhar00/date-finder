@@ -3,16 +3,16 @@ import "@fontsource/bagel-fat-one/latin-400.css";
 import "@fontsource-variable/figtree/index.css";
 import "./globals.css";
 
-const description = "Few matches? Chats that die after “haha”? We rebuild your dating profile and write your texts. You hit send and go on the date. Get on the waitlist for $1.";
+const description = "We find you dates on Tinder, Bumble and Hinge. We build your profiles, swipe, chat and book the date. You just show up. Pay only for dates you get.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://noswipe.app"),
-  title: { default: "NoSwipe — stop swiping, start dating", template: "%s — NoSwipe" },
+  title: { default: "NoSwipe — we swipe, you date", template: "%s — NoSwipe" },
   description,
   applicationName: "NoSwipe",
   robots: { index: true, follow: true },
-  openGraph: { type: "website", siteName: "NoSwipe", title: "NoSwipe — stop swiping, start dating", description, url: "/" },
-  twitter: { card: "summary_large_image", title: "NoSwipe — stop swiping, start dating", description }
+  openGraph: { type: "website", siteName: "NoSwipe", title: "NoSwipe — we swipe, you date", description, url: "/" },
+  twitter: { card: "summary_large_image", title: "NoSwipe — we swipe, you date", description }
 };
 
 export const viewport: Viewport = { themeColor: "#FFF8F0" };

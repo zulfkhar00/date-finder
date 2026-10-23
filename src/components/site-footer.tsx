@@ -13,7 +13,7 @@ export function SiteFooter() {
         </nav>
       </div>
       <p className="footer-small" style={{ marginTop: 18 }}>
-        © {new Date().getFullYear()} NoSwipe. Not affiliated with Tinder, Hinge, Bumble or Badoo. We never log into, automate or message from your dating accounts.
+        © {new Date().getFullYear()} NoSwipe. Not affiliated with Tinder, Hinge, Bumble or Badoo.
       </p>
     </footer>
   );
