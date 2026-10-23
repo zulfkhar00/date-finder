@@ -17,3 +17,5 @@ deploy/*.zip
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+.beadhub
+.aw/

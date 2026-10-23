@@ -79,3 +79,6 @@ repos:
         - "/Users/zulfkhar/.beads-planning"
 export:
     auto: true
+routing:
+    mode: explicit
+    default: .
