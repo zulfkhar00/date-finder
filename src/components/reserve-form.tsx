@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Check, Lock } from "lucide-react";
+import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
 import { dateFrequencyLabels, datingPreferenceLabels, relationshipGoalLabels, type ReservationInput } from "@/lib/reservation";
 import { track } from "@/lib/track";
 import { track as trackAnalytics } from "@/lib/analytics";
@@ -29,7 +30,15 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
   const [loading, setLoading] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
+  const tracked = useRef(false);
+
   useEffect(() => { if (step > 0) headingRef.current?.focus(); }, [step]);
+  useEffect(() => {
+    if (tracked.current) return;
+    tracked.current = true;
+    trackEvent("reserve_start", { oncePerSession: true });
+    if (cancelled) trackEvent("checkout_canceled");
+  }, [cancelled]);
 
   function next() {
     if (step === 0 && (!value.ageConfirmed || value.city.trim().length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email))) {
@@ -51,7 +60,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
     setLoading(true); setError("");
     track("checkout_submit");
     try {
-      const response = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+      const response = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...value, attribution: captureAttribution(), funnelSessionId: getFunnelSessionId() }) });
       const result = await response.json();
       if (!response.ok || typeof result.url !== "string") throw new Error(result.error || "Checkout could not open.");
       trackAnalytics("checkout_created", { instant: true });
