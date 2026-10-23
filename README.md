@@ -37,7 +37,7 @@ For a self-hosted Dokploy deployment, follow [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Verification
 
-Run `npm run typecheck`, `npm run lint`, and `npm run build`. Run [`supabase/verify.sql`](supabase/verify.sql) in the SQL editor to check sequential, idempotent queue assignment as `service_role` inside a rolled-back transaction. Test Checkout with Stripe's test card `4242 4242 4242 4242`, then verify one paid row and position in Supabase. Replay the same Stripe event and confirm the position stays unchanged. Test a canceled Checkout and a manual test-mode refund in Stripe, then confirm that the webhook marks the place inactive. A full payment test requires server-side Supabase credentials and Stripe test credentials. On the connected project, [`supabase/connected-project-hardening.sql`](supabase/connected-project-hardening.sql) was also applied to remove unnecessary browser access to its pre-existing RLS event-trigger function.
+Run `npm run typecheck`, `npm run lint`, `npm test` (redaction checks), and `npm run build`; CI runs the same on every pull request. Run [`supabase/verify.sql`](supabase/verify.sql) in the SQL editor to check sequential, idempotent queue assignment as `service_role` inside a rolled-back transaction. Test Checkout with Stripe's test card `4242 4242 4242 4242`, then verify one paid row and position in Supabase. Replay the same Stripe event and confirm the position stays unchanged. Test a canceled Checkout and a manual test-mode refund in Stripe, then confirm that the webhook marks the place inactive. A full payment test requires server-side Supabase credentials and Stripe test credentials. On the connected project, [`supabase/connected-project-hardening.sql`](supabase/connected-project-hardening.sql) was also applied to remove unnecessary browser access to its pre-existing RLS event-trigger function.
 
 ### Funnel tracking
 
@@ -50,7 +50,11 @@ Apply [`supabase/2026-10-23-funnel-tracking.sql`](supabase/2026-10-23-funnel-tra
 5. `POST /api/event` rejects `paid`, `checkout_created` and malformed bodies with 400, and returns 429 after 30 requests per minute per client.
 6. Run [`supabase/funnel.sql`](supabase/funnel.sql) for daily counts per event and visitor→paid % by variant and `utm_campaign`.
 
-No third-party trackers are loaded. UTM values containing `@` are dropped and referrers are cut to their origin, so the funnel stores no personal data.
+The funnel itself is first-party and loads no third-party trackers (optional PostHog/Sentry are covered under Observability below). UTM values containing `@` are dropped and referrers are cut to their origin, so the funnel stores no personal data.
+
+### Observability
+
+Sentry (errors), PostHog (product analytics) and `GET /api/health` are built in and all optional: with no variables set, both stay off and the build still passes. PostHog never runs on `/admin` pages. Variables, BuildKit note and privacy defaults are in [DEPLOYMENT.md §4a](DEPLOYMENT.md#4a-observability-optional).
 
 ### Admin dashboard
 
