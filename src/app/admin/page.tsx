@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdminPage } from "./_lib/auth";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { AdminDataError, getOverview, type OverviewData } from "./_lib/data";
 import { formatInt, percent } from "./_lib/format";
 import { DailyChart } from "./_components/daily-chart";

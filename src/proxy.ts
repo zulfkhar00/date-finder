@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { ADMIN_COOKIE_OPTIONS, readAdminConfig } from "@/app/admin/_lib/config";
+import { ADMIN_COOKIE_OPTIONS, readAdminConfig } from "@/lib/admin-config";
 
 // Runs only for /admin. Refreshes the Supabase Auth session cookie (Server Components cannot
 // write cookies) and marks admin responses as not indexable. Authorization itself happens in

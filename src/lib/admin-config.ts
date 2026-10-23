@@ -6,6 +6,8 @@ export type AdminConfig = {
   /** Publishable (or legacy anon) key, used only server-side for Supabase Auth sessions. */
   authKey: string;
   adminEmails: ReadonlySet<string>;
+  /** Public origin (from SITE_URL) used for every link we email. Never taken from request headers. */
+  siteUrl: string;
 };
 
 export function readAdminConfig(): { config: AdminConfig | null; missing: string[] } {
@@ -13,15 +15,35 @@ export function readAdminConfig(): { config: AdminConfig | null; missing: string
   const authKey = (process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
   const serviceKey = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
   const adminEmails = parseAdminEmails(process.env.ADMIN_EMAILS);
+  const siteUrl = parseSiteUrl(process.env.SITE_URL);
 
   const missing: string[] = [];
   if (!supabaseUrl) missing.push("SUPABASE_URL");
   if (!serviceKey) missing.push("SUPABASE_SECRET_KEY");
   if (!authKey) missing.push("SUPABASE_PUBLISHABLE_KEY");
   if (adminEmails.size === 0) missing.push("ADMIN_EMAILS");
+  if (!siteUrl) missing.push("SITE_URL");
 
-  if (missing.length > 0 || !supabaseUrl || !authKey) return { config: null, missing };
-  return { config: { supabaseUrl, authKey, adminEmails }, missing };
+  if (missing.length > 0 || !supabaseUrl || !authKey || !siteUrl) return { config: null, missing };
+  return { config: { supabaseUrl, authKey, adminEmails, siteUrl }, missing };
+}
+
+/**
+ * SITE_URL as a bare origin. HTTPS is required except for http://localhost in local
+ * development. Anything else counts as missing, so sign-in links can never point at a host
+ * taken from request headers.
+ */
+export function parseSiteUrl(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const local = url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+    if (url.protocol !== "https:" && !local) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
 }
 
 export function parseAdminEmails(raw: string | undefined): ReadonlySet<string> {

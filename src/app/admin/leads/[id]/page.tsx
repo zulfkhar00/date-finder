@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminPage } from "../../_lib/auth";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { updateLeadNotes } from "../../_lib/actions";
 import { AdminDataError, DEFAULT_VARIANT_LABEL, NO_CAMPAIGN_LABEL, getLead, type LeadDetail } from "../../_lib/data";
 import { EVENT_LABELS, STAGE_LABELS, STATUS_LABELS, formatDateTime } from "../../_lib/format";

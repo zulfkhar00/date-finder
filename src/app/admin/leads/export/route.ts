@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { adminEmailOrNull } from "../../_lib/auth";
+import { adminEmailOrNull } from "@/lib/admin-auth";
 import { exportLeads, parseLeadFilters, type LeadWithStage } from "../../_lib/data";
 import { toCsv } from "../../_lib/csv";
 

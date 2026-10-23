@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAdminState } from "../_lib/auth";
+import { getAdminState } from "@/lib/admin-auth";
 import { SetupNotice } from "../_components/notices";
 import { LoginForm } from "./login-form";
 import styles from "../admin.module.css";

@@ -4,7 +4,13 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { ADMIN_COOKIE_OPTIONS, isAdminEmail, readAdminConfig, type AdminConfig } from "./config";
+import type { User } from "@supabase/supabase-js";
+import { ADMIN_COOKIE_OPTIONS, isAdminEmail, readAdminConfig, type AdminConfig } from "@/lib/admin-config";
+
+// Shared founder auth for everything under /admin (dashboard, leads, concierge console).
+// One Supabase Auth session, one login page (/admin/login), one callback (/admin/auth/callback),
+// one cookie path (/admin). Every page, route handler and server action calls one of the
+// helpers below itself; layouts and src/proxy.ts are never relied on for access control.
 
 export type AdminState =
   | { kind: "unconfigured"; missing: string[] }
@@ -31,7 +37,18 @@ export async function createAuthClient(config: AdminConfig) {
   });
 }
 
-/** Who is asking, checked against ADMIN_EMAILS. Cached per request. */
+/**
+ * The admin email for a Supabase user, or null. Requires a confirmed email address AND an
+ * ADMIN_EMAILS match, so an unconfirmed account that claims a founder's address never passes.
+ */
+export function adminEmailForUser(config: AdminConfig, user: User | null | undefined): string | null {
+  if (!user?.email_confirmed_at) return null;
+  const email = user.email?.trim().toLowerCase();
+  if (!email || !isAdminEmail(config, email)) return null;
+  return email;
+}
+
+/** Who is asking, checked against a confirmed email + ADMIN_EMAILS. Cached per request. */
 export const getAdminState = cache(async (): Promise<AdminState> => {
   // Always render per request: env is read at runtime (Dokploy), never baked in at build time.
   await connection();
@@ -42,8 +59,8 @@ export const getAdminState = cache(async (): Promise<AdminState> => {
     const supabase = await createAuthClient(config);
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return { kind: "anonymous" };
-    const email = data.user.email?.toLowerCase();
-    if (!email || !isAdminEmail(config, email)) return { kind: "forbidden" };
+    const email = adminEmailForUser(config, data.user);
+    if (!email) return { kind: "forbidden" };
     return { kind: "admin", email };
   } catch (error) {
     console.error("Admin auth check failed", error instanceof Error ? error.name : "unknown error");
@@ -53,7 +70,7 @@ export const getAdminState = cache(async (): Promise<AdminState> => {
 
 /**
  * For admin pages. Returns the admin email, or the setup state for the page to render.
- * Signed out → /admin/login. Signed in but not allowlisted → 404.
+ * Signed out → /admin/login. Signed in but not an admin → 404.
  */
 export async function requireAdminPage(): Promise<{ email: string } | { unconfigured: string[] }> {
   const state = await getAdminState();
@@ -63,7 +80,7 @@ export async function requireAdminPage(): Promise<{ email: string } | { unconfig
   notFound();
 }
 
-/** For admin route handlers and server actions: the admin email, or null (respond 404). */
+/** For admin route handlers and server actions: the admin email, or null (respond 404 / refuse). */
 export async function adminEmailOrNull(): Promise<string | null> {
   const state = await getAdminState();
   return state.kind === "admin" ? state.email : null;

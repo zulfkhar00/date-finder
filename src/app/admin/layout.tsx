@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getAdminState } from "./_lib/auth";
+import { getAdminState } from "@/lib/admin-auth";
 import { signOut } from "./_lib/actions";
 import { SubmitButton } from "./_components/submit-button";
 import styles from "./admin.module.css";

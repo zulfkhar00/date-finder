@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdminPage } from "../_lib/auth";
+import { requireAdminPage } from "@/lib/admin-auth";
 import {
   AdminDataError,
   DEFAULT_VARIANT_LABEL,
@@ -14,6 +14,7 @@ import {
 } from "../_lib/data";
 import { STAGE_LABELS, STATUS_LABELS, formatDateTime, formatInt } from "../_lib/format";
 import { GetForm } from "../_components/get-form";
+import { ExportButton } from "./export-button";
 import { Badge, QueryErrorNotice, SchemaNotice, SetupNotice } from "../_components/notices";
 import styles from "../admin.module.css";
 
@@ -64,9 +65,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
           <h1>Leads</h1>
           <p className={styles.sub}>Every reservation, newest first. Times are UTC.</p>
         </div>
-        <a className={styles.buttonGhost} href={`/admin/leads/export${filterQuery(filters)}`} download>
-          Export CSV{hasFilters ? " (filtered)" : ""}
-        </a>
+        <ExportButton href={`/admin/leads/export${filterQuery(filters)}`} label={`Export CSV${hasFilters ? " (filtered)" : ""}`} />
       </div>
 
       <section className={styles.card}>

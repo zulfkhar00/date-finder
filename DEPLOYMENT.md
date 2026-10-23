@@ -62,8 +62,13 @@ The app needs a configured support contact and payment receipts in Stripe before
 `/admin` shows the funnel (KPIs, a 30-day chart, conversion by variant and `utm_campaign`) and `/admin/leads` lists reservations with filters, a detail page per lead with a stage and notes, and a CSV export at `/admin/leads/export`. Only the founders can open it.
 
 1. **SQL.** In the Supabase SQL editor, apply [`supabase/2026-10-23-funnel-tracking.sql`](supabase/2026-10-23-funnel-tracking.sql) if it isn't already, then [`supabase/2026-10-23-admin.sql`](supabase/2026-10-23-admin.sql). Both are idempotent. The admin file adds the `lead_notes` table and three read-only report functions; RLS is on and only `service_role` gets access.
-2. **Env.** In Dokploy, add `SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys → publishable key; the legacy `anon` key works too and can be set as `SUPABASE_ANON_KEY` instead) and `ADMIN_EMAILS`, a comma-separated list of the founders' emails. Both are server-only. Never add a `NEXT_PUBLIC_` copy. Redeploy. Until both are set, `/admin` shows a setup message.
-3. **Supabase Auth.** Under Authentication → URL Configuration, set **Site URL** to `SITE_URL` and add `https://morrow.zulfkhar.dev/admin/auth/callback` (and the noswipe.app equivalent once it's live) to **Redirect URLs**. Under Authentication → Sign In / Providers, keep **Email** enabled. Under Authentication → Emails → **Magic Link**, replace the body with this, so the link works in any browser and the code works on any device:
+2. **Env.** In Dokploy, add `SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys → publishable key; the legacy `anon` key works too and can be set as `SUPABASE_ANON_KEY` instead) and `ADMIN_EMAILS`, a comma-separated list of the founders' emails. Both are server-only. Never add a `NEXT_PUBLIC_` copy. `SITE_URL` (§2) is required too: every sign-in link is built from it, never from request headers, so it must be the public HTTPS origin. Redeploy. Until all of them are set, `/admin` shows a setup message naming what's missing.
+3. **Supabase Auth.**
+   - **Create the admin users by hand.** The sign-in form never creates accounts (`shouldCreateUser: false`). Under Authentication → Users → **Add user** → **Send invitation** (or **Create new user** with **Auto Confirm User** ticked), add each `ADMIN_EMAILS` address. A founder who isn't added here gets no email.
+   - **Disable public signups.** Under Authentication → Sign In / Providers, turn off **Allow new users to sign up**. Keep the **Email** provider enabled.
+   - **Keep "Confirm email" on** (same page). `/admin` only accepts a user whose email is confirmed *and* on `ADMIN_EMAILS`, so an unconfirmed account that claims a founder's address gets nothing.
+   - Under Authentication → URL Configuration, set **Site URL** to `SITE_URL` and add `https://morrow.zulfkhar.dev/admin/auth/callback` (and the noswipe.app equivalent once it's live) to **Redirect URLs**.
+   - Under Authentication → Emails → **Magic Link**, replace the body with this, so the link works in any browser and the code works on any device:
 
    ```html
    <h2>Sign in to NoSwipe admin</h2>
@@ -72,6 +77,6 @@ The app needs a configured support contact and payment receipts in Stripe before
    ```
 
    The default template also works, but only in the browser that requested the link. Supabase's built-in email sender is limited to a few emails an hour; set up custom SMTP (Authentication → Emails → SMTP) if you hit that.
-4. **Sign in.** Open `/admin`, enter an allowlisted email, then click the link or type the code. Sign-in emails are only sent to `ADMIN_EMAILS`; the form shows the same message for any address. A signed-in account that is not on the list gets a 404 on every admin page and on the CSV export.
+4. **Sign in.** Open `/admin`, enter an allowlisted email, then click the link or type the code. Sign-in emails are only sent to `ADMIN_EMAILS` addresses that already exist as users; the form shows the same message for any address. A signed-in account that is not on the list, or whose email isn't confirmed, gets a 404 on every admin page and on the CSV export.
 
-Every admin page, server action and the export check the session and `ADMIN_EMAILS` on the server. Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
+Every admin page, server action and the export check the session, a confirmed email and `ADMIN_EMAILS` on the server (shared helpers in `src/lib/admin-auth.ts`). Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
