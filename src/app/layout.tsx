@@ -3,7 +3,7 @@ import "@fontsource/bagel-fat-one/latin-400.css";
 import "@fontsource-variable/figtree/index.css";
 import "./globals.css";
 
-const description = "We find you dates on Tinder, Bumble and Hinge. We build your profiles, swipe, chat and book the date. You just show up. Pay only for dates you get.";
+const description = "We find you dates on Tinder, Bumble and Hinge. We build your profiles, swipe, chat and book the date. You just show up.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://noswipe.app"),
