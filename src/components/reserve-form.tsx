@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
 import { dateFrequencyLabels, datingPreferenceLabels, relationshipGoalLabels, type ReservationInput } from "@/lib/reservation";
 
 type FormValue = {
@@ -43,6 +44,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       const response = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
       const result = await response.json();
       if (!response.ok || typeof result.url !== "string") throw new Error(result.error || "Checkout could not open.");
+      track("checkout_created", { instant: true });
       window.location.assign(result.url);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout could not open. Please try again.");

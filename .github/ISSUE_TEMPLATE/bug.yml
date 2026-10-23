@@ -1,0 +1,59 @@
+name: Bug
+description: Something is broken
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: URL, device or browser, and steps. Never paste real user emails, photos or screenshots.
+    validations:
+      required: true
+  - type: input
+    id: links
+    attributes:
+      label: Sentry issue or log link
+      description: Optional.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - blocks payments or signups
+        - broken feature, workaround exists
+        - cosmetic
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner
+      description: Who fixes it. Add the matching `agent:*` label.
+      options:
+        - miko-claude
+        - zulya-codex
+        - human
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Add the matching `area:*` label.
+      options:
+        - landing
+        - admin
+        - analytics
+        - payments
+        - infra
+        - concierge
+    validations:
+      required: true
