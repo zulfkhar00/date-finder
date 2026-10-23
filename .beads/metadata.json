@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "date_finder",
+  "project_id": "770c5765-bf3c-4484-8b6a-d7e8ca05c011"
+}
