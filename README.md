@@ -1,14 +1,16 @@
-# Morrow — early-access waitlist
+# NoSwipe — early-access waitlist
 
-A premium editorial landing page and a $1 paid early-access waitlist for a private dating concierge. Concierge access is offered separately as availability opens.
+Stop swiping, start dating. NoSwipe is a dating concierge for guys on Tinder, Hinge and Bumble: we rebuild the profile and draft openers and replies from screenshots; he sends every message himself. This repo is the landing page plus a $1 paid early-access waitlist. Live at https://noswipe.app.
 
-## Design concept
+## Design
 
-**Private invitation.** The site uses a warm ivory editorial opening, a charcoal interactive concierge preview, and burgundy reservation moments. Cormorant Garamond provides high contrast display typography; DM Sans keeps the interface crisp. Thin rules, issue numbers, generous spacing, and a single original sculptural photograph create a magazine feel without simulated customer activity. The preview is explicitly illustrative.
+Bright, light and phone-first (most traffic is TikTok/IG on phones). Warm white `#FFF8F0`, deep grape ink `#22104A`, hot coral `#FF5A47` for the brand and actions, electric lime `#C9F24D` for NoSwipe's "voice" (suggestions, highlights, confirmations), plus lilac `#DCD0FF` and blush `#FFE3DB` as section and chat tints. No gradients in the brand and no dark sections. Thick grape borders with hard offset shadows give it a sticker feel. Type is self-hosted with Fontsource: **Bagel Fat One** for big display moments and **Figtree Variable** for everything else. Radius scale: 6 / 10 / 14 / 20 / 28 / pill.
 
-Page order: service promise → how it would work → why it matters → interactive preview → transparent early-access price → FAQ → final call to action. The reservation is a separate three-step flow.
+Page order: hero with an animated example chat → interactive "fix my text / fix my bio" demo (pre-written examples, no API calls) → match → chat → date example stack → how it works → founding members (with a live count of real **live-mode** paid places, hidden below 10) → testimonials (rendered only from consented entries in `src/content/testimonials.json`, which ships empty) → pricing ($1 now, $19 / $5 marked planned) → FAQ → closing CTA. All example chats and profiles are labelled "Example" and use abstract initial avatars, never photos of people.
 
-The original hero art was generated with the built-in image generation tool using a stylized-concept prompt for two burgundy sculptural forms facing across a limestone plinth, with charcoal surroundings, copper detail, and no people or text. The final project asset is `public/images/morrow-editorial.jpg`.
+Never add invented testimonials, ratings or user counts. The FTC's 2024 rule (16 CFR 465) makes fake reviews a civil-penalty violation.
+
+Funnel hook points call `track()` from `src/lib/track.ts`, which is a no-op until the funnel-tracking work fills it in.
 
 ## Stack
 
