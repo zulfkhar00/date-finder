@@ -22,3 +22,21 @@ export const relationshipGoalLabels: Record<ReservationInput["relationshipGoal"]
 export const dateFrequencyLabels: Record<ReservationInput["dateFrequency"], string> = {
   monthly: "One good date a month", twice_monthly: "A couple a month", weekly: "Every week, let’s go"
 };
+
+// Onboarding answers collected before the $1 step. Stored as one JSON column (onboarding) so the
+// schema stays small; validated here, never logged.
+export const DATING_APPS = ["tinder", "bumble", "hinge"] as const;
+export type DatingApp = (typeof DATING_APPS)[number];
+export const datingAppLabels: Record<DatingApp, string> = { tinder: "Tinder", bumble: "Bumble", hinge: "Hinge" };
+
+export const onboardingSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  age: z.number().int().min(18).max(99),
+  apps: z.array(z.enum(DATING_APPS)).min(1).max(3).transform((apps) => [...new Set(apps)]),
+  ageMin: z.number().int().min(18).max(99),
+  ageMax: z.number().int().min(18).max(99),
+  interests: z.string().trim().max(300),
+  telegram: z.string().trim().regex(/^@?[A-Za-z0-9_]{5,32}$/).transform((value) => value.replace(/^@/, "")).optional()
+}).refine((value) => value.ageMin <= value.ageMax, { path: ["ageMax"] });
+
+export type Onboarding = z.infer<typeof onboardingSchema>;

@@ -4,13 +4,10 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { Plus } from "lucide-react";
 
 const faqs = [
-  { q: "Is this a bot?", a: "No. Nothing here talks to her for you. We use AI to help draft your profile, openers and replies, and during the first pilot a real person on our team checks every draft before you see it. You read it, change it if you want, and send it yourself." },
-  { q: "Do you log into my Tinder?", a: "Never. We don’t ask for your password, we don’t log in, swipe, or message anyone from your account. You send us screenshots, we send back drafts. That also keeps your account safe: apps ban automation, and we don’t do any." },
-  { q: "What’s the $1 for?", a: "It’s a one-time waitlist fee that holds your place in line. It isn’t a subscription and it doesn’t buy dates, matches or the service itself. When your spot opens, we’ll show you the real pricing and you decide whether to join." },
-  { q: "Is the $1 refundable?", a: "No. The $1 waitlist fee is nonrefundable, except where required by law." },
-  { q: "Does it guarantee me dates?", a: "No. Nobody can honestly promise that. A waitlist spot doesn’t guarantee an invitation date, availability in your city, a match or a date. What we can do is fix the things that are costing you matches and conversations." },
-  { q: "Which apps does it work with?", a: "We’re starting with Tinder. Because everything runs off screenshots, we plan to support Hinge, Bumble and Badoo the same way." },
-  { q: "What happens to my photos and screenshots?", a: "When your spot opens, we use them only to draft your profile and replies. They’re shared only with the AI provider that processes them to write those drafts, deleted after drafting, and never used to train AI models. The waitlist itself only asks for your email, city and a few preferences." }
+  { q: "What do I actually do?", a: "Almost nothing. Two minutes now to tell us about you and your type. When your batch starts, you send your real photos. Then we build your profiles, swipe, chat with your matches and book the date. You show up." },
+  { q: "Is it my profile and my photos?", a: "Yes. Your own profiles on Tinder, Bumble and Hinge, with your real photos. We pick the best ones and polish them, never fake or swap them." },
+  { q: "Does she know?", a: "She’s chatting with your profile: your photos, your real details, written the way you talk. Once she shares her number, it’s you who texts her and you who goes on the date." },
+  { q: "What’s the $1, and do you guarantee dates?", a: "We’re onboarding in small batches, and the $1 reserves your spot in the next one. It isn’t a subscription and it doesn’t buy dates, matches or the service. The $1 fee is nonrefundable, except where required by law. We don’t guarantee dates, and nobody honestly can. When your batch starts we confirm the real price (planned: pay only for dates you get) and you decide then." }
 ];
 
 export function Faq() {
@@ -21,7 +18,7 @@ export function Faq() {
         <h2 id="faq-title" className="h2">Fair questions.</h2>
         <p className="lede">Short answers, no fine-print tricks.</p>
       </div>
-      <Accordion.Root type="single" collapsible className="faq-list" defaultValue="item-1">
+      <Accordion.Root type="single" collapsible className="faq-list" defaultValue="item-0">
         {faqs.map((item, index) => (
           <Accordion.Item value={`item-${index}`} key={item.q} className="faq-item">
             <Accordion.Header asChild>

@@ -63,19 +63,19 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
       <motion.div className="ticket-card" role="status" aria-live="polite" initial={reduce ? false : { opacity: 0, y: 24, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
         <span className="label">You’re in line</span>
         <span className="queue-num" aria-label={`Number ${position}`}><span className="hash">#</span>{position.toLocaleString("en-US")}</span>
-        <h1>You’re #{position.toLocaleString("en-US")} in line.</h1>
-        <p>Your $1 waitlist spot is confirmed. Numbers go out in the order payments are verified, and spots open in that order.</p>
+        <h1>You’re #{position.toLocaleString("en-US")} in the queue.</h1>
+        <p>Your $1 spot is confirmed. We’ll message you when your batch starts. Batches open in queue order.</p>
         <div className="perf">Keep this page link private. It shows your spot.</div>
       </motion.div>
       <div className="panel">
         <p className="kicker">What happens next</p>
         <ol className="next-list">
-          <li><span className="how-step">1</span><span>We open spots in small groups, in queue order.</span></li>
-          <li><span className="how-step">2</span><span>When yours opens, we’ll email you with the real pricing. You decide then whether to join.</span></li>
-          <li><span className="how-step">3</span><span>If you join, you send us photos and screenshots. We send back your new profile and texts.</span></li>
+          <li><span className="how-step">1</span><span>We onboard in small batches, in queue order.</span></li>
+          <li><span className="how-step">2</span><span>When your batch starts, we’ll message you with the real pricing. You decide then whether to join.</span></li>
+          <li><span className="how-step">3</span><span>If you join, you send your real photos. We build your profiles, swipe, chat and book the dates.</span></li>
         </ol>
-        <p className="fine" style={{ marginTop: 16 }}>A waitlist spot doesn’t guarantee an invitation date, availability in your city, or a date.</p>
-        <p style={{ fontWeight: 800, marginTop: 22 }}>Know a guy whose chats keep dying?</p>
+        <p className="fine" style={{ marginTop: 16 }}>A spot in the queue doesn’t guarantee a batch start date, availability in your city, or a date.</p>
+        <p style={{ fontWeight: 800, marginTop: 22 }}>Know a guy who’s sick of swiping?</p>
         <div className="share-row"><ShareButton /><Link href="/" className="btn btn-primary">Back to NoSwipe</Link></div>
       </div>
     </div>;
@@ -98,7 +98,7 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
       <div className="perf">The return from Checkout alone doesn’t confirm payment.</div>
     </div>
     <div className="share-row" style={{ alignSelf: "start" }}>
-      {(data?.status === "expired" || data?.status === "refunded" || message) && <Link href="/reserve" className="btn btn-primary">$1 — get on the list</Link>}
+      {(data?.status === "expired" || data?.status === "refunded" || message) && <Link href="/reserve" className="btn btn-primary">Try it again</Link>}
       <Link href="/" className="btn btn-white">Back to NoSwipe</Link>
     </div>
   </div>;

@@ -4,10 +4,44 @@ import { requireAdminPage } from "@/lib/admin-auth";
 import { updateLeadNotes } from "../../_lib/actions";
 import { AdminDataError, DEFAULT_VARIANT_LABEL, NO_CAMPAIGN_LABEL, getLead, type LeadDetail } from "../../_lib/data";
 import { EVENT_LABELS, STAGE_LABELS, STATUS_LABELS, formatDateTime } from "../../_lib/format";
-import { datingPreferenceLabels, dateFrequencyLabels, relationshipGoalLabels } from "@/lib/reservation";
+import { datingAppLabels, datingPreferenceLabels, dateFrequencyLabels, relationshipGoalLabels } from "@/lib/reservation";
 import { Badge, QueryErrorNotice, SchemaNotice, SetupNotice } from "../../_components/notices";
 import { NotesForm } from "./notes-form";
 import styles from "../../admin.module.css";
+
+function text(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number") return String(value);
+  return "—";
+}
+
+function appsText(value: unknown): string {
+  if (!Array.isArray(value) || value.length === 0) return "—";
+  return value.map((app) => datingAppLabels[app as keyof typeof datingAppLabels] ?? String(app)).join(", ");
+}
+
+function OnboardingCard({ lead }: { lead: LeadDetail }) {
+  const data = lead.onboarding.data;
+  return (
+    <section className={styles.card}>
+      <div className={styles.cardHead}><h2>Onboarding answers</h2></div>
+      {!lead.onboarding.available ? (
+        <p className={styles.error} style={{ marginTop: 0 }}>Onboarding answers need supabase/2026-10-23-onboarding.sql applied.</p>
+      ) : !data ? (
+        <p className={styles.muted} style={{ marginTop: 0 }}>Not stored for this reservation (signed up before onboarding existed).</p>
+      ) : (
+        <dl className={styles.dl}>
+          <dt>First name</dt><dd>{text(data.name)}</dd>
+          <dt>Age</dt><dd>{text(data.age)}</dd>
+          <dt>Apps</dt><dd>{appsText(data.apps)}</dd>
+          <dt>Her age range</dt><dd>{typeof data.ageMin === "number" && typeof data.ageMax === "number" ? `${data.ageMin}–${data.ageMax}` : "—"}</dd>
+          <dt>His type</dt><dd>{text(data.interests)}</dd>
+          <dt>Telegram</dt><dd>{typeof data.telegram === "string" && data.telegram ? `@${data.telegram}` : "—"}</dd>
+        </dl>
+      )}
+    </section>
+  );
+}
 
 type TimelineItem = { at: string | null; title: string; meta?: string; strong?: boolean };
 
@@ -83,6 +117,7 @@ export default async function AdminLeadPage({ params }: { params: Promise<{ id: 
                 <dt>Terms accepted</dt><dd>{formatDateTime(lead.terms_accepted_at)}</dd>
               </dl>
             </section>
+            <OnboardingCard lead={lead} />
             <section className={styles.card}>
               <div className={styles.cardHead}><h2>Attribution (first touch)</h2></div>
               <dl className={styles.dl}>
