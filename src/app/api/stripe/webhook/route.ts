@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
+import { sendReservationConfirmation } from "@/lib/email";
 import { recordPaidEvent } from "@/lib/funnel";
 import { getStripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -24,7 +25,9 @@ async function completeSession(session: Stripe.Checkout.Session) {
     p_payment_intent_id: session.payment_intent
   });
   if (error) throw error;
-  await recordPaidEvent(supabase, session.id);
+  const firstDelivery = await recordPaidEvent(supabase, session.id);
+  // Last step, and never throws: an email failure must not turn this into a 500 and a Stripe retry.
+  await sendReservationConfirmation(supabase, id.data, firstDelivery);
 }
 
 export async function POST(request: Request) {

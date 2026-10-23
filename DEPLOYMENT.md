@@ -146,3 +146,31 @@ curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
 Use the domain the app actually serves (`https://morrow.zulfkhar.dev` until the move), and re-run `setWebhook` with the new URL after a domain change.
 
 **Check it.** Sign in at `/admin/login`, open **Concierge → Clients**, create an invite, open the invite link on your phone, and send a screenshot captioned `opener`. The bot should acknowledge it, a draft should appear in the queue within a minute, and **Approve & send** should deliver it to the chat once. `getWebhookInfo` should show no `last_error_message`.
+
+## 9. Confirmation email (Resend)
+
+Optional. When a $1 reservation is paid, the Stripe webhook sends one email: subject "You're #N in line at NoSwipe", plain text plus simple HTML, sent through [Resend](https://resend.com) with a plain `fetch` (`src/lib/email.ts`, content in `src/lib/confirmation-email.ts`). While `RESEND_API_KEY` or `EMAIL_FROM` is unset, nothing is sent and nothing is logged. A Resend failure is logged as a status code only (never the address or content) and never fails the webhook.
+
+**Database.** Run [`supabase/2026-10-23-confirmation-email.sql`](supabase/2026-10-23-confirmation-email.sql) after `schema.sql`. It adds `reservations.confirmation_email_sent_at`, which the webhook claims with a conditional update before sending, so each reservation gets the email at most once even if Stripe redelivers. Until it is applied, the webhook still sends, but only on the first delivery of the `paid` funnel event (`funnel_events.dedupe_key`), and every send carries a Resend `Idempotency-Key` per reservation.
+
+**Verify the domain in Resend.** Resend → Domains → Add domain → `noswipe.app` (region us-east-1). Resend shows the DNS records to add; in Namecheap → Domain List → `noswipe.app` → Advanced DNS add each one exactly as shown, as host records (Namecheap appends `.noswipe.app` itself, so enter only the host part, e.g. `resend._domainkey`, `send`):
+
+- **TXT** `resend._domainkey`: the DKIM public key.
+- **MX** `send`: `feedback-smtp.us-east-1.amazonses.com`, priority 10 (bounce handling for the `send.` subdomain only). In Namecheap, MX records live under Advanced DNS → **Mail Settings → Custom MX**, which switches off Namecheap's free email forwarding for the domain (see Replies below).
+- **TXT** `send`: `v=spf1 include:amazonses.com ~all`.
+- Recommended: **TXT** `_dmarc`: `v=DMARC1; p=none;`.
+
+Click **Verify** in Resend; it usually turns green within minutes, up to a few hours. Then create an API key with **Sending access** for that domain only.
+
+**Replies.** The footer tells people to reply. Resend only sends, and Custom MX turns off Namecheap forwarding, so nothing receives `hi@noswipe.app` by default. Set `EMAIL_REPLY_TO` to an inbox a founder reads, or add an inbound mail provider's MX records for the root host (`@`) alongside the `send` one.
+
+**Environment** (hosting provider's server env, runtime only, never `NEXT_PUBLIC_`):
+
+```dotenv
+RESEND_API_KEY=re_...
+EMAIL_FROM=NoSwipe <hi@noswipe.app>
+# optional
+EMAIL_REPLY_TO=
+```
+
+Redeploy after setting them. **Check it** with a Stripe test-mode reservation using an address you can read: the email should arrive once, `confirmation_email_sent_at` should be set on the row, and resending the same event from the Stripe dashboard (Workbench → Events → Resend) should not send a second email.
