@@ -1,5 +1,5 @@
 {
-  "name": "morrow-concierge",
+  "name": "noswipe",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fontsource/cormorant-garamond": "5.3.0",
-    "@fontsource/dm-sans": "5.3.0",
+    "@fontsource-variable/figtree": "5.3.0",
+    "@fontsource/bagel-fat-one": "5.3.0",
+    "@fontsource/figtree": "5.3.0",
     "@radix-ui/react-accordion": "1.2.12",
     "@radix-ui/react-slot": "1.2.3",
     "@supabase/supabase-js": "2.118.0",

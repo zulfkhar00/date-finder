@@ -1,4 +1,4 @@
-# Deploy Morrow with Dokploy
+# Deploy NoSwipe with Dokploy
 
 The app runs as one Next.js container and uses the existing hosted Supabase project. The included `Dockerfile` builds Next.js standalone output and serves it on port 3000.
 
@@ -18,14 +18,16 @@ In Dokploy, open **Git**, select **GitHub**, and create and install the Dokploy 
 
 ## 3. Connect the domain
 
-Point the `morrow.zulfkhar.dev` DNS record to your IONOS server. In the application's **Domains** tab, set the host to `morrow.zulfkhar.dev`, path `/`, container port `3000`, enable HTTPS, and select Let's Encrypt. Wait for a valid certificate before creating a public Stripe webhook.
+Point the `noswipe.app` and `www.noswipe.app` A records to the IONOS server. In the application's **Domains** tab, add host `noswipe.app` (and `www.noswipe.app`), path `/`, container port `3000`, enable HTTPS, and select Let's Encrypt. Wait for a valid certificate before creating a public Stripe webhook.
+
+`.app` is on the HSTS preload list, so browsers only ever load it over HTTPS. There is no plain-HTTP fallback, so the site is unreachable until the certificate is issued. The old `morrow.zulfkhar.dev` host should 301-redirect to `https://noswipe.app` once the new domain is live.
 
 ## 4. Set runtime environment variables
 
 Add these in the Dokploy application's **Environment** tab. Use the exact deployed HTTPS origin for `SITE_URL`, with no path:
 
 ```dotenv
-SITE_URL=https://morrow.zulfkhar.dev
+SITE_URL=https://noswipe.app
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your_server_only_supabase_secret
 STRIPE_SECRET_KEY=sk_test_key_for_first_deployment
@@ -39,7 +41,7 @@ Keep all three secret values in Dokploy's runtime environment settings, not in G
 In the matching Stripe test or live mode, create a **snapshot** webhook destination for **Your account** at:
 
 ```text
-https://morrow.zulfkhar.dev/api/stripe/webhook
+https://noswipe.app/api/stripe/webhook
 ```
 
 For the first deployment, create this destination in **Stripe test mode**. Subscribe to `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, and `charge.refunded`. Reveal that destination's `whsec_...` signing secret, set it as `STRIPE_WEBHOOK_SECRET` in Dokploy, and redeploy the Application.

@@ -7,6 +7,6 @@ export function getSupabaseAdmin() {
   if (!url || !key) throw new Error("Supabase server configuration is missing");
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { "X-Client-Info": "morrow-waitlist-server" } }
+    global: { headers: { "X-Client-Info": "noswipe-waitlist-server" } }
   });
 }

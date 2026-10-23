@@ -1,79 +1,150 @@
-"use client";
-
-import Image from "next/image";
-import Link from "next/link";
-import * as Accordion from "@radix-ui/react-accordion";
-import { motion } from "motion/react";
-import { ArrowDown, ArrowRight, ArrowUpRight, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowDown, Check, ShieldCheck } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-import { ConciergeDemo } from "@/components/concierge-demo";
+import { SiteFooter } from "@/components/site-footer";
+import { CtaLink } from "@/components/cta-link";
+import { HeroPhone } from "@/components/hero-phone";
+import { FixMyText } from "@/components/fix-my-text";
+import { MatchStack } from "@/components/match-stack";
+import { Faq } from "@/components/faq";
+import { StickyCta } from "@/components/sticky-cta";
+import { Testimonials } from "@/components/testimonials";
+import { getLivePaidCount, PUBLIC_COUNT_MIN } from "@/lib/waitlist-count";
 
-const faqs = [
-  { q: "Can I use the concierge now?", a: "Early-access reservations are open now. Concierge invitations will be offered separately as availability opens. A waitlist reservation does not start the service or guarantee an invitation date." },
-  { q: "What does the $1 pay for?", a: "It is a one-time, nonrefundable fee to reserve a place on the early-access waitlist. It is not a subscription or payment toward concierge service. We will share service pricing before you decide whether to join." },
-  { q: "Does reserving a spot guarantee dates?", a: "No. A reservation does not guarantee an introduction, a date, a match, or service availability in your city. We will contact people as capacity and geography allow." },
-  { q: "Is the $1 refundable?", a: "No. The $1 reservation fee is nonrefundable, except where required by law. You can decide separately whether to join the concierge if you receive an invitation." },
-  { q: "What happens to my answers?", a: "We use them to understand interest in early access and to contact you if concierge access becomes available. They are stored privately and are not shown to other visitors. See our privacy note for more detail." }
+const apps = ["Tinder", "Hinge", "Bumble", "Badoo", "Works off screenshots", "You send every message", "No bots, no logins"];
+
+const steps = [
+  { title: "Send us your stuff", body: "Your photos, plus screenshots of your profile and the chats that went quiet. Takes five minutes on your phone." },
+  { title: "We rebuild your profile and write your texts", body: "Best photos picked and ordered, a bio and prompts that sound like you, and openers and replies for every chat." },
+  { title: "You hit send. You go on the date.", body: "Copy, paste, send from your own phone. When it’s time to ask her out, we tell you, and help plan the date." }
 ];
 
-const fadeUp = { initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, amount: 0.2 }, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } };
+async function FoundingMembers() {
+  const count = await getLivePaidCount();
+  const showCount = count !== null && count >= PUBLIC_COUNT_MIN;
+  return (
+    <section className="section shell" aria-labelledby="founding-title" style={{ paddingTop: 0 }}>
+      <div className="founding">
+        <div>
+          <p className="kicker">Founding members</p>
+          <h2 id="founding-title" className="h2" style={{ fontSize: "clamp(36px,7vw,60px)" }}>First in line, first to get a fixed profile.</h2>
+          <p className="lede">We’ll start small and do it properly: a first group of guys, with a real person checking every draft. Spots open in the order people joined.</p>
+        </div>
+        <div>
+          {showCount && (
+            <p className="counter" style={{ marginBottom: 18 }}>
+              <strong>{count.toLocaleString("en-US")}</strong>
+              <span>guys already in line</span>
+            </p>
+          )}
+          <ul className="founding-list">
+            <li><span className="check-dot"><Check size={14} strokeWidth={3.5} /></span> First concierge spots, in queue order</li>
+            <li><span className="check-dot"><Check size={14} strokeWidth={3.5} /></span> Real pricing shown before you pay for anything else</li>
+            <li><span className="check-dot"><Check size={14} strokeWidth={3.5} /></span> An email the moment your spot opens</li>
+          </ul>
+          <div style={{ marginTop: 22 }}><CtaLink location="founding" /></div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function LandingPage() {
-  const reveal = fadeUp;
   return (
     <>
       <SiteHeader />
       <main>
-        <div className="hero-wrap">
-          <section className="hero section-shell" aria-labelledby="hero-title">
-            <div className="hero-copy">
-              <motion.p className="eyebrow" {...reveal}><span className="eyebrow-line" /> Dating, thoughtfully arranged</motion.p>
-              <motion.h1 id="hero-title" {...reveal}>Skip the swiping.<br /><em>Show up</em> for the date.</motion.h1>
-              <motion.div className="hero-subrow" {...reveal}>
-                <div className="hero-index">01 <span>/</span> THE IDEA</div>
-                <div className="hero-intro"><p>A private dating concierge designed for busy adults: considered introductions, permission at every step, and more time for real connection. Early-access reservations are open.</p><Button asChild><Link href="/reserve">Reserve my spot <ArrowUpRight size={19} strokeWidth={1.5} /></Link></Button><span className="hero-note">$1 one-time, nonrefundable waitlist fee. Concierge access is separate.</span></div>
-              </motion.div>
+        <section className="shell hero" aria-labelledby="hero-title">
+          <div className="hero-copy">
+            <span className="sticker">For guys on Tinder, Hinge &amp; Bumble</span>
+            <h1 id="hero-title"><span className="line">Stop swiping.</span><span className="line">Start <span className="mark">dating.</span></span></h1>
+            <p className="hero-sub">Few matches? Chats that die after “haha”? <strong>We rebuild your profile and write your texts.</strong> You hit send and go on the date. We never touch your account.</p>
+            <div className="hero-cta" id="hero-cta">
+              <CtaLink location="hero" />
+              <a href="#demo" className="hero-alt">Try the demo <ArrowDown size={16} strokeWidth={2.5} /></a>
+              <p className="fine">$1 one-time waitlist fee, nonrefundable except where required by law. It holds your place in line. It doesn’t buy dates.</p>
             </div>
-            <motion.div className="hero-art" {...reveal}>
-              <Image src="/images/morrow-editorial.jpg" alt="Two sculptural burgundy forms facing one another across a warm stone plinth" fill priority sizes="(max-width: 900px) 100vw, 42vw" className="hero-image" />
-              <div className="art-label"><span>THE ART OF</span><strong>meeting</strong><span>IN PERSON</span></div>
-              <div className="art-caption">FIG. 01 — A BETTER BEGINNING</div>
-            </motion.div>
-            <a className="scroll-cue" href="#how"><span>Discover the idea</span><ArrowDown size={16} /></a>
-          </section>
+          </div>
+          <div className="hero-art">
+            <span className="blob blob-a" aria-hidden="true" />
+            <span className="blob blob-b" aria-hidden="true" />
+            <span className="sticker float-sticker float-1" aria-hidden="true">no bots</span>
+            <span className="sticker float-sticker float-2" aria-hidden="true">you hit send</span>
+            <HeroPhone />
+          </div>
+        </section>
+
+        <div className="strip" aria-hidden="true">
+          <div className="strip-track">{[...apps, ...apps].map((item, i) => <span key={i}>{item}</span>)}</div>
         </div>
 
-      <div className="statement-band"><span>LESS BROWSING</span><span className="statement-star">✳</span><span>MORE BELONGING</span><span className="statement-star">✳</span><span>MORE REAL LIFE</span></div>
+        <FixMyText />
 
-      <section id="how" className="how-section section-shell">
-        <motion.div className="section-heading" {...reveal}><p className="eyebrow"><span className="eyebrow-line" /> The idea</p><h2>Less searching.<br /><em>More meeting.</em></h2><p>A more considered way to date begins with understanding you. When concierge access opens, the details are handled with care and every meaningful choice stays yours.</p></motion.div>
-        <div className="how-list">
-          {[
-            ["01", "A real understanding", "Tell us about yourself, your intentions, and the kind of connection you’re open to. Nuance matters more than a polished profile."],
-            ["02", "Introductions with permission", "If invited to the concierge, you receive considered possibilities. An introduction only moves forward when you want it to."],
-            ["03", "Dates worth showing up for", "If interest is mutual, the concierge is designed to arrange the details so the first meeting feels simple, calm, and human."]
-          ].map(([num, title, body]) => <motion.div className="how-row" key={num} {...reveal}><span className="how-num">{num} /</span><h3>{title}</h3><p>{body}</p><ArrowUpRight size={24} strokeWidth={1.2} /></motion.div>)}
-        </div>
-      </section>
+        <MatchStack />
 
-      <section className="why-section">
-        <div className="why-main"><div className="why-kicker"><span className="eyebrow-line" /> Why Morrow</div><motion.h2 {...reveal}>Your time is valuable.<br /><em>Your love life should feel that way too.</em></motion.h2></div>
-        <div className="why-aside"><p>Made for people with full lives and room for something meaningful.</p><div className="why-points"><span>01 — Fewer endless conversations</span><span>02 — More personal context</span><span>03 — Your consent at every step</span></div><Link href="/reserve">Be first to hear <ArrowUpRight size={18} /></Link></div>
-      </section>
+        <section id="how" className="section shell" aria-labelledby="how-title" style={{ paddingTop: 0 }}>
+          <p className="kicker">How it works</p>
+          <h2 id="how-title" className="h2">Three steps. <span className="mark">Zero swiping.</span></h2>
+          <ol className="how-grid" style={{ listStyle: "none", padding: 0 }}>
+            {steps.map((step, i) => (
+              <li className="how-card" key={step.title}>
+                <span className="how-step">{i + 1}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="promise">
+            <ShieldCheck size={30} strokeWidth={2.2} aria-hidden="true" />
+            <div>
+              <strong>You send every message. We never touch your account.</strong>
+              <p>No passwords, no logins, no auto-swiping, no messages sent for you. Screenshots in, drafts out. Your account stays yours, and stays safe.</p>
+            </div>
+          </div>
+        </section>
 
-      <ConciergeDemo />
+        <FoundingMembers />
 
-      <section id="pricing" className="pricing-section section-shell">
-        <div className="pricing-top"><p className="eyebrow"><span className="eyebrow-line" /> Early access, clearly priced</p><span>01 / RESERVATION</span></div>
-        <div className="pricing-grid"><div><h2>A place for<br /><em>what’s next.</em></h2><p>Reserve a place on the early-access waitlist. Concierge invitations and separate service pricing will follow as availability opens.</p></div><div className="price-panel"><div><span>ONE-TIME RESERVATION</span><strong>$1</strong></div><p>For a place on the early-access waitlist only. No recurring charge. No guaranteed date, introduction, invitation date, or availability in your city.</p><p>The $1 fee is nonrefundable, except where required by law.</p><Button asChild><Link href="/reserve">Reserve my spot <ArrowUpRight size={18} /></Link></Button></div></div>
-      </section>
+        <Testimonials />
 
-      <section className="faq-section section-shell" id="faq"><div className="faq-heading"><p className="eyebrow"><span className="eyebrow-line" /> The details</p><h2>Good questions.<br /><em>Clear answers.</em></h2></div><Accordion.Root type="single" collapsible className="faq-list">{faqs.map((item, index) => <Accordion.Item value={`item-${index}`} key={item.q} className="faq-item"><Accordion.Header><Accordion.Trigger className="faq-trigger"><span>{String(index + 1).padStart(2, "0")}</span><strong>{item.q}</strong><Plus size={21} strokeWidth={1.4} /></Accordion.Trigger></Accordion.Header><Accordion.Content className="faq-content"><p>{item.a}</p></Accordion.Content></Accordion.Item>)}</Accordion.Root></section>
+        <section id="pricing" className="section shell" aria-labelledby="pricing-title">
+          <p className="kicker">Pricing</p>
+          <h2 id="pricing-title" className="h2"><span className="mark">$1</span> to get in line.</h2>
+          <div className="price-grid">
+            <div className="price-card now">
+              <span className="tag">Open now</span>
+              <p className="amount">$1<small>one time</small></p>
+              <h3>Waitlist spot</h3>
+              <p>Holds your place in line. Not a subscription, and it doesn’t buy dates, matches or the service. Nonrefundable, except where required by law.</p>
+              <CtaLink location="pricing" className="btn btn-white" />
+            </div>
+            <div className="price-card planned">
+              <span className="tag">Planned</span>
+              <p className="amount">$19</p>
+              <h3>Profile rebuild</h3>
+              <p>Photos picked and ordered, bio and prompts rewritten, for the apps you use.</p>
+            </div>
+            <div className="price-card planned">
+              <span className="tag">Planned</span>
+              <p className="amount">$5<small>per date</small></p>
+              <h3>Per date you book</h3>
+              <p>Openers, replies and the ask-out. You only pay when a date is actually on the calendar.</p>
+            </div>
+          </div>
+          <p className="price-note">Planned pricing may change. We’ll show you the real price when your spot opens, and you decide then. The $1 is the only thing you pay today.</p>
+        </section>
 
-      <section className="closing-section"><div className="section-shell closing-inner"><p className="eyebrow eyebrow-light"><span className="eyebrow-line" /> The next chapter starts here</p><h2>Less almost.<br /><em>More actually.</em></h2><div className="closing-row"><p>Make room for a different way to meet. Reserve early access for $1.</p><Button asChild variant="light"><Link href="/reserve">Reserve my spot <ArrowRight size={19} /></Link></Button></div></div></section>
+        <Faq />
+
+        <section className="section closing" aria-labelledby="closing-title">
+          <div className="shell">
+            <h2 id="closing-title">Your next date is one good text away.</h2>
+            <p>Get on the list for $1. We’ll email you when your spot opens.</p>
+            <CtaLink location="closing" className="btn btn-lime" />
+          </div>
+        </section>
       </main>
-      <footer className="site-footer section-shell"><div className="footer-top"><Link href="/" className="wordmark">morrow<span>.</span></Link><p>Dating, thoughtfully arranged.<br />Currently accepting early-access reservations.</p><a href="#hero-title">Back to top ↑</a></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Morrow</span><div><Link href="/privacy">Privacy</Link><Link href="/terms">Reservation terms</Link><Link href="/#faq">FAQ</Link></div></div></footer>
+      <SiteFooter />
+      <StickyCta watchId="hero-cta" />
     </>
   );
 }

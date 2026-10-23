@@ -12,14 +12,16 @@ export default {
         secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         ring: "hsl(var(--ring))",
-        ivory: "#f3eee6",
-        ink: "#24211f",
-        burgundy: "#522832",
-        copper: "#af8061"
+        paper: "#FFF8F0",
+        grape: "#22104A",
+        coral: "#FF5A47",
+        lime: "#C9F24D",
+        lilac: "#DCD0FF",
+        blush: "#FFE3DB"
       },
       fontFamily: {
         sans: ["var(--font-sans)", "sans-serif"],
-        display: ["var(--font-display)", "Georgia", "serif"]
+        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"]
       },
       borderRadius: { DEFAULT: "var(--radius)" }
     }
