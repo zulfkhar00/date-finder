@@ -80,3 +80,43 @@ The app needs a configured support contact and payment receipts in Stripe before
 4. **Sign in.** Open `/admin`, enter an allowlisted email, then click the link or type the code. Sign-in emails are only sent to `ADMIN_EMAILS` addresses that already exist as users; the form shows the same message for any address. A signed-in account that is not on the list, or whose email isn't confirmed, gets a 404 on every admin page and on the CSV export.
 
 Every admin page, server action and the export check the session, a confirmed email and `ADMIN_EMAILS` on the server (shared helpers in `src/lib/admin-auth.ts`). Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
+
+## 7. Concierge pilot (Telegram bot, drafting, operator console)
+
+Everything below is optional. Each part switches itself off while its variables are missing.
+
+**Database.** Run [`supabase/2026-10-23-concierge.sql`](supabase/2026-10-23-concierge.sql) once in the Supabase SQL editor, after `schema.sql`. It is idempotent, enables RLS, revokes all browser roles, and grants only `service_role`.
+
+**Create the bot.** In Telegram, message [@BotFather](https://t.me/BotFather): send `/newbot`, choose a name and a username ending in `bot`, and copy the token. Then send `/setjoingroups` and choose Disable (the bot only handles private chats). Optionally set `/setdescription`.
+
+**Environment** (Dokploy → Environment, runtime only, never `NEXT_PUBLIC_`):
+
+```dotenv
+TELEGRAM_BOT_TOKEN=123456:token_from_botfather
+TELEGRAM_WEBHOOK_SECRET=output_of_openssl_rand_hex_32
+TELEGRAM_BOT_USERNAME=your_bot_username
+ANTHROPIC_API_KEY=sk-ant-...
+ADMIN_EMAILS=first@example.com,second@example.com
+# Optional:
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...   # falls back to SUPABASE_SECRET_KEY
+ADMIN_SESSION_SECRET=at_least_32_random_chars # derived from SUPABASE_SECRET_KEY if unset
+```
+
+Generate the webhook secret with `openssl rand -hex 32`. Redeploy after setting the variables.
+
+**Register the webhook** once the HTTPS domain is live. Telegram sends the secret in the `X-Telegram-Bot-Api-Secret-Token` header, and the app rejects any request without it:
+
+```sh
+curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d url="https://noswipe.app/api/telegram/webhook" \
+  -d secret_token="$TELEGRAM_WEBHOOK_SECRET" \
+  -d 'allowed_updates=["message"]' \
+  -d drop_pending_updates=true
+curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
+```
+
+Use the domain the app actually serves (`https://morrow.zulfkhar.dev` until the move), and re-run `setWebhook` with the new URL after a domain change.
+
+**Operator sign-in (Supabase Auth).** In Supabase → Authentication → URL Configuration, add `https://<your-domain>/operator/auth/callback` to **Redirect URLs** and keep the Email provider enabled. The magic link must be opened in the browser that requested it (PKCE). For links that work in any browser, change the Magic Link email template to link to `{{ .SiteURL }}/operator/auth/callback?token_hash={{ .TokenHash }}&type=email`. The callback accepts both forms.
+
+**Check it.** Sign in at `/operator`, create an invite under **Clients**, open the invite link on your phone, and send a screenshot captioned `opener`. The bot should acknowledge it, a draft should appear in the queue within a minute, and **Approve & send** should deliver it to the chat. `getWebhookInfo` should show no `last_error_message`.
