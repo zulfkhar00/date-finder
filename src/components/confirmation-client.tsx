@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { trackOnce } from "@/lib/analytics";
 
 type Status = { status: "pending" | "paid" | "refunded" | "expired"; position: number | null };
 
@@ -24,6 +25,7 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
         if (!response.ok) throw new Error(result.error || "Status unavailable");
         if (cancelled) return;
         setData(result); setChecking(false); setMessage("");
+        if (result.status === "paid") trackOnce("paid", `paid:${sessionId}`);
         if (result.status === "pending" && attempts++ < 15) timer = setTimeout(check, 2000);
       } catch (error) { if (!cancelled) { setChecking(false); setMessage(error instanceof Error ? error.message : "Status unavailable"); } }
     }

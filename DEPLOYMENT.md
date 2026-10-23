@@ -34,6 +34,30 @@ STRIPE_WEBHOOK_SECRET=whsec_from_the_public_endpoint_for_this_environment
 
 Keep all three secret values in Dokploy's runtime environment settings, not in Git or Docker build arguments. There are no `NEXT_PUBLIC_` secrets. The `STRIPE_WEBHOOK_SECRET` printed by a local `stripe listen` session is for local testing only; create a separate signing secret for the deployed endpoint.
 
+## 4a. Observability (optional)
+
+Sentry (errors), PostHog (product analytics) and `GET /api/health` are built in. Every variable below is optional: with none set, Sentry and PostHog stay off and the build still succeeds. Use **dedicated NoSwipe projects** in both tools. Do not reuse a project or organization that belongs to anything else.
+
+| Variable | Where in Dokploy | Secret? | Where to get it |
+| --- | --- | --- | --- |
+| `SENTRY_DSN` | Environment (runtime) | no | Sentry → create a Next.js project named `noswipe` → **Settings → Client Keys (DSN)**. Enables server and edge error capture. |
+| `NEXT_PUBLIC_SENTRY_DSN` | Build-time Arguments | no (public) | Same DSN as above. Enables browser error capture. Inlined into the bundle at build time, so changing it needs a redeploy. |
+| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Build-time Arguments | no | Optional label, e.g. `production` (default) or `staging`. |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Build-time Arguments | no (public) | PostHog → create a project named `NoSwipe` → **Project settings → Project API key** (`phc_…`). |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Build-time Arguments | no | `https://us.i.posthog.com` for US Cloud (default) or `https://eu.i.posthog.com` for EU Cloud. |
+| `SENTRY_AUTH_TOKEN` | Build-time **Secrets** | **yes** | Sentry → **Settings → Developer Settings → Organization Tokens** (only scope: source-map upload). Used only to upload source maps at build time. |
+| `SENTRY_ORG` | Build-time Arguments | no | Sentry organization slug (from the URL `sentry.io/organizations/<slug>/`). |
+| `SENTRY_PROJECT` | Build-time Arguments | no | Sentry project slug, e.g. `noswipe`. |
+| `GIT_SHA` | Build-time Arguments | no | Commit SHA of the deploy. `/api/health` reports it as `version`, and Sentry uses it as the release name. |
+
+Notes:
+
+- `NEXT_PUBLIC_*` values are public by design. A Sentry DSN and a PostHog project key can only send data, not read it. They are still build-time values because Next.js inlines them into the browser bundle.
+- `SENTRY_AUTH_TOKEN` is read from an optional BuildKit secret with id `SENTRY_AUTH_TOKEN` (`docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN`). Never pass it as a build argument. Source maps are uploaded only when the token, `SENTRY_ORG` and `SENTRY_PROJECT` are all present. They are deleted from the image after upload, and a failed upload logs a warning rather than failing the build.
+- **The image must be built with BuildKit.** The `Dockerfile` starts with `# syntax=docker/dockerfile:1` and uses `RUN --mount=type=secret,...,required=false`, which the legacy builder cannot parse. BuildKit is the default `docker build` backend since Docker Engine 23, so a current Dokploy server needs no change. If the build fails with `the --mount option requires BuildKit`, upgrade Docker on the server or enable BuildKit with `"features": { "buildkit": true }` in `/etc/docker/daemon.json`. The secret itself stays optional: with BuildKit but no `SENTRY_AUTH_TOKEN` secret configured, the mount is empty and the build succeeds without uploading source maps.
+- Privacy defaults (in code): Sentry collects no user info, cookies, request or response bodies, or stack-frame variables. It samples 10% of traces and redacts email addresses, Checkout session ids and Telegram bot tokens from events, spans and breadcrumbs. PostHog runs with `person_profiles: identified_only`, no autocapture, all inputs masked, session recording off, and Do Not Track respected, and it never runs on `/admin` or `/operator` pages. In PostHog **Project settings**, also turn on **Discard client IP data**.
+- Health check: `GET /api/health` returns `{ ok, version, time, checks: { supabase } }`. It returns 200 when Supabase answers within 2 seconds and 503 otherwise (`timeout`, `error` or `unconfigured`). It never includes hosts, keys or error messages.
+
 ## 5. Register the public Stripe webhook
 
 In the matching Stripe test or live mode, create a **snapshot** webhook destination for **Your account** at:
