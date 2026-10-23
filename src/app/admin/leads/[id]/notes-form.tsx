@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import type { NotesState } from "../../_lib/actions";
 import { LEAD_STAGES, type LeadStage } from "../../_lib/data-shared";
 import styles from "../../admin.module.css";
@@ -19,11 +19,19 @@ export function NotesForm({
   disabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
-  // Controlled, so React's automatic form reset after the action doesn't revert the fields.
+  // Submitted through onSubmit (not the form's action prop) so React doesn't auto-reset the
+  // form after saving; the fields keep showing what was just saved.
   const [stageValue, setStageValue] = useState<LeadStage>(stage);
   const [notesValue, setNotesValue] = useState(notes);
   return (
-    <form action={formAction} style={{ display: "grid", gap: 12 }}>
+    <form
+      style={{ display: "grid", gap: 12 }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        startTransition(() => formAction(formData));
+      }}
+    >
       <label className={styles.field}>
         Stage
         <select className={styles.select} name="stage" value={stageValue} onChange={(e) => setStageValue(e.target.value as LeadStage)} disabled={disabled || pending}>

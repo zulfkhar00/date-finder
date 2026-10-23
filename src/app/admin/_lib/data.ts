@@ -1,10 +1,9 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { LEAD_STAGES, RESERVATION_STATUSES, type LeadStage, type ReservationStatus } from "./data-shared";
 
 // Every query here runs server-side with the service key, after the caller has checked
 // ADMIN_EMAILS. Errors are logged by code only; row contents (emails, notes) never are.
-
-import { LEAD_STAGES, RESERVATION_STATUSES, type LeadStage, type ReservationStatus } from "./data-shared";
 
 export { LEAD_STAGES, RESERVATION_STATUSES, type LeadStage, type ReservationStatus };
 

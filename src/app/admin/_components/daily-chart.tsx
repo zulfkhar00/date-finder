@@ -52,7 +52,8 @@ export function DailyChart({ points }: { points: DailyPoint[] }) {
           );
         })}
         {points.map((p, i) =>
-          i % labelEvery === 0 || i === points.length - 1 ? (
+          // Anchored on the newest day so labels stay evenly spaced and never collide at the edge.
+          (points.length - 1 - i) % labelEvery === 0 ? (
             <text key={p.day} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="#6b7280">{formatDay(p.day)}</text>
           ) : null
         )}
