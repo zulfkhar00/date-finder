@@ -2,13 +2,13 @@
 
 The app runs as one Next.js container and uses the existing hosted Supabase project. The included `Dockerfile` builds Next.js standalone output and serves it on port 3000.
 
-## 1. Put the code in Git
+## 1. Upload the source bundle
 
-This folder does not yet have a Git repository. Create a private repository, then push this project to it. Keep `.env.local` out of Git; it is already excluded by `.gitignore` and `.dockerignore`.
+Use `deploy/morrow-dokploy-test.zip` for the first deployment. It contains the application source and Dockerfile, with `.env.local` and build files excluded. Dokploy supports a **Drag and Drop .zip** source for Applications. You can connect a private Git repository later for automated deployments.
 
 ## 2. Create the Dokploy Application
 
-In your Dokploy project, create an **Application** from the Git repository and branch. Set **Build Type** to **Dockerfile**, **Dockerfile Path** to `Dockerfile`, and **Docker Context Path** to `.`. The container listens on port `3000`. The image needs no persistent volume because reservation data lives in Supabase.
+In your Dokploy project, create an **Application** with the **Drag and Drop .zip** source. Set **Build Type** to **Dockerfile**, **Dockerfile Path** to `Dockerfile`, and **Docker Context Path** to `.`. Upload the ZIP to trigger the deployment. The container listens on port `3000`. The image needs no persistent volume because reservation data lives in Supabase.
 
 ## 3. Connect the domain
 
