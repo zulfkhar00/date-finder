@@ -20,7 +20,7 @@ In Dokploy, open **Git**, select **GitHub**, and create and install the Dokploy 
 
 Point the `noswipe.app` and `www.noswipe.app` A records to the IONOS server. In the application's **Domains** tab, add host `noswipe.app` (and `www.noswipe.app`), path `/`, container port `3000`, enable HTTPS, and select Let's Encrypt. Wait for a valid certificate before creating a public Stripe webhook.
 
-`.app` is on the HSTS preload list, so browsers only ever load it over HTTPS. There is no plain-HTTP fallback, so the site is unreachable until the certificate is issued. The old `morrow.zulfkhar.dev` host should 301-redirect to `https://noswipe.app` once the new domain is live.
+`.app` is on the HSTS preload list, so browsers only ever load it over HTTPS. There is no plain-HTTP fallback, so the site is unreachable until the certificate is issued. Any previous host for this app should 301-redirect to `https://noswipe.app` once the new domain is live.
 
 ## 4. Set runtime environment variables
 

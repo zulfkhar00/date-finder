@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CtaLink } from "@/components/cta-link";
 
-/** Phone-only bottom CTA. Appears once the hero CTA has scrolled away. */
+/** Phone-only bottom CTA. Appears once the hero CTA has scrolled away; `inert` keeps it out of the tab order while hidden. */
 export function StickyCta({ watchId }: { watchId: string }) {
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -14,7 +14,7 @@ export function StickyCta({ watchId }: { watchId: string }) {
     return () => observer.disconnect();
   }, [watchId]);
   return (
-    <div className="sticky-cta" data-show={show} aria-hidden={!show}>
+    <div className="sticky-cta" data-show={show} aria-hidden={!show} inert={!show}>
       <CtaLink location="sticky_mobile" className="btn btn-primary btn-block" />
     </div>
   );

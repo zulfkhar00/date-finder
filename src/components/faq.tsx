@@ -9,8 +9,8 @@ const faqs = [
   { q: "What’s the $1 for?", a: "It’s a one-time waitlist fee that holds your place in line. It isn’t a subscription and it doesn’t buy dates, matches or the service itself. When your spot opens, we’ll show you the real pricing and you decide whether to join." },
   { q: "Is the $1 refundable?", a: "No. The $1 waitlist fee is nonrefundable, except where required by law." },
   { q: "Does it guarantee me dates?", a: "No. Nobody can honestly promise that. A waitlist spot doesn’t guarantee an invitation date, availability in your city, a match or a date. What we can do is fix the things that are costing you matches and conversations." },
-  { q: "Which apps does it work with?", a: "We’re starting with Tinder. Because everything runs off screenshots, Hinge, Bumble and Badoo work the same way, at no extra cost." },
-  { q: "What happens to my photos and screenshots?", a: "When your spot opens, we use them only to draft your profile and replies, then delete them. We don’t train on them and we don’t share them. The waitlist itself only asks for your email, city and a few preferences." }
+  { q: "Which apps does it work with?", a: "We’re starting with Tinder. Because everything runs off screenshots, we plan to support Hinge, Bumble and Badoo the same way." },
+  { q: "What happens to my photos and screenshots?", a: "When your spot opens, we use them only to draft your profile and replies. They’re shared only with the AI provider that processes them to write those drafts, deleted after drafting, and never used to train AI models. The waitlist itself only asks for your email, city and a few preferences." }
 ];
 
 export function Faq() {

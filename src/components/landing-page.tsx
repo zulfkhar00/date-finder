@@ -33,7 +33,7 @@ async function FoundingMembers() {
           {showCount && (
             <p className="counter" style={{ marginBottom: 18 }}>
               <strong>{count.toLocaleString("en-US")}</strong>
-              <span>guys already in line</span>
+              <span>people already in line</span>
             </p>
           )}
           <ul className="founding-list">
