@@ -7,8 +7,8 @@ import { scrubDeep } from "@/lib/scrub";
 // Sentry v11 removed `sendDefaultPii`; `dataCollection` replaces it and its defaults collect
 // everything (bodies, cookies, headers, local variables). This is the strict equivalent of
 // `sendDefaultPii: false`: no user info, cookies, request/response bodies (the checkout body holds
-// the email), DB or AI payloads, or stack-frame locals. The `beforeSend*` hooks then redact emails and
-// Checkout session ids from whatever remains, in events, spans and breadcrumbs.
+// the email), DB or AI payloads, or stack-frame locals. The `beforeSend*` hooks then redact emails,
+// Checkout session ids and Telegram bot tokens from whatever remains, in events, spans and breadcrumbs.
 export function sentryOptions(dsn: string): BrowserOptions & NodeOptions & EdgeOptions {
   return {
     dsn,

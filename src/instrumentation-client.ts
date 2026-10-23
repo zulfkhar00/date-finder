@@ -14,5 +14,5 @@ initAnalytics();
 
 export function onRouterTransitionStart(url: string, navigationType: "push" | "replace" | "traverse") {
   if (sentryDsn) Sentry.captureRouterTransitionStart(url, navigationType);
-  trackRoute(url);
+  if (!initAnalytics(url)) trackRoute(url);
 }

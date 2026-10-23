@@ -36,11 +36,11 @@ body:
     id: owner
     attributes:
       label: Owner
-      description: Who fixes it. Add the matching `agent:*` label.
+      description: Who fixes it.
       options:
-        - miko-claude
-        - zulya-codex
-        - human
+        - miko
+        - zulya
+        - other
     validations:
       required: true
   - type: dropdown

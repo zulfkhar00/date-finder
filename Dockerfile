@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+# Requires BuildKit (the default builder since Docker Engine 23) for the optional secret mount below.
 FROM node:22-bookworm-slim AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -19,7 +21,7 @@ ARG SENTRY_PROJECT=""
 ARG GIT_SHA=""
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
+RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN,required=false \
     SENTRY_AUTH_TOKEN="$(cat /run/secrets/SENTRY_AUTH_TOKEN 2>/dev/null || true)" npm run build
 
 FROM node:22-bookworm-slim AS runner
