@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
+import { recordPaidEvent } from "@/lib/funnel";
 import { getStripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -23,6 +24,7 @@ async function completeSession(session: Stripe.Checkout.Session) {
     p_payment_intent_id: session.payment_intent
   });
   if (error) throw error;
+  await recordPaidEvent(supabase, session.id);
 }
 
 export async function POST(request: Request) {

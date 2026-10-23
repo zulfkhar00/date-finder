@@ -38,3 +38,16 @@ For a self-hosted Dokploy deployment, follow [DEPLOYMENT.md](DEPLOYMENT.md).
 ## Verification
 
 Run `npm run typecheck`, `npm run lint`, and `npm run build`. Run [`supabase/verify.sql`](supabase/verify.sql) in the SQL editor to check sequential, idempotent queue assignment as `service_role` inside a rolled-back transaction. Test Checkout with Stripe's test card `4242 4242 4242 4242`, then verify one paid row and position in Supabase. Replay the same Stripe event and confirm the position stays unchanged. Test a canceled Checkout and a manual test-mode refund in Stripe, then confirm that the webhook marks the place inactive. A full payment test requires server-side Supabase credentials and Stripe test credentials. On the connected project, [`supabase/connected-project-hardening.sql`](supabase/connected-project-hardening.sql) was also applied to remove unnecessary browser access to its pre-existing RLS event-trigger function.
+
+### Funnel tracking
+
+Apply [`supabase/2026-10-23-funnel-tracking.sql`](supabase/2026-10-23-funnel-tracking.sql). It is idempotent. Without it the app keeps working and logs `Funnel event insert failed` or `retrying without` instead. Then:
+
+1. Open `/?utm_source=test&utm_medium=cpc&utm_campaign=verify&variant=men` in a fresh private window. DevTools shows a first-party `ns_attr` cookie (first touch, 30 days), `ns_sid` in sessionStorage, and a `POST /api/event` returning 204. A later visit with different UTMs does not overwrite the cookie.
+2. Go to `/reserve`. This records one `reserve_start` per tab session. Complete the form with test card `4242 4242 4242 4242`. The new `reservations` row has `utm_*`, `variant = men`, and `referrer` (origin only, null for direct or same-site visits).
+3. In `funnel_events`, the same `session_id` has `page_view`, `reserve_start`, `checkout_created` and, after the webhook, `paid`. Replaying the Stripe event does not add a second `paid` row (`dedupe_key`).
+4. Start another checkout and go back from Stripe. The `/reserve?cancelled=1` return records `checkout_canceled`.
+5. `POST /api/event` rejects `paid`, `checkout_created` and malformed bodies with 400, and returns 429 after 30 requests per minute per client.
+6. Run [`supabase/funnel.sql`](supabase/funnel.sql) for daily counts per event and visitor→paid % by variant and `utm_campaign`.
+
+No third-party trackers are loaded. UTM values containing `@` are dropped and referrers are cut to their origin, so the funnel stores no personal data.
