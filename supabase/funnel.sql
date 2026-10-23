@@ -20,7 +20,7 @@ order by 1 desc;
 with first_touch as (
   select distinct on (session_id)
     session_id,
-    coalesce(variant, 'premium') as variant,
+    coalesce(variant, 'noswipe') as variant,
     coalesce(utm_campaign, '(none)') as utm_campaign
   from public.funnel_events
   where session_id is not null
@@ -52,7 +52,7 @@ order by visitors desc;
 
 -- 3. Cross-check against the source of truth: paid reservations by attribution.
 select
-  coalesce(variant, 'premium') as variant,
+  coalesce(variant, 'noswipe') as variant,
   coalesce(utm_source, '(none)') as utm_source,
   coalesce(utm_campaign, '(none)') as utm_campaign,
   count(*) as paid_reservations

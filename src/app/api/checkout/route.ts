@@ -46,8 +46,9 @@ export async function POST(request: Request) {
     status: "pending"
   };
   let { data: reservation, error: insertError } = await supabase.from("reservations").insert({ ...baseRow, ...attributionColumns(attribution) }).select("id").single();
-  if (insertError && attribution) {
+  if (insertError && attribution && isUndefinedColumnError(insertError)) {
     // The attribution columns may not exist yet (migration not applied); retry without them.
+    // Any other error (constraint, network, auth) is not retried and falls through to the 500 below.
     console.error("Reservation insert with attribution failed; retrying without", insertError.code);
     ({ data: reservation, error: insertError } = await supabase.from("reservations").insert(baseRow).select("id").single());
   }
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       customer_email: input.email,
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
-      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "Morrow early-access waitlist reservation", description: "One-time, nonrefundable waitlist fee, except where law requires. Concierge service is separate." } }, quantity: 1 }],
+      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "NoSwipe early-access waitlist reservation", description: "One-time, nonrefundable waitlist fee, except where law requires. Concierge service is separate." } }, quantity: 1 }],
       success_url: `${siteUrl}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/reserve?cancelled=1`
     }, { idempotencyKey: `morrow-reservation-${reservation.id}` });
@@ -96,4 +97,9 @@ function attributionColumns(attribution: Attribution | null) {
     variant: attribution.variant,
     referrer: attribution.referrer ?? null
   };
+}
+
+// Postgres 42703 = undefined_column; PostgREST PGRST204 = column not found in the schema cache.
+function isUndefinedColumnError(error: { code?: string | null }): boolean {
+  return error.code === "42703" || error.code === "PGRST204";
 }

@@ -4,7 +4,7 @@ import { z } from "zod";
 // never include personal data: UTM values that look like an email are dropped, and the
 // referrer is reduced to its origin.
 
-export const DEFAULT_VARIANT = "premium";
+export const DEFAULT_VARIANT = "noswipe";
 export const VARIANT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 export const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
 export const UTM_MAX = 200;
