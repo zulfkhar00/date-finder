@@ -61,16 +61,16 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
   if (position !== null) {
     return <div className="confirm">
       <motion.div className="ticket-card" role="status" aria-live="polite" initial={reduce ? false : { opacity: 0, y: 24, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
-        <span className="label">You’re in line</span>
+        <span className="label">Application received</span>
         <span className="queue-num" aria-label={`Number ${position}`}><span className="hash">#</span>{position.toLocaleString("en-US")}</span>
-        <h1>You’re #{position.toLocaleString("en-US")} in the queue.</h1>
-        <p>Your $1 spot is confirmed. We’ll message you when your batch starts. Batches open in queue order.</p>
+        <h1>Thanks! We’re reviewing your application.</h1>
+        <p>You’re #{position.toLocaleString("en-US")} in the queue. We’ll email you as soon as your batch is ready. Keep an eye on your inbox.</p>
         <div className="perf">Keep this page link private. It shows your spot.</div>
       </motion.div>
       <div className="panel">
         <p className="kicker">What happens next</p>
         <ol className="next-list">
-          <li><span className="how-step">1</span><span>We onboard in small batches, in queue order.</span></li>
+          <li><span className="how-step">1</span><span>We review your answers and onboard in small batches, in queue order.</span></li>
           <li><span className="how-step">2</span><span>When your batch starts, we’ll message you with the real pricing. You decide then whether to join.</span></li>
           <li><span className="how-step">3</span><span>If you join, you send your real photos. We build your profiles, swipe, chat and book the dates.</span></li>
         </ol>
