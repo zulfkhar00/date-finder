@@ -10,7 +10,7 @@ import { track } from "@/lib/track";
 import { track as trackAnalytics } from "@/lib/analytics";
 
 type FormValue = {
-  name: string; age: string; city: string; email: string; telegram: string;
+  name: string; age: string; city: string; email: string;
   datingPreference: ReservationInput["datingPreference"] | null;
   ageMin: string; ageMax: string; interests: string;
   relationshipGoal: ReservationInput["relationshipGoal"] | null;
@@ -18,11 +18,10 @@ type FormValue = {
   dateFrequency: ReservationInput["dateFrequency"] | null;
   termsAccepted: boolean;
 };
-const initial: FormValue = { name: "", age: "", city: "", email: "", telegram: "", datingPreference: null, ageMin: "", ageMax: "", interests: "", relationshipGoal: null, apps: [], dateFrequency: null, termsAccepted: false };
+const initial: FormValue = { name: "", age: "", city: "", email: "", datingPreference: null, ageMin: "", ageMax: "", interests: "", relationshipGoal: null, apps: [], dateFrequency: null, termsAccepted: false };
 const stepNames = ["About you", "Who you’re looking for", "Your apps", "Your spot"];
 const LAST = stepNames.length - 1;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TELEGRAM = /^@?[A-Za-z0-9_]{5,32}$/;
 
 const toAge = (value: string) => (/^\d{2}$/.test(value.trim()) ? Number(value.trim()) : NaN);
 const validAge = (age: number) => Number.isInteger(age) && age >= 18 && age <= 99;
@@ -56,7 +55,6 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       if (!validAge(age)) return "Enter your age. You need to be 18 or older.";
       if (value.city.trim().length < 2) return "Enter your city.";
       if (!EMAIL.test(value.email.trim())) return "Enter a valid email address.";
-      if (value.telegram.trim() && !TELEGRAM.test(value.telegram.trim())) return "That Telegram username doesn’t look right. Leave it empty if you’d rather.";
     }
     if (current === 1) {
       if (!value.datingPreference) return "Pick who you’d like to date.";
@@ -87,7 +85,6 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
     if (!value.termsAccepted) { setError("Tick the box to confirm you understand what the $1 covers."); return; }
     setLoading(true); setError("");
     track("checkout_submit");
-    const telegram = value.telegram.trim();
     const body = {
       ageConfirmed: true,
       city: value.city.trim(),
@@ -98,8 +95,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       termsAccepted: true,
       onboarding: {
         name: value.name.trim(), age: toAge(value.age), apps: value.apps,
-        ageMin: toAge(value.ageMin), ageMax: toAge(value.ageMax), interests: value.interests.trim(),
-        ...(telegram ? { telegram } : {})
+        ageMin: toAge(value.ageMin), ageMax: toAge(value.ageMax), interests: value.interests.trim()
       },
       attribution: captureAttribution(),
       funnelSessionId: getFunnelSessionId()
@@ -134,7 +130,6 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
             <div className="field"><label htmlFor="age">Your age</label><input id="age" name="age" inputMode="numeric" placeholder="18+" maxLength={2} value={value.age} onChange={(event) => change("age", event.target.value.replace(/\D/g, ""))} /></div>
             <div className="field"><label htmlFor="city">Your city</label><input id="city" name="city" autoComplete="address-level2" placeholder="e.g. Austin" maxLength={120} value={value.city} onChange={(event) => change("city", event.target.value)} /></div>
             <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" maxLength={254} value={value.email} onChange={(event) => change("email", event.target.value)} /></div>
-            <div className="field"><label htmlFor="telegram">Telegram <span className="field-optional">(optional)</span></label><input id="telegram" name="telegram" autoComplete="off" placeholder="@username" maxLength={33} value={value.telegram} onChange={(event) => change("telegram", event.target.value)} /></div>
           </div>
         </>}
         {step === 1 && <>

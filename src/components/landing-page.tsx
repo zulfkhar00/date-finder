@@ -25,7 +25,7 @@ export function LandingPage() {
           <div className="hero-copy">
             <span className="sticker">Done for you. All of it.</span>
             <h1 id="hero-title"><span className="line">We find you dates.</span><span className="line">You just <span className="mark">show up.</span></span></h1>
-            <p className="hero-sub">On Tinder, Bumble and Hinge. <strong>We build your profiles, swipe, chat and book the date for you.</strong> No coaching, no tips, nothing to do but go.</p>
+            <p className="hero-sub">On Tinder, Bumble and Hinge. <strong>We build your profiles, swipe, chat and book the date for you.</strong></p>
             <div className="hero-cta" id="hero-cta">
               <CtaLink location="hero" />
               <a href="#get" className="hero-alt">See what you get <ArrowDown size={16} strokeWidth={2.5} /></a>
@@ -46,9 +46,9 @@ export function LandingPage() {
         </div>
 
         <section id="get" className="section shell" aria-labelledby="get-title">
-          <p className="kicker">What you get · Examples</p>
+          <p className="kicker">What you get</p>
           <h2 id="get-title" className="h2">Dates, already booked. <span className="mark">That’s it.</span></h2>
-          <p className="lede">For every date we land, you get her first name, the app, what we talked about, what she’s into, when and where, and her number. These are made-up examples, not real people.</p>
+          <p className="lede">For every date we land, you get her first name, the app, what we talked about, what she’s into, when and where, and her number.</p>
           <MatchCards />
         </section>
 

@@ -32,7 +32,6 @@ export function MatchCards() {
           <div className="match-card-head">
             <span className={`avatar ${m.avatar}`} aria-hidden="true">{m.initial}</span>
             <span className="who"><strong>{m.name}</strong><span>Matched on {m.app}</span></span>
-            <span className="example-tag">Example</span>
           </div>
           <p className="match-summary">{m.summary}</p>
           <ul className="match-into" aria-label="She’s into">
