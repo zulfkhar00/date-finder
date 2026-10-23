@@ -24,13 +24,12 @@ export function HeroPhone() {
   const s = reduce ? LAST : step;
 
   return (
-    <div className="phone" role="img" aria-label="Example: NoSwipe chats with a new match for you, she replies, they set a Saturday date, and you get a text that the date is confirmed.">
+    <div className="phone" role="img" aria-label="NoSwipe chats with a new match for you, she replies, they set a Saturday date, and you get a text that the date is confirmed.">
       <div className="phone-screen" aria-hidden="true">
         <div className="phone-notch" />
         <div className="chat-head">
           <span className="avatar av-1">M</span>
           <span className="who"><strong>Maya</strong><span>New match on Hinge</span></span>
-          <span className="example-tag">Example</span>
         </div>
         <div className="chat-body">
           <motion.div layout className="chat-divider">You matched today</motion.div>

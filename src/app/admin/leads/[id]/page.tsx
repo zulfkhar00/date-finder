@@ -36,7 +36,6 @@ function OnboardingCard({ lead }: { lead: LeadDetail }) {
           <dt>Apps</dt><dd>{appsText(data.apps)}</dd>
           <dt>Her age range</dt><dd>{typeof data.ageMin === "number" && typeof data.ageMax === "number" ? `${data.ageMin}–${data.ageMax}` : "—"}</dd>
           <dt>His type</dt><dd>{text(data.interests)}</dd>
-          <dt>Telegram</dt><dd>{typeof data.telegram === "string" && data.telegram ? `@${data.telegram}` : "—"}</dd>
         </dl>
       )}
     </section>
