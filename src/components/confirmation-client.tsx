@@ -7,7 +7,7 @@ import { Check, Link2 } from "lucide-react";
 import { track } from "@/lib/track";
 import { trackOnce } from "@/lib/analytics";
 
-type Status = { status: "pending" | "paid" | "refunded" | "expired"; position: number | null };
+type Status = { status: "pending" | "paid" | "refunded" | "expired" };
 
 function ShareButton() {
   const [state, setState] = useState<"idle" | "copying" | "copied" | "failed">("idle");
@@ -56,16 +56,12 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
     return () => { cancelled = true; clearTimeout(timer); };
   }, [sessionId]);
 
-  const position = data?.status === "paid" && typeof data.position === "number" ? data.position : null;
-
-  if (position !== null) {
+  if (data?.status === "paid") {
     return <div className="confirm">
       <motion.div className="ticket-card" role="status" aria-live="polite" initial={reduce ? false : { opacity: 0, y: 24, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
         <span className="label">Application received</span>
-        <span className="queue-num" aria-label={`Number ${position}`}><span className="hash">#</span>{position.toLocaleString("en-US")}</span>
         <h1>Thanks! We’re reviewing your application.</h1>
-        <p>You’re #{position.toLocaleString("en-US")} in the queue. We’ll email you as soon as your batch is ready. Keep an eye on your inbox.</p>
-        <div className="perf">Keep this page link private. It shows your spot.</div>
+        <p>We’ll email you as soon as your batch is ready. Keep an eye on your inbox.</p>
       </motion.div>
       <div className="panel">
         <p className="kicker">What happens next</p>
@@ -82,9 +78,9 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
   }
 
   let heading = "Checking your payment…";
-  let detail = "Stripe is confirming your $1. Your number is assigned only after we verify the payment, which usually takes a few seconds.";
+  let detail = "Stripe is confirming your $1. Your application is confirmed only after we verify the payment, which usually takes a few seconds.";
   let tone = "waiting";
-  if (!checking && data?.status === "pending") { heading = "Still confirming."; detail = "Your payment hasn’t been verified yet. Refresh this page in a minute. If you were charged, your number will appear here."; }
+  if (!checking && data?.status === "pending") { heading = "Still confirming."; detail = "Your payment hasn’t been verified yet. Refresh this page in a minute. If you were charged, your confirmation will appear here."; }
   if (data?.status === "refunded") { heading = "Your payment was refunded."; detail = "The $1 went back to your original payment method, and your waitlist spot is no longer active."; tone = "muted"; }
   if (data?.status === "expired") { heading = "Checkout wasn’t completed."; detail = "No payment was taken and no spot was assigned. You can try again any time."; tone = "muted"; }
   if (message) { heading = "We couldn’t load this spot."; tone = "muted"; }
