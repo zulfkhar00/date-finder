@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { sendReservationConfirmation } from "@/lib/email";
 import { recordPaidEvent } from "@/lib/funnel";
-import { errorMessage, maskEmail, notifyOps, notifyOpsError } from "@/lib/ops-notify";
+import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { getStripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -47,7 +47,7 @@ async function paidText(supabase: ReturnType<typeof getSupabaseAdmin>, reservati
     // name and city are optional in the alert
   }
   const email = session.customer_details?.email ?? session.customer_email;
-  return [`💵 $1 reserve paid${modeTag(event)}`, who, email ? maskEmail(email) : ""].filter(Boolean).join("\n");
+  return [`💵 $1 reserve paid${modeTag(event)}`, who, email ?? ""].filter(Boolean).join("\n");
 }
 
 export async function POST(request: Request) {
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         // Abandoned checkouts (expired) are normal and stay quiet; a failed payment is worth a line.
         if (event.type === "checkout.session.async_payment_failed" && data?.length) {
           const email = session.customer_details?.email ?? session.customer_email;
-          notifyOps("payments", [`❌ Payment failed${modeTag(event)}`, email ? maskEmail(email) : ""].filter(Boolean).join("\n"), event.id);
+          notifyOps("payments", [`❌ Payment failed${modeTag(event)}`, email ?? ""].filter(Boolean).join("\n"), event.id);
         }
         break;
       }
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
           // Only the first paid -> refunded transition posts, so Stripe retries stay quiet.
           if (data?.length) {
             const email = charge.billing_details?.email ?? charge.receipt_email;
-            notifyOps("payments", [`↩️ Refund $${(charge.amount_refunded / 100).toFixed(2)}${modeTag(event)}`, email ? maskEmail(email) : ""].filter(Boolean).join("\n"), event.id);
+            notifyOps("payments", [`↩️ Refund $${(charge.amount_refunded / 100).toFixed(2)}${modeTag(event)}`, email ?? ""].filter(Boolean).join("\n"), event.id);
           }
         }
         break;

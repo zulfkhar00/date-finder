@@ -74,13 +74,6 @@ export function notifyOpsError(route: string, message: string): void {
   }
 }
 
-/** "jane.doe@gmail.com" -> "ja***@gmail.com". */
-export function maskEmail(email: string): string {
-  const [user, domain] = email.split("@");
-  if (!domain) return "***";
-  return `${user.slice(0, 2)}***@${domain}`;
-}
-
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "code" in error) return `code ${String((error as { code: unknown }).code)}`;
