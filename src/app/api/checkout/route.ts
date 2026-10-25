@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { attributionSchema, sessionIdSchema, type Attribution } from "@/lib/attribution";
 import { recordFunnelEvent } from "@/lib/funnel";
-import { onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
+import { errorMessage, maskEmail, notifyOps, notifyOpsError } from "@/lib/ops-notify";
+import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -23,7 +24,8 @@ export async function POST(request: Request) {
   let stripe, supabase, siteUrl;
   try {
     stripe = getStripe(); supabase = getSupabaseAdmin(); siteUrl = getSiteUrl();
-  } catch {
+  } catch (error) {
+    notifyOpsError("POST /api/checkout 503", errorMessage(error));
     return NextResponse.json({ error: "Reservations are temporarily unavailable. Please try again later." }, { status: 503 });
   }
 
@@ -70,8 +72,11 @@ export async function POST(request: Request) {
 
   if (insertError || !reservation) {
     console.error("Reservation insert failed", insertError?.code);
+    notifyOpsError("POST /api/checkout 500", `reservation insert failed ${insertError?.code ?? ""}`.trim());
     return NextResponse.json({ error: "We couldn't save your reservation. Please try again." }, { status: 500 });
   }
+
+  notifyOps("signups", signupText(input.city, input.email, onboarding));
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -96,9 +101,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Checkout creation failed", error instanceof Error ? error.message : "unknown error");
+    notifyOpsError("POST /api/checkout 502", `checkout creation failed: ${errorMessage(error)}`);
     await supabase.from("reservations").update({ status: "expired" }).eq("id", reservation.id).eq("status", "pending");
     return NextResponse.json({ error: "Checkout could not open. You have not been charged. Please try again." }, { status: 502 });
   }
+}
+
+// No full email or phone in the ops group: first name, city, apps, age range, masked email.
+function signupText(city: string, email: string, onboarding: Onboarding | null): string {
+  const lines = [`📝 New signup: ${onboarding?.name.split(/\s+/)[0] ?? "(no name)"}, ${city}`];
+  if (onboarding) {
+    lines.push(`Apps: ${onboarding.apps.map((app) => datingAppLabels[app]).join(", ")}`);
+    lines.push(`Age ${onboarding.age}, looking for ${onboarding.ageMin}–${onboarding.ageMax}`);
+  }
+  lines.push(maskEmail(email));
+  return lines.join("\n");
 }
 
 function attributionColumns(attribution: Attribution | null) {
