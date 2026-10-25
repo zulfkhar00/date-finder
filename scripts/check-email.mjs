@@ -15,5 +15,6 @@ for (const body of [email.text, email.html]) {
   assert.equal(/waitlist/i.test(body), false, "no waitlist wording");
 }
 assert.ok(email.html.includes('href="https://noswipe.app"'));
+assert.ok(email.html.includes('src="https://www.noswipe.app/brand/email-logo.png"'), "logo in the header");
 
 console.log("email: all checks passed");
