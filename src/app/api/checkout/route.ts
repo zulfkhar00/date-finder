@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       customer_email: input.email,
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
-      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "NoSwipe early-access waitlist reservation", description: "One-time, nonrefundable waitlist fee, except where law requires. Concierge service is separate." } }, quantity: 1 }],
+      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "NoSwipe application: your spot in the queue", description: "One-time, nonrefundable $1 fee, except where law requires. The dating service is separate." } }, quantity: 1 }],
       success_url: `${siteUrl}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/reserve?cancelled=1`
     }, { idempotencyKey: `morrow-reservation-${reservation.id}` });

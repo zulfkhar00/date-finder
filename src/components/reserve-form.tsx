@@ -155,11 +155,11 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
           <p>We’re onboarding in small batches. Reserve your spot in the next batch for $1.</p>
           <div className="review-box">
             <div><span>Spot in the next batch</span><strong>$1</strong></div>
-            <p>This holds your place on the NoSwipe early-access waitlist. It isn’t a subscription, and it isn’t payment for dates, matches or concierge service; those are separate, with pricing we’ll show you before you join. No guaranteed date, introduction, invitation date or availability in your city.</p>
+            <p>This holds your place on the NoSwipe onboarding queue. It isn’t a subscription, and it isn’t payment for dates, matches or concierge service; those are separate, with pricing we’ll show you before you join. No guaranteed date, introduction, invitation date or availability in your city.</p>
             <p>The $1 fee is nonrefundable, except where required by law.</p>
           </div>
           <p className="review-details">We’ll message you when your batch starts. Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">reservation terms</Link>.</p>
-          <label className="checkbox-line"><input type="checkbox" checked={value.termsAccepted} onChange={(event) => change("termsAccepted", event.target.checked)} /><span>I understand this is a nonrefundable $1 waitlist fee, not payment for dates or concierge service, and I agree to the reservation terms.</span></label>
+          <label className="checkbox-line"><input type="checkbox" checked={value.termsAccepted} onChange={(event) => change("termsAccepted", event.target.checked)} /><span>I understand this is a nonrefundable $1 queue fee, not payment for dates or concierge service, and I agree to the reservation terms.</span></label>
         </>}
       </motion.div>
     </AnimatePresence>

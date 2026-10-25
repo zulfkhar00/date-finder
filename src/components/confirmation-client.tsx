@@ -81,7 +81,7 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
   let detail = "Stripe is confirming your $1. Your application is confirmed only after we verify the payment, which usually takes a few seconds.";
   let tone = "waiting";
   if (!checking && data?.status === "pending") { heading = "Still confirming."; detail = "Your payment hasn’t been verified yet. Refresh this page in a minute. If you were charged, your confirmation will appear here."; }
-  if (data?.status === "refunded") { heading = "Your payment was refunded."; detail = "The $1 went back to your original payment method, and your waitlist spot is no longer active."; tone = "muted"; }
+  if (data?.status === "refunded") { heading = "Your payment was refunded."; detail = "The $1 went back to your original payment method, and your spot in the queue is no longer active."; tone = "muted"; }
   if (data?.status === "expired") { heading = "Checkout wasn’t completed."; detail = "No payment was taken and no spot was assigned. You can try again any time."; tone = "muted"; }
   if (message) { heading = "We couldn’t load this spot."; tone = "muted"; }
 
