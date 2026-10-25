@@ -17,8 +17,8 @@ function emailConfig() {
 }
 
 /** Sends through Resend. Returns true on a 2xx. Logs status codes only, never addresses or content. */
-async function sendViaResend(config: NonNullable<ReturnType<typeof emailConfig>>, to: string, idempotencyKey: string, queuePosition: number) {
-  const { subject, text, html } = buildConfirmationEmail(queuePosition);
+async function sendViaResend(config: NonNullable<ReturnType<typeof emailConfig>>, to: string, idempotencyKey: string) {
+  const { subject, text, html } = buildConfirmationEmail();
   try {
     const response = await fetch(RESEND_URL, {
       method: "POST",
@@ -64,7 +64,7 @@ export async function sendReservationConfirmation(supabase: SupabaseClient, rese
 
     if (!claim.error) {
       if (!claim.data?.queue_position) return; // Already sent, or not paid.
-      const sent = await sendViaResend(config, claim.data.email, idempotencyKey, claim.data.queue_position);
+      const sent = await sendViaResend(config, claim.data.email, idempotencyKey);
       if (!sent) {
         const { error } = await supabase.from("reservations").update({ confirmation_email_sent_at: null }).eq("id", reservationId);
         if (error) console.error("Confirmation email release failed", error.code);
@@ -82,7 +82,7 @@ export async function sendReservationConfirmation(supabase: SupabaseClient, rese
       console.error("Confirmation email lookup failed", error.code);
       return;
     }
-    if (data?.queue_position) await sendViaResend(config, data.email, idempotencyKey, data.queue_position);
+    if (data?.queue_position) await sendViaResend(config, data.email, idempotencyKey);
   } catch (error) {
     console.error("Confirmation email failed", error instanceof Error ? error.name : "unknown error");
   }

@@ -9,10 +9,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid reservation link" }, { status: 400 });
   }
   try {
-    const { data, error } = await getSupabaseAdmin().from("reservations").select("status, queue_position").eq("stripe_checkout_session_id", sessionId).maybeSingle();
+    const { data, error } = await getSupabaseAdmin().from("reservations").select("status").eq("stripe_checkout_session_id", sessionId).maybeSingle();
     if (error) throw error;
     if (!data) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
-    return NextResponse.json({ status: data.status, position: data.status === "paid" ? data.queue_position : null }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ status: data.status }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Unable to load reservation status" }, { status: 500 });
   }
