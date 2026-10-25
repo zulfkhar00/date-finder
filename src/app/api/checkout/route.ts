@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { attributionSchema, sessionIdSchema, type Attribution } from "@/lib/attribution";
 import { recordFunnelEvent } from "@/lib/funnel";
-import { errorMessage, maskEmail, notifyOps, notifyOpsError } from "@/lib/ops-notify";
+import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -107,14 +107,14 @@ export async function POST(request: Request) {
   }
 }
 
-// No full email or phone in the ops group: first name, city, apps, age range, masked email.
+// Signup alert for the founders' group: first name, city, apps, age range, full email.
 function signupText(city: string, email: string, onboarding: Onboarding | null): string {
   const lines = [`📝 New signup: ${onboarding?.name.split(/\s+/)[0] ?? "(no name)"}, ${city}`];
   if (onboarding) {
     lines.push(`Apps: ${onboarding.apps.map((app) => datingAppLabels[app]).join(", ")}`);
     lines.push(`Age ${onboarding.age}, looking for ${onboarding.ageMin}–${onboarding.ageMax}`);
   }
-  lines.push(maskEmail(email));
+  lines.push(email);
   return lines.join("\n");
 }
 
