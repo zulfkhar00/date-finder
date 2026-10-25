@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorMessage, notifyOpsError } from "@/lib/ops-notify";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -13,7 +14,8 @@ export async function GET(request: Request) {
     if (error) throw error;
     if (!data) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
     return NextResponse.json({ status: data.status }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    notifyOpsError("GET /api/reservation-status 500", errorMessage(error));
     return NextResponse.json({ error: "Unable to load reservation status" }, { status: 500 });
   }
 }
