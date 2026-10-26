@@ -26,6 +26,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <Link href="/admin" className={styles.navLink}>Overview</Link>
               <Link href="/admin/leads" className={styles.navLink}>Leads</Link>
               <Link href="/admin/concierge" className={styles.navLink}>Concierge</Link>
+              <Link href="/admin/videos" className={styles.navLink}>Videos</Link>
             </nav>
             <div className={styles.headerRight}>
               <span>{admin.email}</span>

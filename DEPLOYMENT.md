@@ -174,3 +174,12 @@ EMAIL_REPLY_TO=
 ```
 
 Redeploy after setting them. **Check it** with a Stripe test-mode reservation using an address you can read: the email should arrive once, `confirmation_email_sent_at` should be set on the row, and resending the same event from the Stripe dashboard (Workbench → Events → Resend) should not send a second email.
+
+## 10. Admin videos (posting queue)
+
+`/admin/videos` shows the @noswipe.app posting queue: up next (Pacific times), needs fixes, posted (Instagram link), failed/skipped. Either founder can request **Post anyway** on a needs-fixes video or **Don't post** on a scheduled one.
+
+1. Apply `supabase/2026-10-25-content-posts.sql` (tables `content_posts` + `content_actions`, RLS on, service role only, and the private `content-previews` bucket).
+2. Set `CONTENT_SYNC_TOKEN` (32+ random characters) in the production environment and redeploy.
+
+An external sync job owned by the founders calls `POST /api/content/sync` every 5 minutes with that bearer token. It upserts every video, uploads previews through one-time signed upload URLs, receives the open requests, applies them to the queue, and reports them done on the next call. The page only reads; previews are served as 10-minute signed URLs.

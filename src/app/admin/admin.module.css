@@ -157,3 +157,32 @@
 .authCard .input { width: 100%; padding: 9px 12px; font-size: 14px; }
 .authCard .button, .authCard .buttonGhost { width: 100%; padding: 9px 14px; }
 .linkButton { background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--a-accent); cursor: pointer; justify-self: start; }
+
+/* Videos (/admin/videos) */
+.videoGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.videoCard { background: var(--a-surface); border: 1px solid var(--a-line); border-radius: 10px; overflow: hidden; display: grid; grid-template-columns: 132px minmax(0, 1fr); }
+.videoMedia { background: #0b0b0c; aspect-ratio: 9 / 16; display: grid; place-items: center; font-size: 12px; }
+.videoMedia video, .videoMedia img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.videoBody { padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.videoHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.videoHead h2 { font-size: 14px; overflow-wrap: anywhere; }
+.videoMeta { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 12px; }
+.videoMeta dt { color: var(--a-muted); }
+.videoMeta dd { margin: 0; }
+.videoCaption { margin: 0; font-size: 12px; color: #374151; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.videoFixes { margin: 0; padding-left: 16px; font-size: 12px; display: grid; gap: 4px; }
+.videoAction { display: grid; gap: 6px; justify-items: start; }
+.badge_content_scheduled { background: var(--a-accent-soft); color: var(--a-accent); }
+.badge_content_posted { background: #ecfdf5; color: var(--a-green); }
+.badge_content_fix, .badge_content_review { background: #fffbeb; color: var(--a-amber); }
+.badge_content_failed { background: #fef2f2; color: var(--a-red); }
+@media (max-width: 640px) {
+  .header { gap: 12px; padding: 0 12px; }
+  .nav { overflow-x: auto; scrollbar-width: none; }
+  .headerRight > span { display: none; }
+  .main { padding: 16px 12px; }
+  .segmented { max-width: 100%; overflow-x: auto; }
+  .segment { white-space: nowrap; }
+  .videoGrid { grid-template-columns: 1fr; }
+  .videoCard { grid-template-columns: 112px minmax(0, 1fr); }
+}
