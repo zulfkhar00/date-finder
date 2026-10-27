@@ -5,6 +5,7 @@ import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
 
   // Attribution is best-effort: invalid or missing values never block checkout.
   const record = (payload ?? {}) as Record<string, unknown>;
+  const presentation = checkoutPresentation(record.checkoutMode, process.env.STRIPE_PUBLISHABLE_KEY, siteUrl);
   const attributionResult = attributionSchema.safeParse(record.attribution ?? {});
   const attribution: Attribution | null = attributionResult.success ? attributionResult.data : null;
   const sessionIdResult = sessionIdSchema.safeParse(record.funnelSessionId);
@@ -87,18 +89,23 @@ export async function POST(request: Request) {
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
       line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "NoSwipe application: your spot in the queue", description: "One-time, nonrefundable $1 fee, except where law requires. The dating service is separate." } }, quantity: 1 }],
-      success_url: `${siteUrl}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/reserve?cancelled=1`
+      ...presentation.params
     }, { idempotencyKey: `morrow-reservation-${reservation.id}` });
 
-    if (!session.url) throw new Error("Stripe did not return a checkout URL");
+    let response;
+    try {
+      response = checkoutResponse(session, presentation);
+    } catch (error) {
+      await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+      throw error;
+    }
     const { data: updated, error: updateError } = await supabase.from("reservations").update({ stripe_checkout_session_id: session.id }).eq("id", reservation.id).eq("status", "pending").select("id").maybeSingle();
     if (updateError || !updated) {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
       throw updateError ?? new Error("Reservation was not attached to checkout");
     }
     await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, dedupeKey: `checkout_created:${session.id}` });
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Checkout creation failed", error instanceof Error ? error.message : "unknown error");
     notifyOpsError("POST /api/checkout 502", `checkout creation failed: ${errorMessage(error)}`);

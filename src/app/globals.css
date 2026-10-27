@@ -298,6 +298,12 @@ h1,h2,h3,h4,p{margin:0}
 .review-box p{margin-top:10px;font-size:15px;color:var(--grape-2)}
 .review-details{font-size:14px;color:var(--grape-2)}
 .review-details a,.doc a{text-decoration:underline;text-underline-offset:3px;font-weight:700}
+.embedded-payment{min-width:0}
+.payment-note,.payment-loading{display:flex;align-items:center;gap:8px;margin:14px 0;font-weight:700}
+.payment-frame{margin-top:20px;min-width:0;background:#fff;border-radius:var(--r-md);overflow:hidden}
+.payment-frame:not(:empty){min-height:360px}
+.embedded-payment .form-actions{align-items:flex-start;gap:12px}
+.embedded-payment .form-back{font-size:14px;text-align:left}
 
 /* Confirmation */
 .confirm{padding-top:28px;padding-bottom:90px;display:grid;gap:24px}
