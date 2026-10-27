@@ -122,7 +122,7 @@ function VideoCard({ post, preview, open }: { post: ContentPost; preview?: strin
       </div>
       <div className={styles.videoBody}>
         <div className={styles.videoHead}>
-          <h2>{post.title || "Untitled"}</h2>
+          <h2>{post.title.replace(/^[\s—–-]+/, "") || "Untitled"}</h2>
           <Badge value={`content_${post.status}`} label={STATUS_LABEL[post.status] ?? post.status} />
         </div>
         <dl className={styles.videoMeta}>
