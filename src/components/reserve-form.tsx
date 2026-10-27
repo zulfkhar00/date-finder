@@ -8,6 +8,8 @@ import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attrib
 import { DATING_APPS, datingAppLabels, dateFrequencyLabels, datingPreferenceLabels, relationshipGoalLabels, type DatingApp, type ReservationInput } from "@/lib/reservation";
 import { track } from "@/lib/track";
 import { track as trackAnalytics } from "@/lib/analytics";
+import { EmbeddedPayment } from "@/components/embedded-payment";
+import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
 
 type FormValue = {
   name: string; age: string; city: string; email: string;
@@ -35,6 +37,8 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const submitting = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const tracked = useRef(false);
@@ -80,12 +84,14 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
   }
 
   async function submit() {
-    if (loading) return;
+    if (submitting.current) return;
     for (let i = 0; i < LAST; i++) { const problem = check(i); if (problem) { setStep(i); setError(problem); return; } }
     if (!value.termsAccepted) { setError("Tick the box to confirm you understand what the $1 covers."); return; }
+    submitting.current = true;
     setLoading(true); setError("");
     track("checkout_submit");
     const body = {
+      checkoutMode: "embedded",
       ageConfirmed: true,
       city: value.city.trim(),
       email: value.email.trim(),
@@ -103,18 +109,26 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
     try {
       const response = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const result = await response.json();
-      if (!response.ok || typeof result.url !== "string") throw new Error(result.error || "Checkout could not open.");
+      if (!response.ok) throw new Error(result.error || "Checkout could not open.");
+      const checkout = readCheckoutResponse(result);
       trackAnalytics("checkout_created", { instant: true });
-      window.location.assign(result.url);
+      if (checkout.mode === "embedded") {
+        setPayment(checkout);
+        setLoading(false);
+        submitting.current = false;
+      } else window.location.assign(checkout.url);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout could not open. Please try again.");
       setLoading(false);
+      submitting.current = false;
     }
   }
 
   const change = <K extends keyof FormValue>(key: K, nextValue: FormValue[K]) => { setValue((current) => ({ ...current, [key]: nextValue })); setError(""); };
   const toggleApp = (app: DatingApp) => change("apps", value.apps.includes(app) ? value.apps.filter((item) => item !== app) : [...value.apps, app]);
   const transition = { initial: { opacity: 0, x: 18 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -18 }, transition: { duration: 0.24 } };
+
+  if (payment) return <div className="panel reserve-form"><EmbeddedPayment payment={payment} onBack={() => setPayment(null)} /></div>;
 
   return <div className="panel reserve-form">
     <div className="progress" aria-hidden="true">{stepNames.map((_, i) => <span key={i} data-on={i <= step} />)}</div>

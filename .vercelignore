@@ -1,0 +1,8 @@
+.beads
+.beadhub
+.aw
+.claude
+.agents
+.env*
+!.env.example
+*.tsbuildinfo
