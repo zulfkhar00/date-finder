@@ -5,8 +5,11 @@ import styles from "../admin.module.css";
 const W = 960;
 const H = 260;
 const PAD = { top: 16, right: 44, bottom: 30, left: 48 };
-const VIEWS = "#93c5fd";
-const PAID = "#059669";
+// Landing palette: grape-3 for volume, coral for money (src/app/globals.css).
+const VIEWS = "#7A6C93";
+const PAID = "#F0402C";
+const GRID = "rgba(34,16,74,.14)";
+const LABEL = "#7A6C93";
 
 /** Smallest 1/2/5×10^k step so 4 steps cover max, at least 1 (counts are integers). */
 function axisTop(max: number): number {
@@ -45,8 +48,8 @@ export function DailyChart({ points }: { points: DailyPoint[] }) {
           const y = PAD.top + innerH - (t / 4) * innerH;
           return (
             <g key={t}>
-              <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke="#e5e7eb" />
-              <text x={PAD.left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">{formatInt((viewsTop * t) / 4)}</text>
+              <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke={GRID} />
+              <text x={PAD.left - 8} y={y + 4} textAnchor="end" fontSize="11" fill={LABEL}>{formatInt((viewsTop * t) / 4)}</text>
               <text x={W - PAD.right + 8} y={y + 4} fontSize="11" fill={PAID}>{formatInt((paidTop * t) / 4)}</text>
             </g>
           );
@@ -54,7 +57,7 @@ export function DailyChart({ points }: { points: DailyPoint[] }) {
         {points.map((p, i) =>
           // Anchored on the newest day so labels stay evenly spaced and never collide at the edge.
           (points.length - 1 - i) % labelEvery === 0 ? (
-            <text key={p.day} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="#6b7280">{formatDay(p.day)}</text>
+            <text key={p.day} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill={LABEL}>{formatDay(p.day)}</text>
           ) : null
         )}
         <path d={line(yViews, "pageViews")} fill="none" stroke={VIEWS} strokeWidth="2" strokeLinejoin="round" />

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/brand";
 import { getAdminState } from "@/lib/admin-auth";
 import { signOut } from "./_lib/actions";
+import { AdminNav } from "./_components/admin-nav";
 import { SubmitButton } from "./_components/submit-button";
 import styles from "./admin.module.css";
 
@@ -19,15 +21,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <div className={styles.root}>
       <header className={styles.header}>
-        <Link href="/admin" className={styles.brand}>NoSwipe <span>admin</span></Link>
+        <Link href="/admin" className={styles.brand} aria-label="NoSwipe admin home">
+          <BrandMark className={styles.brandMark} />
+          <span className={styles.brandName}>NoSwipe</span>
+          <span className={styles.brandTag}>admin</span>
+        </Link>
         {admin ? (
           <>
-            <nav className={styles.nav}>
-              <Link href="/admin" className={styles.navLink}>Overview</Link>
-              <Link href="/admin/leads" className={styles.navLink}>Leads</Link>
-              <Link href="/admin/concierge" className={styles.navLink}>Concierge</Link>
-              <Link href="/admin/videos" className={styles.navLink}>Videos</Link>
-            </nav>
+            <AdminNav />
             <div className={styles.headerRight}>
               <span>{admin.email}</span>
               <form action={signOut}>
