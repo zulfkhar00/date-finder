@@ -18,8 +18,9 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
     <div className={styles.authWrap}>
       <div className={styles.authCard}>
         <div>
+          <span className={styles.authKicker}>Founders only</span>
           <h1>Sign in</h1>
-          <p className={styles.sub}>Founders only. We email you a one-time link and code.</p>
+          <p className={styles.sub}>We email you a one-time link and code.</p>
         </div>
         <LoginForm initialError={typeof errorKey === "string" ? ERRORS[errorKey] : undefined} />
       </div>
