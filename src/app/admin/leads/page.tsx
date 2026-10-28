@@ -112,13 +112,13 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                 <tr>
                   <th>Created</th>
                   <th>Email</th>
-                  <th>City</th>
-                  <th>Preferences</th>
+                  <th className={styles.hideSm}>City</th>
+                  <th className={styles.hideSm}>Preferences</th>
                   <th>Status</th>
-                  <th className={styles.num}>Queue #</th>
-                  <th>Variant</th>
-                  <th>Campaign</th>
-                  <th>Paid at</th>
+                  <th className={`${styles.num} ${styles.hideSm}`}>Queue #</th>
+                  <th className={styles.hideSm}>Variant</th>
+                  <th className={styles.hideSm}>Campaign</th>
+                  <th className={styles.hideSm}>Paid at</th>
                   <th>Stage</th>
                 </tr>
               </thead>
@@ -127,15 +127,15 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                   <tr key={row.id}>
                     <td className={styles.nowrap}>{formatDateTime(row.created_at)}</td>
                     <td><Link href={`/admin/leads/${row.id}`} className={styles.rowLink}>{row.email}</Link></td>
-                    <td>{row.city}</td>
-                    <td className={styles.muted}>
+                    <td className={styles.hideSm}>{row.city}</td>
+                    <td className={`${styles.muted} ${styles.hideSm}`}>
                       {[PREFERENCE_SHORT[row.dating_preference], GOAL_SHORT[row.relationship_goal], FREQUENCY_SHORT[row.date_frequency]].filter(Boolean).join(" · ")}
                     </td>
                     <td><Badge value={row.status} label={STATUS_LABELS[row.status]} /></td>
-                    <td className={styles.num}>{row.queue_position ?? "—"}</td>
-                    <td>{row.variant ?? DEFAULT_VARIANT_LABEL}</td>
-                    <td>{row.utm_campaign ?? <span className={styles.muted}>{NO_CAMPAIGN_LABEL}</span>}</td>
-                    <td className={styles.nowrap}>{formatDateTime(row.paid_at)}</td>
+                    <td className={`${styles.num} ${styles.hideSm}`}>{row.queue_position ?? "—"}</td>
+                    <td className={styles.hideSm}>{row.variant ?? DEFAULT_VARIANT_LABEL}</td>
+                    <td className={styles.hideSm}>{row.utm_campaign ?? <span className={styles.muted}>{NO_CAMPAIGN_LABEL}</span>}</td>
+                    <td className={`${styles.nowrap} ${styles.hideSm}`}>{formatDateTime(row.paid_at)}</td>
                     <td><Badge value={row.stage} label={STAGE_LABELS[row.stage]} /></td>
                   </tr>
                 ))}
