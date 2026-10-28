@@ -168,7 +168,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
           <h2 ref={headingRef} tabIndex={-1}>You’re all set.</h2>
           <p>Last step: secure checkout, then NoSwipe starts setting up your apps.</p>
           <div className="review-box">
-            <div><span>Apps</span><strong>{value.apps.map((app) => datingAppLabels[app]).join(", ")}</strong></div>
+            <p style={{ marginTop: 0, fontWeight: 700 }}>Your apps: {value.apps.map((app) => datingAppLabels[app]).join(", ")}</p>
             <p>You see exactly what you pay on the next screen, before you pay anything.</p>
           </div>
           <p className="review-details">Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">terms</Link>.</p>
