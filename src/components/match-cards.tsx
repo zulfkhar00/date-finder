@@ -6,15 +6,15 @@ type Match = { name: string; initial: string; avatar: string; app: string; summa
 const matches: Match[] = [
   {
     name: "Maya", initial: "M", avatar: "av-1", app: "Hinge",
-    summary: "Opened on her dog photo. Talked hiking and the best tacos in the Mission. She suggested Saturday.",
+    summary: "Opened on her dog photo. Talked hiking and the best tacos in town. She suggested Saturday.",
     into: ["Hiking", "Her dog Biscuit", "Tacos"],
-    day: "Sat", time: "11:00 AM", place: "Coffee + walk, Dolores Park"
+    day: "Sat", time: "11:00 AM", place: "Coffee + walk, Café Orsa"
   },
   {
     name: "Jess", initial: "J", avatar: "av-2", app: "Bumble",
     summary: "She messaged first about your Lisbon photo. Swapped travel stories, she’s a big live-music person.",
     into: ["Travel", "Live music", "Natural wine"],
-    day: "Thu", time: "8:00 PM", place: "Wine bar, Hayes Valley"
+    day: "Thu", time: "8:00 PM", place: "Wine bar, Bar Lumen"
   },
   {
     name: "Priya", initial: "P", avatar: "av-3", app: "Tinder",
