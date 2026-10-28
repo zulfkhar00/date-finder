@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { ConfirmationClient } from "@/components/confirmation-client";
 
-export const metadata: Metadata = { title: "Your spot", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "You’re in", robots: { index: false, follow: false } };
 
 export default async function ConfirmationPage({ searchParams }: { searchParams: Promise<{ session_id?: string }> }) {
   const { session_id } = await searchParams;

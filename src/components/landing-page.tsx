@@ -7,11 +7,12 @@ import { MatchCards } from "@/components/match-cards";
 import { Faq } from "@/components/faq";
 import { StickyCta } from "@/components/sticky-cta";
 import { Testimonials } from "@/components/testimonials";
+import { YourWeek } from "@/components/your-week";
 
 const strip = ["Tinder", "Bumble", "Hinge", "We build your profiles", "We swipe", "We chat", "We book the date", "You just show up"];
 
 const steps = [
-  { title: "Tell us your type", body: "A two-minute form: who you are, who you want to meet, which apps. Your real photos come later." },
+  { title: "Tell us your type", body: "Two minutes: who you are, who you want to meet, which apps. Then you send your real photos." },
   { title: "We do it all", body: "We build your profiles, swipe on the girls who fit, chat with your matches and plan the date. Not tips. We do it." },
   { title: "You just show up", body: "You get the date: day, time, place and her number. She already said yes." }
 ];
@@ -23,9 +24,9 @@ export function LandingPage() {
       <main>
         <section className="shell hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <span className="sticker">Done for you. All of it.</span>
+            <span className="sticker">Tinder · Bumble · Hinge</span>
             <h1 id="hero-title"><span className="line">We find you dates.</span><span className="line">You just <span className="mark">show up.</span></span></h1>
-            <p className="hero-sub">On Tinder, Bumble and Hinge. <strong>We build your profiles, swipe, chat and book the date for you.</strong></p>
+            <p className="hero-sub">NoSwipe runs your Tinder, Bumble &amp; Hinge. <strong>Swipes only on who fits, chats in your voice, books the date.</strong> You just show up.</p>
             <div className="hero-cta" id="hero-cta">
               <CtaLink location="hero" />
               <a href="#get" className="hero-alt">See what you get <ArrowDown size={16} strokeWidth={2.5} /></a>
@@ -50,6 +51,8 @@ export function LandingPage() {
           <p className="lede">For every date we land, you get her first name, the app, what we talked about, what she’s into, when and where, and her number.</p>
           <MatchCards />
         </section>
+
+        <YourWeek />
 
         <section id="how" className="section shell" aria-labelledby="how-title" style={{ paddingTop: 0 }}>
           <p className="kicker">How it works</p>
@@ -79,7 +82,7 @@ export function LandingPage() {
         <section className="section closing" aria-labelledby="closing-title">
           <div className="shell">
             <h2 id="closing-title">Stop swiping. Just show up.</h2>
-            <p>Two minutes to tell us your type. We take it from there.</p>
+            <p>Two minutes to tell us your type. NoSwipe takes it from there.</p>
             <CtaLink location="closing" className="btn btn-lime" />
           </div>
         </section>

@@ -59,18 +59,18 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
   if (data?.status === "paid") {
     return <div className="confirm">
       <motion.div className="ticket-card" role="status" aria-live="polite" initial={reduce ? false : { opacity: 0, y: 24, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
-        <span className="label">Application received</span>
-        <h1>Thanks! We’re reviewing your application.</h1>
-        <p>We’ll email you as soon as your batch is ready. Keep an eye on your inbox.</p>
+        <span className="label">You’re in</span>
+        <h1>You’re in — your spot is reserved.</h1>
+        <p>We’ll email you as we set up your Tinder, Bumble and Hinge.</p>
       </motion.div>
       <div className="panel">
         <p className="kicker">What happens next</p>
         <ol className="next-list">
-          <li><span className="how-step">1</span><span>We review your answers and onboard in small batches, in queue order.</span></li>
-          <li><span className="how-step">2</span><span>When your batch starts, we’ll message you with the real pricing. You decide then whether to join.</span></li>
-          <li><span className="how-step">3</span><span>If you join, you send your real photos. We build your profiles, swipe, chat and book the dates.</span></li>
+          <li><span className="how-step">1</span><span>We go through your answers and your type.</span></li>
+          <li><span className="how-step">2</span><span>We email you to send your real photos, then build your profiles.</span></li>
+          <li><span className="how-step">3</span><span>NoSwipe swipes, chats in your voice and books the dates. You show up.</span></li>
         </ol>
-        <p className="fine" style={{ marginTop: 16 }}>A spot in the queue doesn’t guarantee a batch start date, availability in your city, or a date.</p>
+        <p className="fine" style={{ marginTop: 16 }}>Your $1 is refundable: just reply to your confirmation email or write to support@noswipe.app. We can’t guarantee dates, and nobody honestly can.</p>
         <p style={{ fontWeight: 800, marginTop: 22 }}>Know a guy who’s sick of swiping?</p>
         <div className="share-row"><ShareButton /><Link href="/" className="btn btn-primary">Back to NoSwipe</Link></div>
       </div>
@@ -78,10 +78,10 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
   }
 
   let heading = "Checking your payment…";
-  let detail = "Stripe is confirming your $1. Your application is confirmed only after we verify the payment, which usually takes a few seconds.";
+  let detail = "Stripe is confirming your $1. Your spot is confirmed only after we verify the payment, which usually takes a few seconds.";
   let tone = "waiting";
   if (!checking && data?.status === "pending") { heading = "Still confirming."; detail = "Your payment hasn’t been verified yet. Refresh this page in a minute. If you were charged, your confirmation will appear here."; }
-  if (data?.status === "refunded") { heading = "Your payment was refunded."; detail = "The $1 went back to your original payment method, and your spot in the queue is no longer active."; tone = "muted"; }
+  if (data?.status === "refunded") { heading = "Your payment was refunded."; detail = "The $1 went back to your original payment method, and your spot is no longer reserved."; tone = "muted"; }
   if (data?.status === "expired") { heading = "Checkout wasn’t completed."; detail = "No payment was taken and no spot was assigned. You can try again any time."; tone = "muted"; }
   if (message) { heading = "We couldn’t load this spot."; tone = "muted"; }
 
@@ -94,7 +94,7 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
       <div className="perf">The return from Checkout alone doesn’t confirm payment.</div>
     </div>
     <div className="share-row" style={{ alignSelf: "start" }}>
-      {(data?.status === "expired" || data?.status === "refunded" || message) && <Link href="/reserve" className="btn btn-primary">Try it again</Link>}
+      {(data?.status === "expired" || data?.status === "refunded" || message) && <Link href="/reserve" className="btn btn-primary">Get started again</Link>}
       <Link href="/" className="btn btn-white">Back to NoSwipe</Link>
     </div>
   </div>;

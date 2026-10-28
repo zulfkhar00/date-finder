@@ -1,4 +1,4 @@
-import { attributionSchema, cleanVariant, UTM_KEYS, type Attribution } from "@/lib/attribution";
+import { attributionSchema, cleanVariant, UTM_KEYS, type Attribution, type ClientEventName } from "@/lib/attribution";
 
 // Browser-only helpers. First-touch attribution lives in a first-party cookie (30 days) so a
 // visitor who comes back later still counts toward the campaign that brought them. The funnel
@@ -39,10 +39,10 @@ export function captureAttribution(): Attribution {
   const stored = readCookie();
   if (stored) return stored;
   const params = new URLSearchParams(window.location.search);
-  const raw: Record<string, unknown> = { variant: params.get("variant") ?? params.get("v") ?? undefined, referrer: externalReferrer() };
+  const raw: Record<string, unknown> = { variant: params.get("variant") ?? params.get("v") ?? undefined, referrer: externalReferrer(), ref: params.get("ref") ?? undefined };
   for (const key of UTM_KEYS) raw[key] = params.get(key) ?? undefined;
   const parsed = attributionSchema.safeParse(raw);
-  const value: Attribution = parsed.success ? parsed.data : { variant: cleanVariant(undefined), utm_source: undefined, utm_medium: undefined, utm_campaign: undefined, utm_content: undefined, utm_term: undefined, referrer: undefined };
+  const value: Attribution = parsed.success ? parsed.data : { variant: cleanVariant(undefined), utm_source: undefined, utm_medium: undefined, utm_campaign: undefined, utm_content: undefined, utm_term: undefined, referrer: undefined, ref: undefined };
   try { writeCookie(value); } catch { /* cookies disabled */ }
   return value;
 }
@@ -70,11 +70,11 @@ function firstTimeThisSession(key: string): boolean {
   }
 }
 
-export function trackEvent(event: "page_view" | "reserve_start" | "checkout_canceled", options: { oncePerSession?: boolean } = {}) {
+export function trackEvent(event: ClientEventName, options: { oncePerSession?: boolean } = {}) {
   try {
     if (options.oncePerSession && !firstTimeThisSession(event)) return;
     const attribution = captureAttribution();
-    const body = JSON.stringify({ sessionId: getFunnelSessionId(), event, variant: attribution.variant, utmCampaign: attribution.utm_campaign });
+    const body = JSON.stringify({ sessionId: getFunnelSessionId(), event, variant: attribution.variant, utmCampaign: attribution.utm_campaign, ref: attribution.ref });
     void fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
   } catch {
     // Tracking must never affect the page.

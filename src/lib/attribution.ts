@@ -9,8 +9,11 @@ export const VARIANT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 export const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
 export const UTM_MAX = 200;
 export const REFERRER_MAX = 255;
+// `ref` = the IG reel id (or any short source tag) in links like noswipe.app/?ref=DAbc123.
+export const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-export const CLIENT_EVENTS = ["page_view", "reserve_start", "checkout_canceled"] as const;
+export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "onboarding_complete", "checkout_canceled"] as const;
+export type ClientEventName = (typeof CLIENT_EVENTS)[number];
 export const SERVER_EVENTS = ["checkout_created", "paid"] as const;
 export type FunnelEventName = (typeof CLIENT_EVENTS)[number] | (typeof SERVER_EVENTS)[number];
 
@@ -38,7 +41,14 @@ export function cleanReferrer(value: unknown): string | undefined {
   }
 }
 
+export function cleanRef(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return REF_PATTERN.test(trimmed) ? trimmed : undefined;
+}
+
 const optionalUtm = z.unknown().optional().transform(cleanUtm);
+const optionalRef = z.unknown().optional().transform(cleanRef);
 
 export const attributionSchema = z.object({
   utm_source: optionalUtm,
@@ -47,7 +57,8 @@ export const attributionSchema = z.object({
   utm_content: optionalUtm,
   utm_term: optionalUtm,
   variant: z.unknown().optional().transform(cleanVariant),
-  referrer: z.unknown().optional().transform(cleanReferrer)
+  referrer: z.unknown().optional().transform(cleanReferrer),
+  ref: optionalRef
 });
 
 export type Attribution = z.infer<typeof attributionSchema>;
@@ -58,5 +69,6 @@ export const clientEventSchema = z.object({
   sessionId: sessionIdSchema,
   event: z.enum(CLIENT_EVENTS),
   variant: z.unknown().optional().transform(cleanVariant),
-  utmCampaign: optionalUtm
+  utmCampaign: optionalUtm,
+  ref: optionalRef
 });

@@ -5,7 +5,7 @@ import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
+import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
 export const runtime = "nodejs";
 
@@ -60,8 +60,11 @@ export async function POST(request: Request) {
   // Optional columns may not exist yet (migration not applied). Try the full row first, then drop
   // the newest optional columns one group at a time. Only undefined-column errors are retried;
   // anything else (constraint, network, auth) falls through to the 500 below.
+  // Newest first: `ref` (2026-10-28), then `onboarding`, then the UTM columns.
+  const withOnboarding = onboarding ? { onboarding } : {};
   const rows = [
-    { ...baseRow, ...attributionColumns(attribution), ...(onboarding ? { onboarding } : {}) },
+    { ...baseRow, ...attributionColumns(attribution), ...refColumn(attribution), ...withOnboarding },
+    ...(attribution?.ref ? [{ ...baseRow, ...attributionColumns(attribution), ...withOnboarding }] : []),
     ...(onboarding ? [{ ...baseRow, ...attributionColumns(attribution) }] : []),
     ...(attribution ? [baseRow] : [])
   ];
@@ -88,7 +91,7 @@ export async function POST(request: Request) {
       customer_email: input.email,
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
-      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "NoSwipe application: your spot in the queue", description: "One-time, nonrefundable $1 fee, except where law requires. The dating service is separate." } }, quantity: 1 }],
+      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: CHECKOUT_LINE_ITEM.name, description: CHECKOUT_LINE_ITEM.description } }, quantity: 1 }],
       ...presentation.params
     }, { idempotencyKey: `morrow-reservation-${reservation.id}` });
 
@@ -104,7 +107,7 @@ export async function POST(request: Request) {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
       throw updateError ?? new Error("Reservation was not attached to checkout");
     }
-    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, dedupeKey: `checkout_created:${session.id}` });
+    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref, dedupeKey: `checkout_created:${session.id}` });
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Checkout creation failed", error instanceof Error ? error.message : "unknown error");
@@ -136,6 +139,10 @@ function attributionColumns(attribution: Attribution | null) {
     variant: attribution.variant,
     referrer: attribution.referrer ?? null
   };
+}
+
+function refColumn(attribution: Attribution | null) {
+  return attribution?.ref ? { ref: attribution.ref } : {};
 }
 
 // Postgres 42703 = undefined_column; PostgREST PGRST204 = column not found in the schema cache.

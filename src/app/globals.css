@@ -380,6 +380,35 @@ h1,h2,h3,h4,p{margin:0}
   .confirm{grid-template-columns:1.1fr .9fr;align-items:start;gap:40px}
 }
 
+/* "Your week": example in-app dashboard on the landing page */
+.week{margin-top:36px;background:var(--grape);color:#FFF8F0;border:2.5px solid var(--grape);border-radius:var(--r-xl);padding:22px;box-shadow:var(--shadow-lg);max-width:860px}
+.week-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.week-head strong{font-family:var(--font-display),sans-serif;font-size:30px;font-weight:400;line-height:1}
+.week-tag{background:transparent;border-color:#FFF8F0;color:#FFF8F0}
+.week-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.week-tile{border-radius:var(--r-lg);padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-height:112px}
+.week-tile span{font-weight:700;font-size:15px;opacity:.85}
+.week-tile b{font-family:var(--font-display),sans-serif;font-weight:400;font-size:52px;line-height:1;margin-top:auto}
+.week-wide{grid-column:1/-1}
+.week-coral{background:var(--coral);color:var(--grape)}
+.week-lime{background:var(--lime);color:var(--grape)}
+.week-lilac{background:var(--lilac);color:var(--grape)}
+.week-dark{background:#2E1A5C}
+.week-chart{grid-column:1/-1}
+.week-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:92px;margin-top:8px}
+.week-bars i{display:block;border-radius:var(--r-sm);background:linear-gradient(180deg,var(--lime),var(--coral))}
+.week-days{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center;font-size:13px;opacity:.7}
+.week-days em{font-style:normal}
+.week-feed{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.week-feed li{display:flex;gap:10px;align-items:baseline;background:#2E1A5C;border-radius:var(--r-md);padding:12px 14px;font-weight:600;font-size:15px}
+.week-feed li span{flex:none;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:var(--lime);color:var(--grape);border-radius:var(--r-pill);padding:3px 9px}
+@media (min-width:760px){
+  .week{padding:28px}
+  .week-grid{grid-template-columns:1.4fr 1fr 1fr}
+  .week-wide{grid-column:auto}
+  .week-chart{grid-column:1/3}
+}
+
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}

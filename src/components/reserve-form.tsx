@@ -21,7 +21,7 @@ type FormValue = {
   termsAccepted: boolean;
 };
 const initial: FormValue = { name: "", age: "", city: "", email: "", datingPreference: null, ageMin: "", ageMax: "", interests: "", relationshipGoal: null, apps: [], dateFrequency: null, termsAccepted: false };
-const stepNames = ["About you", "Who you’re looking for", "Your apps", "Your spot"];
+const stepNames = ["About you", "Who you’re looking for", "Your apps", "Get started"];
 const LAST = stepNames.length - 1;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -86,7 +86,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
   async function submit() {
     if (submitting.current) return;
     for (let i = 0; i < LAST; i++) { const problem = check(i); if (problem) { setStep(i); setError(problem); return; } }
-    if (!value.termsAccepted) { setError("Tick the box to confirm you understand what the $1 covers."); return; }
+    if (!value.termsAccepted) { setError("Tick the box to agree to the terms."); return; }
     submitting.current = true;
     setLoading(true); setError("");
     track("checkout_submit");
@@ -162,18 +162,17 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
           <p>Pick every app you want us to run for you.</p>
           <fieldset className="fieldset"><legend>Apps</legend><div className="choice-grid">{DATING_APPS.map((app) => <Choice key={app} pressed={value.apps.includes(app)} onClick={() => toggleApp(app)}>{datingAppLabels[app]}</Choice>)}</div></fieldset>
           <fieldset className="fieldset"><legend>How often do you want to be on a date?</legend><div className="choice-grid">{(Object.keys(dateFrequencyLabels) as ReservationInput["dateFrequency"][]).map((option) => <Choice key={option} pressed={value.dateFrequency === option} onClick={() => change("dateFrequency", option)}>{dateFrequencyLabels[option]}</Choice>)}</div></fieldset>
-          <div className="review-box"><div><span>Photos</span><strong>Later</strong></div><p>Skip this for now. When your batch starts we’ll ask for your real photos, then pick and polish the best ones. Never fake ones.</p></div>
+          <div className="review-box"><div><span>Photos</span><strong>Later</strong></div><p>Skip this for now. When we set you up we ask for your real photos, then pick and polish the best ones. Never fake ones.</p></div>
         </>}
         {step === 3 && <>
-          <h2 ref={headingRef} tabIndex={-1}>You’re set up. Grab your spot.</h2>
-          <p>We’re onboarding in small batches. Reserve your spot in the next batch for $1.</p>
+          <h2 ref={headingRef} tabIndex={-1}>You’re all set.</h2>
+          <p>Last step: secure checkout, then NoSwipe starts setting up your apps.</p>
           <div className="review-box">
-            <div><span>Spot in the next batch</span><strong>$1</strong></div>
-            <p>This holds your place on the NoSwipe onboarding queue. It isn’t a subscription, and it isn’t payment for dates, matches or concierge service; those are separate, with pricing we’ll show you before you join. No guaranteed date, introduction, invitation date or availability in your city.</p>
-            <p>The $1 fee is nonrefundable, except where required by law.</p>
+            <p style={{ marginTop: 0, fontWeight: 700 }}>Your apps: {value.apps.map((app) => datingAppLabels[app]).join(", ")}</p>
+            <p>You see exactly what you pay on the next screen, before you pay anything.</p>
           </div>
-          <p className="review-details">We’ll message you when your batch starts. Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">reservation terms</Link>.</p>
-          <label className="checkbox-line"><input type="checkbox" checked={value.termsAccepted} onChange={(event) => change("termsAccepted", event.target.checked)} /><span>I understand this is a nonrefundable $1 queue fee, not payment for dates or concierge service, and I agree to the reservation terms.</span></label>
+          <p className="review-details">Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">terms</Link>.</p>
+          <label className="checkbox-line"><input type="checkbox" checked={value.termsAccepted} onChange={(event) => change("termsAccepted", event.target.checked)} /><span>I agree to the terms and the privacy note.</span></label>
         </>}
       </motion.div>
     </AnimatePresence>
@@ -182,7 +181,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       {step > 0 ? <button className="form-back" type="button" disabled={loading} onClick={() => { setStep(step - 1); setError(""); }}>Back</button> : <span />}
       {step < LAST
         ? <button className="btn btn-primary" type="button" onClick={next}>Continue <ArrowRight size={18} strokeWidth={2.5} /></button>
-        : <button className="btn btn-primary" type="button" disabled={loading} aria-busy={loading} onClick={submit}>{loading ? <><span className="spinner" aria-hidden="true" /> Opening checkout…</> : <><Lock size={17} strokeWidth={2.5} /> Reserve my spot · $1</>}</button>}
+        : <button className="btn btn-primary" type="button" disabled={loading} aria-busy={loading} onClick={submit}>{loading ? <><span className="spinner" aria-hidden="true" /> Opening checkout…</> : <><Lock size={17} strokeWidth={2.5} /> Continue to checkout</>}</button>}
     </div>
   </div>;
 }

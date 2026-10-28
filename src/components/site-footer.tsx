@@ -8,7 +8,7 @@ export function SiteFooter() {
         <Brand />
         <nav className="footer-links" aria-label="Footer">
           <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Reservation terms</Link>
+          <Link href="/terms">Terms</Link>
           <Link href="/#faq">FAQ</Link>
         </nav>
       </div>
