@@ -1,5 +1,8 @@
 import type Stripe from "stripe";
 
+// The one $1.00 line item Stripe Checkout shows. First place the price appears in the flow.
+export const CHECKOUT_LINE_ITEM = { name: "noswipe — reserve your spot", description: "Refundable. Activates your noswipe setup." } as const;
+
 export type EmbeddedPayment = { mode: "embedded"; sessionId: string; clientSecret: string; publishableKey: string };
 export type CheckoutResponse = EmbeddedPayment | { mode: "hosted"; url: string };
 

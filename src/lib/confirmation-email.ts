@@ -8,13 +8,13 @@ export const EMAIL_LOGO_URL = "https://www.noswipe.app/brand/email-logo.png";
 export type ConfirmationEmail = { subject: string; text: string; html: string };
 
 export function buildConfirmationEmail(): ConfirmationEmail {
-  const subject = `Thanks! We're reviewing your NoSwipe application`;
-  const footer = "You're getting this because you applied at NoSwipe. Questions? Just reply to this email.";
+  const subject = "You're in — your spot is reserved";
+  const footer = "You're getting this because you signed up at NoSwipe. Your $1 is refundable. Questions? Just reply to this email.";
 
   const text = [
-    "Thanks for applying to NoSwipe.",
+    "You're in — your spot is reserved.",
     "",
-    "We're reviewing your application now. We're onboarding in small batches, and we'll email you as soon as your batch is ready. Nothing to do until then.",
+    "We'll email you as we set up your Tinder, Bumble and Hinge. Nothing to do until then.",
     "",
     CONFIRMATION_EMAIL_LINK,
     "",
@@ -27,8 +27,8 @@ export function buildConfirmationEmail(): ConfirmationEmail {
 <body style="margin:0;padding:0;background:#ffffff;">
 <div style="max-width:480px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#111111;">
 <p style="margin:0 0 24px;"><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="NoSwipe" style="display:block;border:0;width:48px;height:48px;"></p>
-<p style="margin:0 0 16px;font-size:22px;font-weight:700;">Thanks for applying to NoSwipe.</p>
-<p style="margin:0 0 16px;">We're reviewing your application now. We're onboarding in small batches, and we'll email you as soon as your batch is ready. Nothing to do until then.</p>
+<p style="margin:0 0 16px;font-size:22px;font-weight:700;">You're in — your spot is reserved.</p>
+<p style="margin:0 0 16px;">We'll email you as we set up your Tinder, Bumble and Hinge. Nothing to do until then.</p>
 <p style="margin:0 0 32px;"><a href="${CONFIRMATION_EMAIL_LINK}" style="color:#111111;">noswipe.app</a></p>
 <p style="margin:0;font-size:13px;color:#666666;">${footer}</p>
 </div>

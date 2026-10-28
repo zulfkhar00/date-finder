@@ -5,7 +5,7 @@ import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
+import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
 export const runtime = "nodejs";
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       customer_email: input.email,
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
-      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: "NoSwipe application: your spot in the queue", description: "One-time, nonrefundable $1 fee, except where law requires. The dating service is separate." } }, quantity: 1 }],
+      line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: CHECKOUT_LINE_ITEM.name, description: CHECKOUT_LINE_ITEM.description } }, quantity: 1 }],
       ...presentation.params
     }, { idempotencyKey: `morrow-reservation-${reservation.id}` });
 

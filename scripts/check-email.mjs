@@ -4,12 +4,12 @@ import { buildConfirmationEmail } from "../src/lib/confirmation-email.ts";
 import { buildAdminLoginEmail } from "../src/lib/admin-login-email.ts";
 
 const email = buildConfirmationEmail();
-assert.equal(email.subject, "Thanks! We're reviewing your NoSwipe application");
+assert.equal(email.subject, "You're in — your spot is reserved");
 for (const body of [email.text, email.html]) {
-  assert.ok(body.includes("Thanks for applying to NoSwipe."));
-  assert.ok(body.includes("reviewing your application"));
+  assert.ok(body.includes("You're in — your spot is reserved."));
   assert.equal(/#[0-9]+ in|in the queue|queue position/i.test(body), false, "never show the queue number");
-  assert.ok(body.includes("we'll email you as soon as your batch is ready"));
+  assert.ok(body.includes("We'll email you as we set up your Tinder, Bumble and Hinge."));
+  assert.equal(/batch|nonrefundable/i.test(body), false, "no batch or nonrefundable wording");
   assert.ok(body.includes("Nothing to do until then."));
   assert.ok(body.includes("https://noswipe.app"));
   assert.ok(body.includes("reply to this email"));
