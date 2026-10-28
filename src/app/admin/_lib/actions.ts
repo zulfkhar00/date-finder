@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { adminEmailForUser, adminEmailOrNull, createAuthClient } from "@/lib/admin-auth";
-import { isAdminEmail, readAdminConfig } from "@/lib/admin-config";
+import type { User } from "@supabase/supabase-js";
+import { isAdminEmail, readAdminConfig, type AdminConfig } from "@/lib/admin-config";
+import { canSendEmail, sendAdminLoginEmail } from "@/lib/email";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LEAD_STAGES, UUID_PATTERN, saveLeadNotes } from "./data";
 
 export type LoginState = { step: "email" | "code"; email?: string; message?: string; error?: string };
@@ -15,9 +18,34 @@ const codeSchema = z.string().trim().regex(/^\d{6,10}$/);
 // Supabase answers these when the address has no user and shouldCreateUser is false.
 const NO_USER_CODES = new Set(["otp_disabled", "signup_disabled", "user_not_found"]);
 
-const SENT_MESSAGE = "If this address is on the admin list, a sign-in link and code are on their way. The link works in this browser; the code works anywhere.";
+const USERS_PER_PAGE = 200;
+const MAX_USER_PAGES = 10;
 
-/** Step 1: email a magic link + one-time code, but only to allowlisted addresses. */
+const SENT_MESSAGE = "If this address is on the admin list, a sign-in link and code are on their way from NoSwipe. Open the link, or enter the code here.";
+
+const SEND_FAILED = "Couldn't send the email right now. Wait a minute and try again.";
+
+/** Finds an existing Supabase user by email with the service key. Admin users are few, so paging is short. */
+async function findAuthUser(email: string): Promise<User | null | "error"> {
+  const supabase = getSupabaseAdmin();
+  for (let page = 1; page <= MAX_USER_PAGES; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: USERS_PER_PAGE });
+    if (error) {
+      console.error("Admin user lookup failed", error.code ?? error.status ?? "unknown");
+      return "error";
+    }
+    const match = data.users.find((user) => user.email?.trim().toLowerCase() === email);
+    if (match) return match;
+    if (data.users.length < USERS_PER_PAGE) return null;
+  }
+  return null;
+}
+
+/**
+ * Step 1: email a sign-in link + one-time code, from NoSwipe through Resend, but only to an
+ * allowlisted address that already exists as a confirmed Supabase user. Every other case gets the
+ * same neutral message and no email.
+ */
 export async function requestLoginLink(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const { config } = readAdminConfig();
   if (!config) return { step: "email", error: "Admin sign-in is not configured on this server." };
@@ -25,30 +53,74 @@ export async function requestLoginLink(_prev: LoginState, formData: FormData): P
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) return { step: "email", error: "Enter a valid email address." };
   const email = parsed.data;
+  const neutral: LoginState = { step: "code", email, message: SENT_MESSAGE };
 
   // Same response either way, so the form does not reveal who is an admin.
-  if (!isAdminEmail(config, email)) return { step: "code", email, message: SENT_MESSAGE };
+  if (!isAdminEmail(config, email)) return neutral;
 
+  if (!canSendEmail()) return requestViaSupabaseMailer(config, email);
+
+  try {
+    // Admin users are created by hand in Supabase (DEPLOYMENT.md §7). generateLink("magiclink")
+    // would sign up a missing address, so look the user up first and never call it for one.
+    const user = await findAuthUser(email);
+    if (user === "error") return { step: "email", email, error: SEND_FAILED };
+    if (!user || !adminEmailForUser(config, user)) {
+      console.error("Admin sign-in skipped", user ? "unconfirmed" : "user_not_found");
+      return neutral;
+    }
+
+    const { data, error } = await getSupabaseAdmin().auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo: `${config.siteUrl}/admin/auth/callback` }
+    });
+    if (error || !data.properties?.hashed_token || !data.properties.email_otp) {
+      console.error("Admin sign-in link failed", error?.code ?? error?.status ?? "missing_properties");
+      return { step: "email", email, error: SEND_FAILED };
+    }
+    if (data.properties.verification_type !== "magiclink" || !adminEmailForUser(config, data.user)) {
+      // Would have been a signup or an unconfirmed account: never email it.
+      console.error("Admin sign-in skipped", data.properties.verification_type);
+      return neutral;
+    }
+
+    // Our own link, built from SITE_URL only: /admin/auth/callback verifies the token hash
+    // server-side, so it works in any browser (Supabase's action_link would land tokens in a URL
+    // fragment the server can't read).
+    const link = new URL("/admin/auth/callback", config.siteUrl);
+    link.searchParams.set("token_hash", data.properties.hashed_token);
+    link.searchParams.set("type", "email");
+
+    const sent = await sendAdminLoginEmail(email, link.toString(), data.properties.email_otp);
+    if (!sent) return { step: "email", email, error: SEND_FAILED };
+  } catch (error) {
+    console.error("Admin sign-in email failed", error instanceof Error ? error.name : "unknown error");
+    return { step: "email", email, error: SEND_FAILED };
+  }
+  return neutral;
+}
+
+/** Fallback while Resend is not configured (local dev): Supabase sends its own template. */
+async function requestViaSupabaseMailer(config: AdminConfig, email: string): Promise<LoginState> {
   try {
     const supabase = await createAuthClient(config);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      // Admin users are created by hand in Supabase (DEPLOYMENT.md §7); this never signs anyone up.
-      // The link is built from SITE_URL only, never from request headers.
+      // Never signs anyone up. The link is built from SITE_URL only, never from request headers.
       options: { shouldCreateUser: false, emailRedirectTo: `${config.siteUrl}/admin/auth/callback` }
     });
     if (error && error.code && NO_USER_CODES.has(error.code)) {
-      // Allowlisted, but no Supabase user was created for it: nothing is sent, same neutral message.
       console.error("Admin sign-in skipped", error.code);
       return { step: "code", email, message: SENT_MESSAGE };
     }
     if (error) {
       console.error("Admin sign-in email failed", error.code ?? error.status ?? "unknown");
-      return { step: "email", email, error: "Couldn't send the email right now. Wait a minute and try again." };
+      return { step: "email", email, error: SEND_FAILED };
     }
   } catch (error) {
     console.error("Admin sign-in email failed", error instanceof Error ? error.name : "unknown error");
-    return { step: "email", email, error: "Couldn't send the email right now. Wait a minute and try again." };
+    return { step: "email", email, error: SEND_FAILED };
   }
   return { step: "code", email, message: SENT_MESSAGE };
 }

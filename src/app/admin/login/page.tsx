@@ -5,7 +5,7 @@ import { LoginForm } from "./login-form";
 import styles from "../admin.module.css";
 
 const ERRORS: Record<string, string> = {
-  link: "That sign-in link is invalid, expired, or was opened in a different browser. Request a new one, or use the code from the email."
+  link: "That sign-in link is invalid or has expired. Request a new one, or use the code from the email."
 };
 
 export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { buildAdminLoginEmail } from "@/lib/admin-login-email";
 import { buildConfirmationEmail } from "@/lib/confirmation-email";
 
 const RESEND_URL = "https://api.resend.com/emails";
@@ -16,9 +17,11 @@ function emailConfig() {
   return { apiKey, from, replyTo: process.env.EMAIL_REPLY_TO?.trim() || undefined };
 }
 
+type Message = { to: string; subject: string; text: string; html: string; idempotencyKey?: string };
+
 /** Sends through Resend. Returns true on a 2xx. Logs status codes only, never addresses or content. */
-async function sendViaResend(config: NonNullable<ReturnType<typeof emailConfig>>, to: string, idempotencyKey: string) {
-  const { subject, text, html } = buildConfirmationEmail();
+async function sendViaResend(config: NonNullable<ReturnType<typeof emailConfig>>, message: Message, label: string) {
+  const { to, subject, text, html, idempotencyKey } = message;
   try {
     const response = await fetch(RESEND_URL, {
       method: "POST",
@@ -26,17 +29,36 @@ async function sendViaResend(config: NonNullable<ReturnType<typeof emailConfig>>
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
         // Resend drops a repeat with the same key for 24 hours: a second guard against double sends.
-        "Idempotency-Key": idempotencyKey
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
       },
       body: JSON.stringify({ from: config.from, to: [to], subject, text, html, ...(config.replyTo ? { reply_to: config.replyTo } : {}) }),
       signal: AbortSignal.timeout(8000)
     });
-    if (!response.ok) console.error("Confirmation email failed", response.status);
+    if (!response.ok) console.error(`${label} failed`, response.status);
     return response.ok;
   } catch (error) {
-    console.error("Confirmation email failed", error instanceof Error ? error.name : "unknown error");
+    console.error(`${label} failed`, error instanceof Error ? error.name : "unknown error");
     return false;
   }
+}
+
+function confirmationMessage(to: string, idempotencyKey: string): Message {
+  return { to, idempotencyKey, ...buildConfirmationEmail() };
+}
+
+/** True when Resend is configured (RESEND_API_KEY + EMAIL_FROM). */
+export function canSendEmail(): boolean {
+  return emailConfig() !== null;
+}
+
+/**
+ * The founder sign-in email for /admin/login, sent from NoSwipe through Resend. `link` must be
+ * built from SITE_URL. Returns true on success. Never logs the address, link or code.
+ */
+export async function sendAdminLoginEmail(to: string, link: string, code: string): Promise<boolean> {
+  const config = emailConfig();
+  if (!config) return false;
+  return sendViaResend(config, { to, ...buildAdminLoginEmail(link, code) }, "Admin sign-in email");
 }
 
 /**
@@ -64,7 +86,7 @@ export async function sendReservationConfirmation(supabase: SupabaseClient, rese
 
     if (!claim.error) {
       if (!claim.data?.queue_position) return; // Already sent, or not paid.
-      const sent = await sendViaResend(config, claim.data.email, idempotencyKey);
+      const sent = await sendViaResend(config, confirmationMessage(claim.data.email, idempotencyKey), "Confirmation email");
       if (!sent) {
         const { error } = await supabase.from("reservations").update({ confirmation_email_sent_at: null }).eq("id", reservationId);
         if (error) console.error("Confirmation email release failed", error.code);
@@ -82,7 +104,7 @@ export async function sendReservationConfirmation(supabase: SupabaseClient, rese
       console.error("Confirmation email lookup failed", error.code);
       return;
     }
-    if (data?.queue_position) await sendViaResend(config, data.email, idempotencyKey);
+    if (data?.queue_position) await sendViaResend(config, confirmationMessage(data.email, idempotencyKey), "Confirmation email");
   } catch (error) {
     console.error("Confirmation email failed", error instanceof Error ? error.name : "unknown error");
   }

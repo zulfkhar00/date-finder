@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 // Magic-link landing for every founder-only surface under /admin. Supports both link shapes:
 //  - ?code=…                      default template (PKCE; same browser that asked for the link)
-//  - ?token_hash=…&type=email     custom template from DEPLOYMENT.md (works in any browser)
+//  - ?token_hash=…&type=email     our own Resend email (src/lib/admin-login-email.ts, built from
+//                                 generateLink's hashed_token) and the Supabase template; any browser
 // The session is kept only for a confirmed, allowlisted email; every /admin page checks again.
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
