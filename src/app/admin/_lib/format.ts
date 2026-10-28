@@ -28,7 +28,9 @@ export const STATUS_LABELS: Record<string, string> = { pending: "Pending", paid:
 export const STAGE_LABELS: Record<string, string> = { new: "New", contacted: "Contacted", pilot: "Pilot", declined: "Declined" };
 export const EVENT_LABELS: Record<string, string> = {
   page_view: "Viewed landing page",
-  reserve_start: "Opened reservation form",
+  get_started: "Clicked Get started",
+  reserve_start: "Opened onboarding form",
+  onboarding_complete: "Finished onboarding answers",
   checkout_created: "Started Stripe Checkout",
   checkout_canceled: "Came back from Checkout without paying",
   paid: "Payment confirmed by Stripe webhook"

@@ -1,8 +1,8 @@
 // Funnel tracking hook points for the landing page and reserve flow.
 //
-// Only the three browser funnel events (page_view, reserve_start, checkout_canceled) are sent to
-// /api/event via trackEvent. onboarding_started / onboarding_completed go to product analytics
-// (PostHog) only, so no new event names reach the funnel_events table. The rest are hook points. Never pass emails, names, chat text or anything a
+// Browser funnel events sent to /api/event (funnel_events): page_view, get_started (any
+// "Get started" CTA), reserve_start, onboarding_complete (answers done, reached checkout step),
+// checkout_canceled. The same steps also go to PostHog when it is configured. The rest are hook points. Never pass emails, names, chat text or anything a
 // visitor typed.
 
 import { trackEvent } from "@/lib/attribution-client";
@@ -12,7 +12,7 @@ export type TrackEvent =
   | "page_view" // landing page view (recorded)
   | "reserve_start" // reserve form opened, once per tab session (recorded)
   | "checkout_canceled" // returned from Stripe without paying (recorded)
-  | "cta_click" // a "Try it" button; props.location says which one
+  | "cta_click" // a "Get started" button (recorded as get_started); props.location says which one
   | "demo_pick" // visitor picked a dead-chat example in the demo
   | "demo_fix" // visitor pressed "Fix my text"
   | "demo_bio" // visitor toggled the bio before/after
@@ -35,8 +35,15 @@ export function track(event: TrackEvent, props?: TrackProps): void {
     case "reserve_start":
       trackEvent(event, { oncePerSession: true });
       return;
+    case "cta_click":
+      trackEvent("get_started");
+      trackAnalytics("get_started");
+      return;
     case "onboarding_started":
+      trackAnalytics(event);
+      return;
     case "onboarding_completed":
+      trackEvent("onboarding_complete", { oncePerSession: true });
       trackAnalytics(event);
       return;
     default:

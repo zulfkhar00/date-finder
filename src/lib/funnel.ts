@@ -7,6 +7,7 @@ type FunnelEvent = {
   sessionId?: string | null;
   variant?: string | null;
   utmCampaign?: string | null;
+  ref?: string | null;
   /** When set, a repeated insert with the same key is ignored (e.g. Stripe webhook retries). */
   dedupeKey?: string;
 };
@@ -24,17 +25,21 @@ export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelE
       session_id: input.sessionId ?? null,
       variant: input.variant ?? null,
       utm_campaign: input.utmCampaign ?? null,
-      dedupe_key: input.dedupeKey ?? null
+      dedupe_key: input.dedupeKey ?? null,
+      // Only sent when set, so rows without a ref still insert before the migration adds the column.
+      ...(input.ref ? { ref: input.ref } : {})
     };
     if (input.dedupeKey) {
-      const { data, error } = await supabase.from("funnel_events").upsert(row, { onConflict: "dedupe_key", ignoreDuplicates: true }).select("id");
+      let { data, error } = await supabase.from("funnel_events").upsert(row, { onConflict: "dedupe_key", ignoreDuplicates: true }).select("id");
+      if (error && input.ref && isUndefinedColumn(error)) ({ data, error } = await supabase.from("funnel_events").upsert(withoutRef(row), { onConflict: "dedupe_key", ignoreDuplicates: true }).select("id"));
       if (error) {
         console.error("Funnel event insert failed", input.event, error.code);
         return null;
       }
       return (data?.length ?? 0) > 0;
     }
-    const { error } = await supabase.from("funnel_events").insert(row);
+    let { error } = await supabase.from("funnel_events").insert(row);
+    if (error && input.ref && isUndefinedColumn(error)) ({ error } = await supabase.from("funnel_events").insert(withoutRef(row)));
     if (error) console.error("Funnel event insert failed", input.event, error.code);
   } catch (error) {
     console.error("Funnel event insert failed", input.event, error instanceof Error ? error.name : "unknown error");
@@ -48,9 +53,11 @@ export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelE
  * Resolves true on the first delivery for this session, false on a repeat, null if unknown.
  */
 export async function recordPaidEvent(supabase: SupabaseClient, checkoutSessionId: string): Promise<boolean | null> {
-  let origin: { session_id: string | null; variant: string | null; utm_campaign: string | null } | null = null;
+  let origin: { session_id: string | null; variant: string | null; utm_campaign: string | null; ref?: string | null } | null = null;
   try {
-    const { data, error } = await supabase.from("funnel_events").select("session_id, variant, utm_campaign").eq("dedupe_key", `checkout_created:${checkoutSessionId}`).maybeSingle();
+    const key = `checkout_created:${checkoutSessionId}`;
+    let { data, error } = await supabase.from("funnel_events").select("session_id, variant, utm_campaign, ref").eq("dedupe_key", key).maybeSingle();
+    if (error && isUndefinedColumn(error)) ({ data, error } = await supabase.from("funnel_events").select("session_id, variant, utm_campaign").eq("dedupe_key", key).maybeSingle());
     if (error) console.error("Funnel checkout lookup failed", error.code);
     else origin = data;
   } catch (error) {
@@ -61,6 +68,19 @@ export async function recordPaidEvent(supabase: SupabaseClient, checkoutSessionI
     sessionId: origin?.session_id,
     variant: origin?.variant,
     utmCampaign: origin?.utm_campaign,
+    ref: origin?.ref,
     dedupeKey: `paid:${checkoutSessionId}`
   });
+}
+
+// Postgres 42703 = undefined_column; PostgREST PGRST204 = column not in the schema cache. Lets the
+// app run before supabase/2026-10-28-funnel-ref.sql adds the `ref` column.
+function isUndefinedColumn(error: { code?: string | null }): boolean {
+  return error.code === "42703" || error.code === "PGRST204";
+}
+
+function withoutRef<T extends { ref?: unknown }>(row: T): Omit<T, "ref"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { ref, ...rest } = row;
+  return rest;
 }

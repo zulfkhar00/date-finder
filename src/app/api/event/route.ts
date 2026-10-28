@@ -30,7 +30,7 @@ function clientKey(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
 }
 
-// Only page_view, reserve_start and checkout_canceled are accepted from the browser.
+// Only the CLIENT_EVENTS (page_view, get_started, reserve_start, onboarding_complete, checkout_canceled) are accepted from the browser.
 // checkout_created and paid are recorded server-side by /api/checkout and the Stripe webhook.
 export async function POST(request: Request) {
   if (rateLimited(clientKey(request), Date.now())) {
@@ -60,7 +60,8 @@ export async function POST(request: Request) {
     event: parsed.data.event,
     sessionId: parsed.data.sessionId,
     variant: parsed.data.variant,
-    utmCampaign: parsed.data.utmCampaign
+    utmCampaign: parsed.data.utmCampaign,
+    ref: parsed.data.ref
   });
   return new NextResponse(null, { status: 204 });
 }

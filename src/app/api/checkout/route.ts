@@ -60,8 +60,11 @@ export async function POST(request: Request) {
   // Optional columns may not exist yet (migration not applied). Try the full row first, then drop
   // the newest optional columns one group at a time. Only undefined-column errors are retried;
   // anything else (constraint, network, auth) falls through to the 500 below.
+  // Newest first: `ref` (2026-10-28), then `onboarding`, then the UTM columns.
+  const withOnboarding = onboarding ? { onboarding } : {};
   const rows = [
-    { ...baseRow, ...attributionColumns(attribution), ...(onboarding ? { onboarding } : {}) },
+    { ...baseRow, ...attributionColumns(attribution), ...refColumn(attribution), ...withOnboarding },
+    ...(attribution?.ref ? [{ ...baseRow, ...attributionColumns(attribution), ...withOnboarding }] : []),
     ...(onboarding ? [{ ...baseRow, ...attributionColumns(attribution) }] : []),
     ...(attribution ? [baseRow] : [])
   ];
@@ -104,7 +107,7 @@ export async function POST(request: Request) {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
       throw updateError ?? new Error("Reservation was not attached to checkout");
     }
-    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, dedupeKey: `checkout_created:${session.id}` });
+    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref, dedupeKey: `checkout_created:${session.id}` });
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Checkout creation failed", error instanceof Error ? error.message : "unknown error");
@@ -136,6 +139,10 @@ function attributionColumns(attribution: Attribution | null) {
     variant: attribution.variant,
     referrer: attribution.referrer ?? null
   };
+}
+
+function refColumn(attribution: Attribution | null) {
+  return attribution?.ref ? { ref: attribution.ref } : {};
 }
 
 // Postgres 42703 = undefined_column; PostgREST PGRST204 = column not found in the schema cache.

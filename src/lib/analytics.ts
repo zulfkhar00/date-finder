@@ -6,7 +6,7 @@ import { scrubDeep } from "@/lib/scrub";
 // Staff surfaces (/admin, including /admin/concierge) are never tracked: PostHog is not initialised when the first
 // page is one of them, and any event whose URL is one of them is dropped before it is sent.
 // Event names match the server-side funnel (PR #1) so both sources line up.
-export type FunnelEvent = "page_view" | "reserve_start" | "checkout_created" | "checkout_canceled" | "paid" | "onboarding_started" | "onboarding_completed";
+export type FunnelEvent = "page_view" | "get_started" | "reserve_start" | "checkout_created" | "checkout_canceled" | "paid" | "onboarding_started" | "onboarding_completed";
 
 const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
