@@ -92,15 +92,14 @@ The app needs a configured support contact and payment receipts in Stripe before
    - **Disable public signups.** Under Authentication → Sign In / Providers, turn off **Allow new users to sign up**. Keep the **Email** provider enabled.
    - **Keep "Confirm email" on** (same page). `/admin` only accepts a user whose email is confirmed *and* on `ADMIN_EMAILS`, so an unconfirmed account that claims a founder's address gets nothing.
    - Under Authentication → URL Configuration, set **Site URL** to `SITE_URL` and add `https://morrow.zulfkhar.dev/admin/auth/callback` (and the noswipe.app equivalent once it's live) to **Redirect URLs**.
-   - Under Authentication → Emails → **Magic Link**, replace the body with this, so the link works in any browser and the code works on any device:
+   - **Who sends the email.** With `RESEND_API_KEY` and `EMAIL_FROM` set (§9), the app sends the sign-in email itself, from NoSwipe through Resend (`src/lib/admin-login-email.ts`): it looks the user up with the service key, calls `auth.admin.generateLink({ type: "magiclink" })` only for a confirmed, allowlisted user, and emails a `SITE_URL/admin/auth/callback?token_hash=…&type=email` link plus the one-time code. Supabase sends nothing. Only while Resend is unset does the form fall back to Supabase's own mailer, so set the Supabase templates (Authentication → Emails) to NoSwipe-branded ones as a backstop. The Magic Link body should use this link shape so it works in any browser and the code works on any device:
 
    ```html
-   <h2>Sign in to NoSwipe admin</h2>
    <p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">Sign in</a></p>
    <p>Or enter this code: <strong>{{ .Token }}</strong></p>
    ```
 
-   The default template also works, but only in the browser that requested the link. Supabase's built-in email sender is limited to a few emails an hour; set up custom SMTP (Authentication → Emails → SMTP) if you hit that.
+   Supabase's built-in email sender is limited to a few emails an hour and sends from a Supabase address; custom SMTP (Authentication → Emails → SMTP: `smtp.resend.com`, port 465, user `resend`, password = a Resend API key, sender name NoSwipe) fixes both for any email Supabase still sends.
 4. **Sign in.** Open `/admin`, enter an allowlisted email, then click the link or type the code. Sign-in emails are only sent to `ADMIN_EMAILS` addresses that already exist as users; the form shows the same message for any address. A signed-in account that is not on the list, or whose email isn't confirmed, gets a 404 on every admin page and on the CSV export.
 
 Every admin page, server action and the export check the session, a confirmed email and `ADMIN_EMAILS` on the server (shared helpers in `src/lib/admin-auth.ts`). Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
