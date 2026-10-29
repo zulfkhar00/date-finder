@@ -22,10 +22,10 @@ const publicCopy = Object.values(contents).join("\n");
 const agency = String.raw`(?:we|our team|NoSwipe|(?:our )?AI)`;
 const positiveModal = String.raw`(?:(?:will|can) )?`;
 const forbiddenOperationPromises = [
-  new RegExp(String.raw`\b${agency} ${positiveModal}(?:swipes?|likes? profiles?|sends? (?:(?:your|the|every|each|all your) )?(?:messages?|replies|openers?))\b`, "i"),
-  new RegExp(String.raw`\b${agency} ${positiveModal}(?:logs? (?:in(?: to)?|into)|access(?:es)?|operates?|runs?|controls?|manages?) (?:(?:your|the|users?['’]?) )?(?:(?:dating[- ]app|Tinder|Bumble|Hinge) )?accounts?\b`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:swipes?|likes? profiles?|sends? (?:(?:your|my|the|every|each|all your) )?(?:messages?|repl(?:y|ies)|openers?))\b`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:logs? (?:in(?: to)?|into)|access(?:es)?|operates?|runs?|controls?|manages?) (?:(?:your|my|the|users?['’]?) )?(?:(?:dating[- ]app|Tinder|Bumble|Hinge) )?accounts?\b`, "i"),
   new RegExp(String.raw`\b${agency} ${positiveModal}(?:chats?|messages?|repl(?:y|ies)|pretends?) (?:in your voice|as you|for you|with your matches|on your behalf)\b`, "i"),
-  new RegExp(String.raw`\b${agency} ${positiveModal}(?:books?|confirms?) (?:(?:the|your) )?dates?\b`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:books?|confirms?) (?:(?:the|your|my) )?dates?\b`, "i"),
   /\byour (?:accounts?|profiles?|matches?|messages?) (?:are|is|will be) (?:managed|operated|controlled|sent) by (?:NoSwipe|our team|AI)\b/i,
   /swipes? done for you/i,
   /chatting for you/i,
@@ -33,7 +33,7 @@ const forbiddenOperationPromises = [
   /you just show up/i,
   /we do (?:it all|the rest|all the work)/i,
   /we find you dates/i,
-  new RegExp(String.raw`\b${agency} (?:(?:offers?|provides?|uses?) )?(?:automates?|automated|automatic).{0,30}(?:swip|lik|messag)`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:(?:offers?|provides?|uses?) )?(?:automates?|automated|automatic).{0,30}(?:swip|lik|messag)`, "i"),
   /our (?:service offers )?(?:automated|automatic) (?:swip|lik|messag)/i,
   new RegExp(String.raw`\b${agency} ${positiveModal}impersonates? you\b`, "i")
 ];
@@ -55,7 +55,7 @@ const forbiddenAdvice = [
 
 const forbiddenOutcomeClaims = [
   /we (?:will )?guarantee/i,
-  /NoSwipe (?:will guarantee|guarantees)/i,
+  /NoSwipe (?:(?:will|can) guarantee|guarantees)/i,
   /(?:matches?|replies?|dates?) (?:are )?guaranteed/i,
   /\bguaranteed[- ](?:matches?|replies?|dates?)\b(?![- ]claims)/i,
   /(?:get|land|secure|deliver) (?:you )?\d+[\d,]* (?:matches?|replies?|dates?)/i,
@@ -76,7 +76,15 @@ function copyViolations(copy) {
     .replace(/\b(?:don't|doesn't|shouldn't|mustn't|won't)\b/gi, (word) => ({
       "don't": "do not", "doesn't": "does not", "shouldn't": "should not", "mustn't": "must not", "won't": "will not"
     })[word.toLowerCase()])
-    .replace(/\b(?:can|will|does|do|should) (?:NoSwipe|we|our team|AI)\b[^?"\n]*\?/gi, "")
+    // Join adjacent FAQ source literals so their answers are checked too.
+    .replace(/["']\s*,\s*["']?(?:answer|a)["']?\s*:\s*["']/g, " ")
+    .replace(new RegExp(String.raw`\b(?:can|will|does|do|should) (${agency}) ([^?"\n]*)\?`, "gi"), (question, subject, action, offset, text) => {
+      const answer = text.slice(offset + question.length);
+      // Only an explicit denial may suppress the question. Otherwise check its
+      // action as a positive promise, including unanswered or ambiguous FAQs.
+      if (/^\s*No[.!](?=\s|["']|$)/i.test(answer)) return "";
+      return `${subject} can ${action}`;
+    })
     .replace(/\b(?:no|avoid anyone selling) guaranteed[- ](?:matches?|replies?|dates?)\b/gi, "")
     .replace(/\s+/g, " ");
   const violations = forbidden.filter((pattern) => {
@@ -105,6 +113,18 @@ const rejectedCopy = [
   "We can log in to your account.",
   "We manage your dating-app account.",
   "NoSwipe provides automated swiping.",
+  "We can use automated swiping.",
+  "NoSwipe will provide automated messaging.",
+  "Our team can automate likes.",
+  "Can NoSwipe run my account? Yes.",
+  "Will NoSwipe operate my Tinder account? Absolutely.",
+  "Can NoSwipe run my account? Maybe.",
+  "Can NoSwipe run my account? No problem.",
+  "Can NoSwipe run my account?",
+  "Can we use automated swiping? Yes.",
+  "Can NoSwipe guarantee matches? Yes.",
+  "Can NoSwipe run my account? No. We run your account anyway.",
+  '{ question: "Can NoSwipe run my account?", answer: "Yes." }',
   "We use automatic likes.",
   "We send messages on your behalf.",
   "NoSwipe will chat as you.",
@@ -141,6 +161,15 @@ for (const copy of [
   "We do not log in, swipe or send messages for you.",
   "NoSwipe does not provide automated swiping.",
   "Can NoSwipe operate my account? No.",
+  "Can NoSwipe run my account? No.",
+  "Can we use automated swiping? No.",
+  "We cannot use automated swiping.",
+  "We will not provide automated messaging.",
+  "NoSwipe can send you draft options.",
+  "Can NoSwipe send you draft options? Yes.",
+  "Can we chat about your goals? Yes.",
+  '{ question: "Can NoSwipe operate my account?", answer: "No. You keep control." }',
+  '{ q: "Can NoSwipe operate my account?", a: "No. You keep control." }',
   "No reviewer can guarantee matches.",
   "No guaranteed matches, and avoid anyone selling guaranteed dates.",
   "Do not publish invented search-volume claims.",

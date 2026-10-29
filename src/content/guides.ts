@@ -337,7 +337,7 @@ const originalGuides: Guide[] = [
       {
         question: "Can NoSwipe book the date for me?",
         answer:
-          "NoSwipe can draft a plan and invitation from the context you provide. You confirm the real venue details, send the invitation and agree the date yourself."
+          "No. NoSwipe can draft a plan and invitation from the context you provide. You confirm the real venue details, send the invitation and agree the date yourself."
       }
     ]
   }
