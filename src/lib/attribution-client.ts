@@ -47,6 +47,32 @@ export function captureAttribution(): Attribution {
   return value;
 }
 
+/**
+ * Attributes an internal campaign link without overwriting a real first-touch campaign.
+ * This lets an untagged search visitor who lands on a guide be credited to that guide
+ * before the CTA click event is recorded.
+ */
+export function captureInternalLinkAttribution(href: string): Attribution {
+  const stored = readCookie();
+  if (stored && (stored.utm_source || stored.utm_medium || stored.utm_campaign)) return stored;
+
+  try {
+    const url = new URL(href, window.location.origin);
+    const raw: Record<string, unknown> = {
+      variant: stored?.variant ?? url.searchParams.get("variant") ?? url.searchParams.get("v") ?? undefined,
+      referrer: stored?.referrer ?? externalReferrer(),
+      ref: stored?.ref ?? url.searchParams.get("ref") ?? undefined
+    };
+    for (const key of UTM_KEYS) raw[key] = url.searchParams.get(key) ?? stored?.[key];
+    const parsed = attributionSchema.safeParse(raw);
+    if (!parsed.success) return stored ?? captureAttribution();
+    try { writeCookie(parsed.data); } catch { /* cookies disabled */ }
+    return parsed.data;
+  } catch {
+    return stored ?? captureAttribution();
+  }
+}
+
 export function getFunnelSessionId(): string {
   try {
     const existing = window.sessionStorage.getItem(SESSION_KEY);

@@ -7,6 +7,7 @@ export function SiteFooter() {
       <div className="footer-row">
         <Brand />
         <nav className="footer-links" aria-label="Footer">
+          <Link href="/guides">Guides</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/#faq">FAQ</Link>

@@ -10,6 +10,7 @@ export function SiteHeader({ showCta = true }: { showCta?: boolean }) {
         <nav className="nav" aria-label="Main navigation">
           <Link href="/#get">What you get</Link>
           <Link href="/#how">How it works</Link>
+          <Link href="/guides">Guides</Link>
           <Link href="/#faq">FAQ</Link>
         </nav>
         {showCta ? <CtaLink location="header" className="btn btn-primary btn-small" /> : <span />}
