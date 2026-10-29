@@ -17,6 +17,31 @@ const expectedSlugs = [
 const primaryHosts = new Set([
   "tinder.com", "bumble.com", "support.bumble.com", "hinge.co", "files.hinge.co", "www.pewresearch.org"
 ]);
+// This allowlist is article-specific: a source can support profile advice but
+// still be only platform context for a different editorial framework.
+const expectedGuidanceUrls: Record<string, string[]> = {
+  "how-to-get-more-tinder-matches": [],
+  "how-to-get-more-bumble-matches": [],
+  "how-to-get-more-hinge-matches": [
+    "https://hinge.co/how-we-connect-daters",
+    "https://hinge.co/newsroom/profile-refresh-guide",
+    "https://hinge.co/newsroom/prompt-feedback"
+  ],
+  "why-you-get-no-matches": ["https://hinge.co/how-we-connect-daters"],
+  "dating-app-photo-order-men": ["https://hinge.co/newsroom/profile-refresh-guide"],
+  "hinge-prompts-for-men": [
+    "https://hinge.co/newsroom/prompt-feedback",
+    "https://hinge.co/newsroom/profile-refresh-guide"
+  ],
+  "tinder-bio-for-men": [],
+  "first-message-after-match": ["https://hinge.co/newsroom/convo-starters"],
+  "when-to-ask-her-out": []
+};
+const sourceKindLabels = {
+  guidance: "Supporting guidance",
+  "platform-context": "Platform context",
+  background: "Background context"
+};
 const sitemapUrls = sitemap().map((entry) => entry.url);
 assert.deepEqual(expandedGuides.map((guide) => guide.slug), expectedSlugs);
 assert.equal(new Set(guideSlugs).size, guides.length, "guide routes must be unique");
@@ -31,12 +56,20 @@ for (const guide of guides) {
 for (const guide of expandedGuides) {
   assert.ok(guide.title && guide.description && guide.intro);
   assert.ok(guide.sections.length >= 4 && guide.checklist.length >= 5 && guide.faqs.length >= 3);
-  assert.ok(guide.sources && guide.sources.length > 0, `${guide.slug}: primary sources are required`);
+  assert.ok(guide.sources && guide.sources.length > 0, `${guide.slug}: source and platform context links are required`);
+  assert.deepEqual(guide.sources.filter((source) => source.kind === "guidance").map((source) => source.url), expectedGuidanceUrls[guide.slug], `${guide.slug}: only directly supporting advice sources may be guidance`);
+  const editorialCopy = guide.sections.flatMap((section) => section.paragraphs).join(" ");
+  assert.doesNotMatch(editorialCopy, /Bumble's (?:own help center|standing-out guidance|public photo guidance).{0,40}(?:emphasizes|encourages|reinforce)/i, `${guide.slug}: do not paraphrase unverified Bumble help`);
   for (const source of guide.sources) {
     const url = new URL(source.url);
     assert.equal(url.protocol, "https:");
     assert.ok(primaryHosts.has(url.hostname), `${guide.slug}: cite a public primary source`);
     assert.ok(source.label);
+    assert.ok(Object.hasOwn(sourceKindLabels, source.kind), `${guide.slug}: source role must be explicit`);
+    if (url.hostname === "support.bumble.com" || /TERMS|terms|\.pdf$/i.test(source.url)) {
+      assert.equal(source.kind, "platform-context", `${guide.slug}: help and terms are platform context, not editorial evidence`);
+    }
+    if (url.hostname === "www.pewresearch.org") assert.equal(source.kind, "background");
   }
   assert.equal(new Set(guide.sources.map((source) => source.url)).size, guide.sources.length);
   assert.equal(guide.relatedSlugs?.length, 3, `${guide.slug}: include three relevant next reads`);
@@ -90,9 +123,20 @@ async function checkRenderedGuides(baseUrl: string) {
     assert.equal(data[0].mainEntityOfPage, canonical);
     assert.equal(data[2].mainEntity.length, guide.faqs.length);
     assert.equal(data[2].mainEntity[0].acceptedAnswer.text, guide.faqs[0].answer);
+    const expectedCitations = expectedGuidanceUrls[guide.slug] ?? [];
+    assert.equal(Object.hasOwn(data[0], "citation"), expectedCitations.length > 0, `${path}: omit citation when no substantive guidance source applies`);
+    if (expectedCitations.length) assert.deepEqual(data[0].citation, expectedCitations, `${path}: only supporting guidance belongs in Article.citation`);
     if (guide.sources) {
-      assert.deepEqual(data[0].citation, guide.sources.map((source) => source.url));
-      for (const source of guide.sources) assert.ok(links.includes(source.url), `${path}: visible source link`);
+      assert.ok(html.includes("Sources and platform context"), `${path}: accurate source heading`);
+      assert.ok(html.includes("Examples and checklists are NoSwipe editorial guidance."));
+      assert.ok(!html.includes("Read the current guidance"));
+      const sourceItems = [...html.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((match) => match[1]);
+      for (const source of guide.sources) {
+        assert.ok(links.includes(source.url), `${path}: visible source link`);
+        const sourceItem = sourceItems.find((item) => item.includes(`href="${source.url}"`));
+        assert.ok(sourceItem?.includes(sourceKindLabels[source.kind]), `${path}: visible source role`);
+        if (source.kind !== "guidance") assert.ok(!(data[0].citation ?? []).includes(source.url), `${path}: context is not a substantive citation`);
+      }
     }
     for (const slug of guide.relatedSlugs ?? []) {
       assert.ok(links.includes(`/guides/${slug}`), `${path}: related link`);

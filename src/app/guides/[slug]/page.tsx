@@ -34,6 +34,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
   if (!guide) notFound();
 
   const canonicalUrl = `https://www.noswipe.app/guides/${guide.slug}`;
+  const guidanceSources = guide.sources?.filter((source) => source.kind === "guidance") ?? [];
   const relatedGuides = guide.relatedSlugs
     ? guide.relatedSlugs.map((relatedSlug) => guides.find((item) => item.slug === relatedSlug)).filter((item) => item !== undefined)
     : guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
@@ -48,7 +49,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
       mainEntityOfPage: canonicalUrl,
       author: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
       publisher: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
-      ...(guide.sources ? { citation: guide.sources.map((source) => source.url) } : {})
+      ...(guidanceSources.length ? { citation: guidanceSources.map((source) => source.url) } : {})
     },
     {
       "@context": "https://schema.org",
@@ -114,12 +115,16 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
             {guide.sources ? (
               <section className="guide-sources" aria-labelledby="guide-sources-title">
-                <p className="kicker">Primary sources</p>
-                <h2 id="guide-sources-title">Read the current guidance</h2>
+                <p className="kicker">Source notes</p>
+                <h2 id="guide-sources-title">Sources and platform context</h2>
+                <p>
+                  Examples and checklists are NoSwipe editorial guidance. Supporting guidance informs specific advice; platform and background links provide context, not evidence for every framework.
+                </p>
                 <ul>
                   {guide.sources.map((source) => (
                     <li key={source.url}>
                       <a href={source.url} target="_blank" rel="noreferrer">{source.label}</a>
+                      {" — "}{source.kind === "guidance" ? "Supporting guidance" : source.kind === "platform-context" ? "Platform context" : "Background context"}
                     </li>
                   ))}
                 </ul>

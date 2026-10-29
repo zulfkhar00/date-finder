@@ -17,7 +17,7 @@ export type Guide = {
   sections: GuideSection[];
   checklist: string[];
   faqs: { question: string; answer: string }[];
-  sources?: { label: string; url: string }[];
+  sources?: { label: string; url: string; kind: "guidance" | "platform-context" | "background" }[];
   relatedSlugs?: string[];
 };
 

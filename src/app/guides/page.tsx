@@ -8,7 +8,7 @@ import { guides } from "@/content/guides";
 
 const title = "Practical dating-app profile, match and message guides";
 const description =
-  "Clear, source-aware guides for Tinder, Bumble and Hinge profiles, photo order, prompts, first messages and asking someone out.";
+  "NoSwipe editorial guides for Tinder, Bumble and Hinge profiles, photo order, prompts, first messages and asking someone out, with source and platform context.";
 
 export const metadata: Metadata = {
   title: "Dating profile and message guides",
@@ -44,7 +44,7 @@ export default function GuidesPage() {
           <p className="kicker">NoSwipe guides</p>
           <h1>Dating advice you can actually use.</h1>
           <p>
-            Practical reviews, examples, primary sources and checklists for Tinder, Bumble and Hinge. No guaranteed-match claims, copied pickup lines or fake success stories.
+            NoSwipe editorial reviews, examples and checklists for Tinder, Bumble and Hinge, with supporting guidance and clearly labeled platform context. No guaranteed-match claims, copied pickup lines or fake success stories.
           </p>
         </header>
 

@@ -18,25 +18,39 @@ const files = (await Promise.all(["src/app", "src/components", "src/content"].ma
 const contents = Object.fromEntries(await Promise.all(files.map(async (file) => [file, await readFile(file, "utf8")])));
 const publicCopy = Object.values(contents).join("\n");
 
-// Target positive service promises, while allowing boundary copy such as
-// "we do not swipe" and instructions that the user swipes or sends.
+// Match account/profile interactions, not ordinary coaching conversations.
+const agency = String.raw`(?:we|our team|NoSwipe|(?:our )?AI)`;
+const positiveModal = String.raw`(?:(?:will|can) )?`;
 const forbiddenOperationPromises = [
-  /we (?:swipe|chat|book)(?:\b|\.)/i,
-  /(?:we|NoSwipe) (?:will|can) (?:log in|access|operate|run|control|swipe|like|send|message|chat|book|confirm)\b/i,
-  /(?:we|NoSwipe) (?:log into|access|operate|run|control|manage) (?:your|the|users?['’]?) (?:dating[- ]app |Tinder |Bumble |Hinge )?accounts?/i,
-  /NoSwipe (?:logs in|accesses|operates|runs|controls|swipes|likes|sends|messages|chats|books|confirms)\b/i,
-  /NoSwipe runs your/i,
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:swipes?|likes? profiles?|sends? (?:(?:your|the|every|each|all your) )?(?:messages?|replies|openers?))\b`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:logs? (?:in(?: to)?|into)|access(?:es)?|operates?|runs?|controls?|manages?) (?:(?:your|the|users?['’]?) )?(?:(?:dating[- ]app|Tinder|Bumble|Hinge) )?accounts?\b`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:chats?|messages?|repl(?:y|ies)|pretends?) (?:in your voice|as you|for you|with your matches|on your behalf)\b`, "i"),
+  new RegExp(String.raw`\b${agency} ${positiveModal}(?:books?|confirms?) (?:(?:the|your) )?dates?\b`, "i"),
+  /\byour (?:accounts?|profiles?|matches?|messages?) (?:are|is|will be) (?:managed|operated|controlled|sent) by (?:NoSwipe|our team|AI)\b/i,
   /swipes? done for you/i,
   /chatting for you/i,
   /dates?,? already booked/i,
   /you just show up/i,
   /we do (?:it all|the rest|all the work)/i,
   /we find you dates/i,
-  /(?:we|NoSwipe) (?:(?:offer|offers|provide|provides|use|uses) )?(?:automate[sd]?|automated|automatic).{0,30}(?:swip|lik|messag)/i,
+  new RegExp(String.raw`\b${agency} (?:(?:offers?|provides?|uses?) )?(?:automates?|automated|automatic).{0,30}(?:swip|lik|messag)`, "i"),
   /our (?:service offers )?(?:automated|automatic) (?:swip|lik|messag)/i,
-  /(?:we|NoSwipe) (?:swipe|send messages|send replies|like profiles|confirm dates) (?:for you|on your behalf)/i,
-  /(?:chat|message|reply|pretend) (?:in your voice|as you|for you)/i,
-  /(?:we|NoSwipe) impersonat(?:e|es|ing) you/i
+  new RegExp(String.raw`\b${agency} ${positiveModal}impersonates? you\b`, "i")
+];
+
+// Capture a prohibition together with its action, so "never use fake photos"
+// stays allowed without hiding a separate positive promise in the same copy.
+function adviceRule(action) {
+  return new RegExp(String.raw`\b(?:(?<prohibition>do not|does not|should not|must not|never|avoid|without|discourages?|against|recommends? (?:(?:that )?you )?(?:do )?not) )?(?:${action})`, "gi");
+}
+const forbiddenAdvice = [
+  adviceRule(String.raw`(?:use|using|upload|uploading|generate|generating|create|creating|recommend|recommends|try) (?:\w+ ){0,4}(?:fake|synthetic|AI[- ]generated|materially altered) (?:dating[- ]app |dating |profile )?(?:photos?|images?)\b`),
+  adviceRule(String.raw`(?:pressure|pressuring|guilt|guilting|coerce|coercing|manipulate|manipulating) (?:her|them|a match|your matches)\b`),
+  adviceRule(String.raw`(?:ignore|ignoring|overcome|overcoming) (?:her|their|a|the) (?:no|refusal|boundaries|boundary)\b`),
+  adviceRule(String.raw`(?:keep|continue) (?:messaging|pushing|asking)(?: her| them)? (?:until|after) (?:she|they) (?:agrees?|says? (?:yes|no)|declines?)\b`),
+  adviceRule(String.raw`(?:use|using|try|enable|recommend|recommends) (?:\w+ ){0,6}(?:location spoofing|GPS spoofing|fake GPS)\b`),
+  adviceRule(String.raw`(?:spoof|spoofing|fake|faking) (?:your|the|account) location\b`),
+  adviceRule(String.raw`(?:(?:use|using|try) [^.;!?]{0,100}?(?:to )?)?(?:bypass|bypassing|evade|evading|circumvent|circumventing) (?:app |account |platform )?(?:bans?|restrictions|moderation|verification)\b`)
 ];
 
 const forbiddenOutcomeClaims = [
@@ -56,8 +70,22 @@ const forbiddenOutcomeClaims = [
 
 const forbidden = [...forbiddenOperationPromises, ...forbiddenOutcomeClaims];
 function copyViolations(copy) {
-  const promises = copy.replace(/\b(?:no|avoid anyone selling) guaranteed[- ](?:matches?|replies?|dates?)\b/gi, "");
-  return forbidden.filter((pattern) => pattern.test(promises));
+  const promises = copy
+    .replace(/’/g, "'")
+    .replace(/\bwe'll\b/gi, "we will")
+    .replace(/\b(?:don't|doesn't|shouldn't|mustn't|won't)\b/gi, (word) => ({
+      "don't": "do not", "doesn't": "does not", "shouldn't": "should not", "mustn't": "must not", "won't": "will not"
+    })[word.toLowerCase()])
+    .replace(/\b(?:can|will|does|do|should) (?:NoSwipe|we|our team|AI)\b[^?"\n]*\?/gi, "")
+    .replace(/\b(?:no|avoid anyone selling) guaranteed[- ](?:matches?|replies?|dates?)\b/gi, "")
+    .replace(/\s+/g, " ");
+  const violations = forbidden.filter((pattern) => {
+    const rule = new RegExp(String.raw`\b(?:(?<prohibition>do not let|never let|avoid letting|without letting) )?(?:${pattern.source})`, "gi");
+    return [...promises.matchAll(rule)].some((match) => !match.groups?.prohibition);
+  });
+  return violations.concat(forbiddenAdvice.filter((pattern) =>
+    [...promises.matchAll(pattern)].some((match) => !match.groups?.prohibition)
+  ));
 }
 
 for (const pattern of copyViolations(publicCopy)) {
@@ -68,6 +96,11 @@ for (const pattern of copyViolations(publicCopy)) {
 // user actions, questions and explicit service boundaries must remain allowed.
 const rejectedCopy = [
   "We swipe for you.",
+  "Our team swipes for you.",
+  "We’ll send your messages.",
+  "We'll send your messages.",
+  "Your matches are managed by NoSwipe.",
+  "AI sends replies on your behalf.",
   "NoSwipe operates your Tinder account.",
   "We can log in to your account.",
   "We manage your dating-app account.",
@@ -85,7 +118,19 @@ const rejectedCopy = [
   "Our success rate is 95%.",
   "This keyword has 12,000 monthly searches.",
   "Search volume is 12000.",
-  "Thousands of monthly searches make this topic valuable."
+  "Thousands of monthly searches make this topic valuable.",
+  "Pressure her into a date.",
+  "Ignore her no.",
+  "Keep messaging until she agrees.",
+  "Use fake dating photos.",
+  "Upload synthetic profile images.",
+  "We recommend using AI-generated dating photos.",
+  "Use location spoofing to reach another city.",
+  "Spoof your location.",
+  "Use bots to bypass platform restrictions.",
+  "Bypass account verification.",
+  "Do not use fake photos, but AI sends replies on your behalf.",
+  "Never pressure her. Use synthetic dating photos instead."
 ];
 for (const copy of rejectedCopy) {
   assert.ok(copyViolations(copy).length > 0, `policy must reject: ${copy}`);
@@ -99,7 +144,28 @@ for (const copy of [
   "No reviewer can guarantee matches.",
   "No guaranteed matches, and avoid anyone selling guaranteed dates.",
   "Do not publish invented search-volume claims.",
-  "We can draft 3 bio options for you."
+  "We can draft 3 bio options for you.",
+  "We chat about your goals.",
+  "We can chat about your goals.",
+  "Our team does not swipe for you.",
+  "We won't send your messages.",
+  "Your matches are not managed by NoSwipe.",
+  "AI never sends replies on your behalf.",
+  "Do not let AI send replies on your behalf.",
+  "Do not pressure her into a date.",
+  "Never ignore her no.",
+  "Avoid pressuring your matches.",
+  "Do not keep messaging until she agrees.",
+  "Never use fake dating photos.",
+  "Don't upload synthetic profile images.",
+  "NoSwipe does not recommend using AI-generated dating photos.",
+  "We recommend not using fake dating photos.",
+  "We recommend you do not use fake dating photos.",
+  "We discourage pressuring your matches.",
+  "Do not use location spoofing.",
+  "Avoid spoofing your location.",
+  "Never bypass platform restrictions.",
+  "Do not use location spoofing, new identities or automation to bypass restrictions."
 ]) {
   assert.deepEqual(copyViolations(copy), [], `policy must allow: ${copy}`);
 }

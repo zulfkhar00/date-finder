@@ -93,8 +93,8 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Tinder Terms of Use", url: TINDER_TERMS },
-      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING }
+      { label: "Tinder Terms of Use", url: TINDER_TERMS, kind: "platform-context" },
+      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING, kind: "background" }
     ],
     relatedSlugs: ["tinder-profile-review", "dating-app-photo-order-men", "tinder-bio-for-men"]
   },
@@ -111,7 +111,7 @@ export const expandedGuides: Guide[] = [
       {
         title: "Use Bumble's profile tools completely and honestly",
         paragraphs: [
-          "Bumble's own help center emphasizes using profile photos and details to help people understand you. Fill the fields that matter to your dating intent, and make sure filters and preferences match the people you can realistically meet.",
+          "Our editorial recommendation is to use profile photos and details to help people understand you. Fill the fields that matter to your dating intent, and make sure filters and preferences match the people you can realistically meet.",
           "Verification or a complete profile is not a guarantee of attention. It simply removes avoidable uncertainty. Do not use account automation, location manipulation or someone else's identity; Bumble's terms govern how the service may be used."
         ],
         bullets: [
@@ -126,7 +126,7 @@ export const expandedGuides: Guide[] = [
         title: "Build a photo set with distinct jobs",
         paragraphs: [
           "Lead with a solo image where your face is easy to see. Follow it with wider context: full-body appearance, a real activity, a social setting where you remain obvious and a photo that shows style or warmth.",
-          "Bumble's public photo guidance is the right place to check current upload and moderation rules. Within those rules, prioritize clarity over heavy editing. A profile should prepare someone to recognize you in person."
+          "Check the official Bumble help links below for platform context and current upload information. Our photo advice here is editorial: prioritize clarity over heavy editing so someone can recognize you in person."
         ],
         example: {
           label: "A useful sequence",
@@ -136,7 +136,7 @@ export const expandedGuides: Guide[] = [
       {
         title: "Write details that support the first exchange",
         paragraphs: [
-          "Bumble's standing-out guidance encourages a complete, distinctive profile. Translate that into specific material: the meal you make for friends, the neighborhood ritual you repeat or the small opinion you can defend without turning hostile.",
+          "For a complete, distinctive profile, we recommend specific material: the meal you make for friends, the neighborhood ritual you repeat or the small opinion you can defend without turning hostile.",
           "Answer profile questions in your normal voice. If every answer sounds like a résumé or a performance, replace one with a concrete scene that makes a reply easier."
         ],
         bullets: [
@@ -180,9 +180,9 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Bumble Support: uploading profile photos and videos", url: BUMBLE_PHOTOS },
-      { label: "Bumble Support: standing out on Bumble", url: BUMBLE_STAND_OUT },
-      { label: "Bumble Terms and Conditions", url: BUMBLE_TERMS }
+      { label: "Bumble Support: uploading profile photos and videos", url: BUMBLE_PHOTOS, kind: "platform-context" },
+      { label: "Bumble Support: standing out on Bumble", url: BUMBLE_STAND_OUT, kind: "platform-context" },
+      { label: "Bumble Terms and Conditions", url: BUMBLE_TERMS, kind: "platform-context" }
     ],
     relatedSlugs: ["dating-app-photo-order-men", "first-message-after-match", "why-you-get-no-matches"]
   },
@@ -267,10 +267,10 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Hinge: How We Connect Daters", url: HINGE_RECOMMENDATIONS },
-      { label: "Hinge Profile Refresh Guide", url: HINGE_REFRESH },
-      { label: "Hinge Prompt Feedback", url: HINGE_PROMPTS },
-      { label: "Hinge Terms of Service", url: HINGE_TERMS }
+      { label: "Hinge: How We Connect Daters", url: HINGE_RECOMMENDATIONS, kind: "guidance" },
+      { label: "Hinge Profile Refresh Guide", url: HINGE_REFRESH, kind: "guidance" },
+      { label: "Hinge Prompt Feedback", url: HINGE_PROMPTS, kind: "guidance" },
+      { label: "Hinge Terms of Service", url: HINGE_TERMS, kind: "platform-context" }
     ],
     relatedSlugs: ["hinge-prompt-help", "hinge-prompts-for-men", "dating-app-photo-order-men"]
   },
@@ -357,9 +357,9 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING },
-      { label: "Hinge: How We Connect Daters", url: HINGE_RECOMMENDATIONS },
-      { label: "Bumble Support: standing out on Bumble", url: BUMBLE_STAND_OUT }
+      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING, kind: "background" },
+      { label: "Hinge: How We Connect Daters", url: HINGE_RECOMMENDATIONS, kind: "guidance" },
+      { label: "Bumble Support: standing out on Bumble", url: BUMBLE_STAND_OUT, kind: "platform-context" }
     ],
     relatedSlugs: ["dating-app-photo-order-men", "how-to-get-more-tinder-matches", "how-to-get-more-hinge-matches"]
   },
@@ -377,7 +377,7 @@ export const expandedGuides: Guide[] = [
         title: "Photo one: clear recognition",
         paragraphs: [
           "Open with a recent solo image where your face is large enough to read, your eyes are visible and the lighting is natural. The background can add style, but it should not compete with you.",
-          "Avoid starting with a group, helmet, sunglasses, distant landscape or image that needs a caption. Bumble's public photo guidance and Hinge's Profile Refresh Guide both reinforce the value of current profile material; check each app's current rules before uploading."
+          "Avoid starting with a group, helmet, sunglasses, distant landscape or image that needs a caption. Hinge's Profile Refresh Guide supports revisiting profile material. The Bumble help link below is platform context, not the source of our suggested photo order; check each app's current rules before uploading."
         ],
         bullets: [
           "One person in frame",
@@ -445,8 +445,8 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Bumble Support: uploading profile photos and videos", url: BUMBLE_PHOTOS },
-      { label: "Hinge Profile Refresh Guide", url: HINGE_REFRESH }
+      { label: "Bumble Support: uploading profile photos and videos", url: BUMBLE_PHOTOS, kind: "platform-context" },
+      { label: "Hinge Profile Refresh Guide", url: HINGE_REFRESH, kind: "guidance" }
     ],
     relatedSlugs: ["tinder-profile-review", "why-you-get-no-matches", "how-to-get-more-bumble-matches"]
   },
@@ -529,9 +529,9 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Hinge Prompt Feedback", url: HINGE_PROMPTS },
-      { label: "Hinge Profile Refresh Guide", url: HINGE_REFRESH },
-      { label: "Hinge Terms of Service", url: HINGE_TERMS }
+      { label: "Hinge Prompt Feedback", url: HINGE_PROMPTS, kind: "guidance" },
+      { label: "Hinge Profile Refresh Guide", url: HINGE_REFRESH, kind: "guidance" },
+      { label: "Hinge Terms of Service", url: HINGE_TERMS, kind: "platform-context" }
     ],
     relatedSlugs: ["hinge-prompt-help", "how-to-get-more-hinge-matches", "first-message-after-match"]
   },
@@ -614,8 +614,8 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Tinder Terms of Use", url: TINDER_TERMS },
-      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING }
+      { label: "Tinder Terms of Use", url: TINDER_TERMS, kind: "platform-context" },
+      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING, kind: "background" }
     ],
     relatedSlugs: ["tinder-profile-review", "how-to-get-more-tinder-matches", "first-message-after-match"]
   },
@@ -657,7 +657,7 @@ export const expandedGuides: Guide[] = [
         title: "Adapt the structure to the app and profile",
         paragraphs: [
           "On Hinge, respond directly to the photo or prompt that created the match. On Tinder or Bumble, use the strongest available detail from the full profile. If the profile is sparse, ask about a visible setting or offer a simple choice instead of inventing familiarity.",
-          "Keep the message proportionate. One or two sentences usually leave more room for a reply than a paragraph covering several topics. Bumble's standing-out guidance and Hinge's conversation material are useful current references, but your words should remain your own."
+          "Keep the message proportionate. Our editorial recommendation is one or two sentences rather than a paragraph covering several topics. Hinge's conversation material supports grounding the message in profile context; the Bumble help link is platform context, not evidence for this message structure."
         ],
         example: {
           label: "Sparse-profile option",
@@ -698,10 +698,10 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Hinge Conversation Starters", url: HINGE_CONVERSATIONS },
-      { label: "Bumble Support: standing out on Bumble", url: BUMBLE_STAND_OUT },
-      { label: "Hinge Terms of Service", url: HINGE_TERMS },
-      { label: "Bumble Terms and Conditions", url: BUMBLE_TERMS }
+      { label: "Hinge Conversation Starters", url: HINGE_CONVERSATIONS, kind: "guidance" },
+      { label: "Bumble Support: standing out on Bumble", url: BUMBLE_STAND_OUT, kind: "platform-context" },
+      { label: "Hinge Terms of Service", url: HINGE_TERMS, kind: "platform-context" },
+      { label: "Bumble Terms and Conditions", url: BUMBLE_TERMS, kind: "platform-context" }
     ],
     relatedSlugs: ["dating-message-help", "when-to-ask-her-out", "hinge-prompts-for-men"]
   },
@@ -784,10 +784,10 @@ export const expandedGuides: Guide[] = [
       }
     ],
     sources: [
-      { label: "Hinge Conversation Starters", url: HINGE_CONVERSATIONS },
-      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING },
-      { label: "Tinder Terms of Use", url: TINDER_TERMS },
-      { label: "Bumble Terms and Conditions", url: BUMBLE_TERMS }
+      { label: "Hinge Conversation Starters", url: HINGE_CONVERSATIONS, kind: "platform-context" },
+      { label: "Pew Research Center: key findings about online dating in the U.S.", url: PEW_ONLINE_DATING, kind: "background" },
+      { label: "Tinder Terms of Use", url: TINDER_TERMS, kind: "platform-context" },
+      { label: "Bumble Terms and Conditions", url: BUMBLE_TERMS, kind: "platform-context" }
     ],
     relatedSlugs: ["first-message-after-match", "dating-message-help", "first-date-planning"]
   }
