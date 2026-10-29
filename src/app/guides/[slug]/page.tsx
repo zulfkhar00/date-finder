@@ -34,7 +34,9 @@ export default async function GuidePage({ params }: GuidePageProps) {
   if (!guide) notFound();
 
   const canonicalUrl = `https://www.noswipe.app/guides/${guide.slug}`;
-  const relatedGuides = guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
+  const relatedGuides = guide.relatedSlugs
+    ? guide.relatedSlugs.map((relatedSlug) => guides.find((item) => item.slug === relatedSlug)).filter((item) => item !== undefined)
+    : guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
   const structuredData = [
     {
       "@context": "https://schema.org",
@@ -45,7 +47,8 @@ export default async function GuidePage({ params }: GuidePageProps) {
       dateModified: "2026-10-29",
       mainEntityOfPage: canonicalUrl,
       author: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
-      publisher: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" }
+      publisher: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
+      ...(guide.sources ? { citation: guide.sources.map((source) => source.url) } : {})
     },
     {
       "@context": "https://schema.org",
@@ -67,7 +70,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
     }
   ];
 
-  const reserveHref = `/reserve?utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&ref=${guide.slug}`;
+  const reserveHref = `/reserve?utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve&ref=${guide.slug}`;
 
   return (
     <div className="interior">
@@ -109,6 +112,20 @@ export default async function GuidePage({ params }: GuidePageProps) {
               </section>
             ))}
 
+            {guide.sources ? (
+              <section className="guide-sources" aria-labelledby="guide-sources-title">
+                <p className="kicker">Primary sources</p>
+                <h2 id="guide-sources-title">Read the current guidance</h2>
+                <ul>
+                  {guide.sources.map((source) => (
+                    <li key={source.url}>
+                      <a href={source.url} target="_blank" rel="noreferrer">{source.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             <section className="guide-checklist" aria-labelledby="review-checklist">
               <p className="kicker">Quick review</p>
               <h2 id="review-checklist">Your checklist</h2>
@@ -136,7 +153,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
               <p className="kicker">Want a second pair of eyes?</p>
               <h2 id="guide-cta-title">Keep the account. Get better drafts.</h2>
               <p>
-                NoSwipe is building a screenshot-based dating concierge. We can review photos, draft profile copy and messages, and help plan dates. You choose, edit and send everything yourself.
+                NoSwipe is building a screenshot-based dating concierge. We can review photos, draft profile copy and messages, and help plan dates. You make profile changes, swipe, send messages and confirm dates yourself.
               </p>
               <CtaLink href={reserveHref} location={`guide_${guide.slug}`} className="btn btn-lime">
                 Reserve a place for $1

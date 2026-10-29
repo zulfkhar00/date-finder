@@ -1,3 +1,5 @@
+import { expandedGuides } from "@/content/guide-expansion";
+
 export type GuideSection = {
   title: string;
   paragraphs: string[];
@@ -15,9 +17,11 @@ export type Guide = {
   sections: GuideSection[];
   checklist: string[];
   faqs: { question: string; answer: string }[];
+  sources?: { label: string; url: string }[];
+  relatedSlugs?: string[];
 };
 
-export const guides: Guide[] = [
+const originalGuides: Guide[] = [
   {
     slug: "tinder-profile-review",
     title: "How to review your Tinder profile",
@@ -338,6 +342,8 @@ export const guides: Guide[] = [
     ]
   }
 ];
+
+export const guides: Guide[] = [...originalGuides, ...expandedGuides];
 
 export const guideSlugs = guides.map((guide) => guide.slug);
 
