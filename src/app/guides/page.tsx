@@ -27,7 +27,7 @@ export default function GuidesPage() {
       "@type": "ListItem",
       position: index + 1,
       name: guide.title,
-      url: `https://noswipe.app/guides/${guide.slug}`
+      url: `https://www.noswipe.app/guides/${guide.slug}`
     }))
   };
 

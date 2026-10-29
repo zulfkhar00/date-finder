@@ -33,7 +33,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
   const guide = getGuide(slug);
   if (!guide) notFound();
 
-  const canonicalUrl = `https://noswipe.app/guides/${guide.slug}`;
+  const canonicalUrl = `https://www.noswipe.app/guides/${guide.slug}`;
   const relatedGuides = guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
   const structuredData = [
     {
@@ -44,15 +44,15 @@ export default async function GuidePage({ params }: GuidePageProps) {
       datePublished: "2026-10-29",
       dateModified: "2026-10-29",
       mainEntityOfPage: canonicalUrl,
-      author: { "@type": "Organization", name: "NoSwipe", url: "https://noswipe.app" },
-      publisher: { "@type": "Organization", name: "NoSwipe", url: "https://noswipe.app" }
+      author: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
+      publisher: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" }
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "NoSwipe", item: "https://noswipe.app" },
-        { "@type": "ListItem", position: 2, name: "Guides", item: "https://noswipe.app/guides" },
+        { "@type": "ListItem", position: 1, name: "NoSwipe", item: "https://www.noswipe.app" },
+        { "@type": "ListItem", position: 2, name: "Guides", item: "https://www.noswipe.app/guides" },
         { "@type": "ListItem", position: 3, name: guide.title, item: canonicalUrl }
       ]
     },
