@@ -4,10 +4,10 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { Plus } from "lucide-react";
 
 const faqs = [
-  { q: "What do I actually do?", a: "Almost nothing. Two minutes to tell us about you and your type, then you send your real photos. NoSwipe builds your profiles, swipes, chats with your matches and books the date. You show up." },
-  { q: "Is it my profile and my photos?", a: "Yes. Your own profiles on Tinder, Bumble and Hinge, with your real photos. We pick the best ones and polish them, never fake or swap them." },
-  { q: "Does she know?", a: "She’s chatting with your profile: your photos, your real details, written the way you talk. Once she shares her number, it’s you who texts her and you who goes on the date." },
-  { q: "Do you guarantee dates?", a: "No, and nobody honestly can. We do all the work to get them. You see exactly what you pay before you pay anything, and getting started is refundable." }
+  { q: "What do I actually do?", a: "Tell us what help you want and share only the photos or screenshots you choose. NoSwipe prepares profile suggestions, message drafts and date plans. You keep your accounts, choose who to like and send every message yourself." },
+  { q: "Is it my profile and my photos?", a: "Yes. Your own profiles on Tinder, Bumble and Hinge, with your real photos. We can rank them and suggest edits, but never fake or replace them." },
+  { q: "Does NoSwipe access my dating apps?", a: "No. We work from the context you choose to share. We do not log in, swipe, like profiles, send messages or confirm dates for you." },
+  { q: "Do you guarantee dates?", a: "No. Profile advice, message drafts and date plans cannot guarantee a match, reply or date. The $1 early-access waitlist fee is refundable." }
 ];
 
 export function Faq() {
