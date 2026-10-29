@@ -138,7 +138,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       <motion.div key={step} className="form-step" {...transition}>
         {step === 0 && <>
           <h2 ref={headingRef} tabIndex={-1}>First, about you.</h2>
-          <p>So we can set everything up for you. Your answers stay private.</p>
+          <p>So we can understand the help you want. Your answers stay private.</p>
           <div className="field-grid">
             <div className="field"><label htmlFor="name">First name</label><input id="name" name="given-name" autoComplete="given-name" placeholder="e.g. Alex" maxLength={60} value={value.name} onChange={(event) => change("name", event.target.value)} /></div>
             <div className="field"><label htmlFor="age">Your age</label><input id="age" name="age" inputMode="numeric" placeholder="18+" maxLength={2} value={value.age} onChange={(event) => change("age", event.target.value.replace(/\D/g, ""))} /></div>
@@ -148,7 +148,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
         </>}
         {step === 1 && <>
           <h2 ref={headingRef} tabIndex={-1}>Who are you looking for?</h2>
-          <p>We use this to pick who to swipe on and who to chat with for you.</p>
+          <p>We use this to tailor profile suggestions, message drafts and date ideas to your preferences.</p>
           <fieldset className="fieldset"><legend>I want to date</legend><div className="choice-grid">{(Object.keys(datingPreferenceLabels) as ReservationInput["datingPreference"][]).map((option) => <Choice key={option} pressed={value.datingPreference === option} onClick={() => change("datingPreference", option)}>{datingPreferenceLabels[option]}</Choice>)}</div></fieldset>
           <fieldset className="fieldset"><legend>Age range</legend><div className="field-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div className="field"><label htmlFor="age-min">From</label><input id="age-min" inputMode="numeric" placeholder="e.g. 24" maxLength={2} value={value.ageMin} onChange={(event) => change("ageMin", event.target.value.replace(/\D/g, ""))} /></div>
@@ -159,14 +159,14 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
         </>}
         {step === 2 && <>
           <h2 ref={headingRef} tabIndex={-1}>Which apps?</h2>
-          <p>Pick every app you want us to run for you.</p>
+          <p>Pick every app where you want profile or message help.</p>
           <fieldset className="fieldset"><legend>Apps</legend><div className="choice-grid">{DATING_APPS.map((app) => <Choice key={app} pressed={value.apps.includes(app)} onClick={() => toggleApp(app)}>{datingAppLabels[app]}</Choice>)}</div></fieldset>
           <fieldset className="fieldset"><legend>How often do you want to be on a date?</legend><div className="choice-grid">{(Object.keys(dateFrequencyLabels) as ReservationInput["dateFrequency"][]).map((option) => <Choice key={option} pressed={value.dateFrequency === option} onClick={() => change("dateFrequency", option)}>{dateFrequencyLabels[option]}</Choice>)}</div></fieldset>
-          <div className="review-box"><div><span>Photos</span><strong>Later</strong></div><p>Skip this for now. When we set you up we ask for your real photos, then pick and polish the best ones. Never fake ones.</p></div>
+          <div className="review-box"><div><span>Photos</span><strong>Later</strong></div><p>Skip this for now. If concierge access opens, you can share real photos or screenshots for ranking and draft suggestions. We never create fake photos.</p></div>
         </>}
         {step === 3 && <>
           <h2 ref={headingRef} tabIndex={-1}>You’re all set.</h2>
-          <p>Last step: secure checkout, then NoSwipe starts setting up your apps.</p>
+          <p>Last step: reserve early access. The refundable $1 fee does not start a service or give NoSwipe access to your apps.</p>
           <div className="review-box">
             <p style={{ marginTop: 0, fontWeight: 700 }}>Your apps: {value.apps.map((app) => datingAppLabels[app]).join(", ")}</p>
             <p>You see exactly what you pay on the next screen, before you pay anything.</p>

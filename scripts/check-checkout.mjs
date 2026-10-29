@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { checkoutPresentation, checkoutResponse, readCheckoutResponse } from "../src/lib/checkout-presentation.ts";
+import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse, readCheckoutResponse } from "../src/lib/checkout-presentation.ts";
+
+assert.equal(CHECKOUT_LINE_ITEM.name, "noswipe — reserve early access");
+assert.match(CHECKOUT_LINE_ITEM.description, /refundable early-access waitlist fee/i);
+assert.match(CHECKOUT_LINE_ITEM.description, /does not start a service/i);
+assert.equal(/activates|matches|dates/i.test(CHECKOUT_LINE_ITEM.description), false, "line item never promises service or outcomes");
 
 const origin = "https://www.noswipe.app";
 const publicKey = "pk_test_example";

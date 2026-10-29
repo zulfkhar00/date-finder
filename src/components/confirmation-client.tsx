@@ -61,14 +61,14 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
       <motion.div className="ticket-card" role="status" aria-live="polite" initial={reduce ? false : { opacity: 0, y: 24, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
         <span className="label">You’re in</span>
         <h1>You’re in — your spot is reserved.</h1>
-        <p>We’ll email you as we set up your Tinder, Bumble and Hinge.</p>
+        <p>You’re on the early-access list. We’ll email you if a concierge place opens.</p>
       </motion.div>
       <div className="panel">
         <p className="kicker">What happens next</p>
         <ol className="next-list">
-          <li><span className="how-step">1</span><span>We go through your answers and your type.</span></li>
-          <li><span className="how-step">2</span><span>We email you to send your real photos, then build your profiles.</span></li>
-          <li><span className="how-step">3</span><span>NoSwipe swipes, chats in your voice and books the dates. You show up.</span></li>
+          <li><span className="how-step">1</span><span>We review your answers and contact you if a concierge place opens.</span></li>
+          <li><span className="how-step">2</span><span>You choose which photos or screenshots to share. NoSwipe prepares profile copy, message drafts and date plans.</span></li>
+          <li><span className="how-step">3</span><span>You keep control of every dating-app account, choose who to like, send every message and confirm every date.</span></li>
         </ol>
         <p className="fine" style={{ marginTop: 16 }}>Your $1 is refundable: just reply to your confirmation email or write to support@noswipe.app. We can’t guarantee dates, and nobody honestly can.</p>
         <p style={{ fontWeight: 800, marginTop: 22 }}>Know a guy who’s sick of swiping?</p>

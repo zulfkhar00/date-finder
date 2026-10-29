@@ -14,7 +14,9 @@ export function buildConfirmationEmail(): ConfirmationEmail {
   const text = [
     "You're in — your spot is reserved.",
     "",
-    "We'll email you as we set up your Tinder, Bumble and Hinge. Nothing to do until then.",
+    "You're on the early-access list. We'll email you if a concierge place opens.",
+    "NoSwipe prepares profile copy, message drafts and date plans from the context you choose to share. You keep control of your accounts and send every message yourself.",
+    "Nothing to do until then.",
     "",
     CONFIRMATION_EMAIL_LINK,
     "",
@@ -28,7 +30,9 @@ export function buildConfirmationEmail(): ConfirmationEmail {
 <div style="max-width:480px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#111111;">
 <p style="margin:0 0 24px;"><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="NoSwipe" style="display:block;border:0;width:48px;height:48px;"></p>
 <p style="margin:0 0 16px;font-size:22px;font-weight:700;">You're in — your spot is reserved.</p>
-<p style="margin:0 0 16px;">We'll email you as we set up your Tinder, Bumble and Hinge. Nothing to do until then.</p>
+<p style="margin:0 0 16px;">You're on the early-access list. We'll email you if a concierge place opens.</p>
+<p style="margin:0 0 16px;">NoSwipe prepares profile copy, message drafts and date plans from the context you choose to share. You keep control of your accounts and send every message yourself.</p>
+<p style="margin:0 0 16px;">Nothing to do until then.</p>
 <p style="margin:0 0 32px;"><a href="${CONFIRMATION_EMAIL_LINK}" style="color:#111111;">noswipe.app</a></p>
 <p style="margin:0;font-size:13px;color:#666666;">${footer}</p>
 </div>

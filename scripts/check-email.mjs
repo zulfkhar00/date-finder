@@ -8,12 +8,15 @@ assert.equal(email.subject, "You're in — your spot is reserved");
 for (const body of [email.text, email.html]) {
   assert.ok(body.includes("You're in — your spot is reserved."));
   assert.equal(/#[0-9]+ in|in the queue|queue position/i.test(body), false, "never show the queue number");
-  assert.ok(body.includes("We'll email you as we set up your Tinder, Bumble and Hinge."));
+  assert.ok(body.includes("You're on the early-access list."));
+  assert.ok(body.includes("We'll email you if a concierge place opens."));
+  assert.ok(body.includes("You keep control of your accounts and send every message yourself."));
+  assert.equal(/we (swipe|chat|book)|run your dating/i.test(body), false, "never promise account operation");
   assert.equal(/batch|nonrefundable/i.test(body), false, "no batch or nonrefundable wording");
   assert.ok(body.includes("Nothing to do until then."));
   assert.ok(body.includes("https://noswipe.app"));
   assert.ok(body.includes("reply to this email"));
-  assert.equal(/waitlist/i.test(body), false, "no waitlist wording");
+  assert.ok(body.includes("early-access"));
 }
 assert.ok(email.html.includes('href="https://noswipe.app"'));
 assert.ok(email.html.includes('src="https://www.noswipe.app/brand/email-logo.png"'), "logo in the header");
