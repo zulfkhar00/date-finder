@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { guideSlugs } from "@/content/guides";
 
-const siteUrl = "https://noswipe.app";
+const siteUrl = "https://www.noswipe.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const guideEntries: MetadataRoute.Sitemap = guideSlugs.map((slug) => ({

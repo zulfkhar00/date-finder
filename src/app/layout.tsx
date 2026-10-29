@@ -6,7 +6,7 @@ import "./globals.css";
 const description = "We find you dates on Tinder, Bumble and Hinge. We build your profiles, swipe, chat and book the date. You just show up.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://noswipe.app"),
+  metadataBase: new URL("https://www.noswipe.app"),
   title: { default: "NoSwipe — we swipe, you date", template: "%s — NoSwipe" },
   description,
   applicationName: "NoSwipe",
