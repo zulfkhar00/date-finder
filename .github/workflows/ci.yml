@@ -44,3 +44,37 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - name: Check rendered guide routes
+        shell: bash
+        run: |
+          server_log="$RUNNER_TEMP/guide-http.log"
+          node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3417 > "$server_log" 2>&1 &
+          server_pid=$!
+          cleanup() {
+            result=$?
+            if [ "$result" -ne 0 ]; then cat "$server_log" || true; fi
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            rm -f "$server_log"
+            exit "$result"
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          ready=0
+          for attempt in {1..60}; do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Production server exited before guide checks"
+              exit 1
+            fi
+            if curl --silent --fail --max-time 2 http://127.0.0.1:3417/guides > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Production server did not become ready"
+            exit 1
+          fi
+          GUIDE_TEST_BASE_URL=http://127.0.0.1:3417 node --import tsx scripts/check-guides.ts

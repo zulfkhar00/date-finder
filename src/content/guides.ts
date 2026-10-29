@@ -1,3 +1,5 @@
+import { expandedGuides } from "@/content/guide-expansion";
+
 export type GuideSection = {
   title: string;
   paragraphs: string[];
@@ -15,9 +17,11 @@ export type Guide = {
   sections: GuideSection[];
   checklist: string[];
   faqs: { question: string; answer: string }[];
+  sources?: { label: string; url: string; kind: "guidance" | "platform-context" | "background" }[];
+  relatedSlugs?: string[];
 };
 
-export const guides: Guide[] = [
+const originalGuides: Guide[] = [
   {
     slug: "tinder-profile-review",
     title: "How to review your Tinder profile",
@@ -333,11 +337,13 @@ export const guides: Guide[] = [
       {
         question: "Can NoSwipe book the date for me?",
         answer:
-          "NoSwipe can draft a plan and invitation from the context you provide. You confirm the real venue details, send the invitation and agree the date yourself."
+          "No. NoSwipe can draft a plan and invitation from the context you provide. You confirm the real venue details, send the invitation and agree the date yourself."
       }
     ]
   }
 ];
+
+export const guides: Guide[] = [...originalGuides, ...expandedGuides];
 
 export const guideSlugs = guides.map((guide) => guide.slug);
 

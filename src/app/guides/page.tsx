@@ -6,9 +6,9 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { guides } from "@/content/guides";
 
-const title = "Practical dating profile, message and date guides";
+const title = "Practical dating-app profile, match and message guides";
 const description =
-  "Clear, honest guides for reviewing dating profiles, writing Hinge prompts, improving messages and planning a first date.";
+  "NoSwipe editorial guides for Tinder, Bumble and Hinge profiles, photo order, prompts, first messages and asking someone out, with source and platform context.";
 
 export const metadata: Metadata = {
   title: "Dating profile and message guides",
@@ -44,7 +44,7 @@ export default function GuidesPage() {
           <p className="kicker">NoSwipe guides</p>
           <h1>Dating advice you can actually use.</h1>
           <p>
-            Practical reviews, examples and checklists. No guaranteed-match claims, copied pickup lines or fake success stories.
+            NoSwipe editorial reviews, examples and checklists for Tinder, Bumble and Hinge, with supporting guidance and clearly labeled platform context. No guaranteed-match claims, copied pickup lines or fake success stories.
           </p>
         </header>
 

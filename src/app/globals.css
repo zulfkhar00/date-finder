@@ -352,6 +352,7 @@ h1,h2,h3,h4,p{margin:0}
 .guide-body h2{font-family:var(--font-display),sans-serif;font-size:clamp(32px,7vw,48px);font-weight:400;line-height:1.05}
 .guide-body section>p:not(.kicker):not(.guide-section-number){font-size:17px;line-height:1.75;color:var(--grape-2);margin-top:16px}
 .guide-section-number{font-family:var(--font-display),sans-serif;font-size:16px;color:var(--coral-deep);margin-bottom:8px}
+.guide-sources a{text-decoration:underline;text-underline-offset:3px}
 .guide-body section>ul{padding-left:22px;margin:20px 0 0;display:grid;gap:10px}
 .guide-body section>ul li{font-size:16px;line-height:1.55;color:var(--grape-2);padding-left:4px}
 .guide-example{border:2.5px solid var(--grape);border-radius:var(--r-lg);background:var(--lilac);padding:20px;margin-top:24px;box-shadow:0 3px 0 var(--grape)}
