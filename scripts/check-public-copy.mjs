@@ -203,10 +203,10 @@ assert.ok(contents["src/app/layout.tsx"].includes("You keep every account and se
 assert.ok(contents["src/app/opengraph-image.tsx"].includes("Screenshots in."));
 assert.ok(contents["src/app/opengraph-image.tsx"].includes("You choose what to send."));
 assert.ok(contents["src/components/landing-page.tsx"].includes("You keep your accounts, choose who to like and send every message yourself."));
-assert.ok(contents["src/components/faq.tsx"].includes("We do not log in, swipe, like profiles, send messages or confirm dates for you."));
+assert.ok(contents["src/content/faq.ts"].includes("We do not log in, swipe, like profiles, send messages or confirm dates for you."));
 
 const guidePage = contents["src/app/guides/[slug]/page.tsx"];
-assert.equal((guidePage.match(/<CtaLink\b/g) ?? []).length, 1, "each generated guide page must render exactly one reserve CTA");
+assert.equal((guidePage.match(/<CtaLink\b/g) ?? []).length, 2, "each generated guide page renders an inline and a closing CTA (plus the header CTA)");
 assert.ok(guidePage.includes("utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve"), "guide CTA attribution must include unique campaign and content values");
 assert.ok(guidePage.includes("guide.sources.map"), "guide pages must render their cited primary sources");
 
