@@ -23,8 +23,8 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
     title: guide.title,
     description: guide.description,
     alternates: { canonical: url },
-    openGraph: { type: "article", title: guide.title, description: guide.description, url },
-    twitter: { title: guide.title, description: guide.description }
+    openGraph: { type: "article", siteName: "NoSwipe", title: guide.title, description: guide.description, url, publishedTime: guide.publishedIso ?? "2026-10-29", authors: ["NoSwipe"] },
+    twitter: { card: "summary_large_image", title: guide.title, description: guide.description }
   };
 }
 
