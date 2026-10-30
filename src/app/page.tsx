@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { LandingPage } from "@/components/landing-page";
 import { faqs } from "@/content/faq";
@@ -5,6 +6,8 @@ import { faqs } from "@/content/faq";
 // Re-render at most once a minute so the founding-members count stays fresh without a
 // database query on every visit.
 export const revalidate = 60;
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const site = "https://www.noswipe.app";
 const structuredData = [

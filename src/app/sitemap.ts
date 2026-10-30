@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
-import { guideSlugs } from "@/content/guides";
+import { getGuide, guideSlugs } from "@/content/guides";
 
 const siteUrl = "https://www.noswipe.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const guideEntries: MetadataRoute.Sitemap = guideSlugs.map((slug) => ({
     url: `${siteUrl}/guides/${slug}`,
+    lastModified: `${getGuide(slug)?.publishedIso ?? "2026-10-29"}T12:00:00Z`,
     changeFrequency: "monthly",
     priority: 0.7
   }));
