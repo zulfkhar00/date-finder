@@ -6,7 +6,7 @@ import { scrubDeep } from "@/lib/scrub";
 // Staff surfaces (/admin, including /admin/concierge) are never tracked: PostHog is not initialised when the first
 // page is one of them, and any event whose URL is one of them is dropped before it is sent.
 // Event names match the server-side funnel (PR #1) so both sources line up.
-export type FunnelEvent = "page_view" | "get_started" | "reserve_start" | "checkout_created" | "checkout_canceled" | "paid" | "onboarding_started" | "onboarding_completed";
+export type FunnelEvent = "page_view" | "get_started" | "reserve_start" | "checkout_created" | "checkout_canceled" | "paid" | "onboarding_started" | "onboarding_completed" | "reserve_step" | "checkout_submit";
 
 const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
@@ -67,10 +67,10 @@ export function initAnalytics(href?: string): boolean {
   }
 }
 
-export function track(event: FunnelEvent, options?: { instant?: boolean }) {
+export function track(event: FunnelEvent, options?: { instant?: boolean; props?: Record<string, string | number | boolean> }) {
   if (!ready) return;
   try {
-    posthog.capture(event, undefined, options?.instant ? { send_instantly: true } : undefined);
+    posthog.capture(event, options?.props, options?.instant ? { send_instantly: true } : undefined);
   } catch {
     // ignore
   }

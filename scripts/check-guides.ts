@@ -106,15 +106,18 @@ async function checkRenderedGuides(baseUrl: string) {
     assert.ok(html.includes('<meta property="og:type" content="article"'), `${path}: article metadata`);
     const links = [...html.matchAll(/<a\b[^>]*href="([^\"]+)"/g)].map((match) => match[1].replace(/&amp;/g, "&"));
     const reserveLinks = links.filter((href) => href.startsWith("/reserve"));
-    assert.equal(reserveLinks.length, 1, `${path}: exactly one reserve link`);
-    const cta = new URL(reserveLinks[0], baseUrl);
-    assert.equal(cta.searchParams.get("utm_source"), "organic");
-    assert.equal(cta.searchParams.get("utm_medium"), "guide");
-    assert.equal(cta.searchParams.get("utm_campaign"), guide.slug);
-    assert.equal(cta.searchParams.get("utm_content"), `guide-${guide.slug}-reserve`);
-    campaigns.add(cta.searchParams.get("utm_campaign")!);
-    ctaContents.add(cta.searchParams.get("utm_content")!);
-    assert.ok(html.includes("waitlist fee, not payment for a completed service"));
+    assert.equal(reserveLinks.length, 3, `${path}: header, inline and closing CTAs`);
+    for (const link of reserveLinks) {
+      const cta = new URL(link, baseUrl);
+      assert.equal(cta.searchParams.get("utm_source"), "organic");
+      assert.equal(cta.searchParams.get("utm_medium"), "guide");
+      assert.equal(cta.searchParams.get("utm_campaign"), guide.slug);
+      assert.equal(cta.searchParams.get("utm_content"), `guide-${guide.slug}-reserve`);
+      campaigns.add(cta.searchParams.get("utm_campaign")!);
+      ctaContents.add(cta.searchParams.get("utm_content")!);
+    }
+    assert.ok(html.includes("You see the exact price before you pay anything."));
+    assert.doesNotMatch(html.replace(/<script[\s\S]*?<\/script>/g, ""), /\$\s?1\b|wait-?list|reserve a (?:place|spot)|holds? your spot/i, `${path}: no pre-checkout price or waitlist copy`);
     assert.ok(html.includes("You make profile changes, swipe, send messages and confirm dates yourself."));
     const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
     assert.ok(jsonLd, `${path}: structured data`);
@@ -145,7 +148,7 @@ async function checkRenderedGuides(baseUrl: string) {
   assert.equal(campaigns.size, guides.length);
   assert.equal(ctaContents.size, guides.length);
   assert.equal((await fetch(`${baseUrl}/guides/not-a-guide`)).status, 404);
-  console.log("guides HTTP: all 13 pages, metadata, JSON-LD, single attributed CTAs, citations, index, sitemap and 404 passed");
+  console.log("guides HTTP: all 13 pages, metadata, JSON-LD, attributed CTAs, citations, index, sitemap and 404 passed");
 }
 
 if (process.env.GUIDE_TEST_BASE_URL) {

@@ -18,13 +18,12 @@ export type TrackEvent =
   | "demo_bio" // visitor toggled the bio before/after
   | "onboarding_started" // onboarding form opened (PostHog)
   | "onboarding_completed" // onboarding answers done, reached the $1 step (PostHog)
-  | "reserve_step" // reserve form advanced to props.step (1-based)
-  | "checkout_submit" // reserve form sent to /api/checkout
+  | "reserve_step" // reserve form advanced to props.step (1-based) (PostHog)
+  | "checkout_submit" // reserve form sent to /api/checkout (PostHog)
   | "share_copy"; // confirmation page copy-link
 
 export type TrackProps = Record<string, string | number | boolean | undefined>;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function track(event: TrackEvent, props?: TrackProps): void {
   if (typeof window === "undefined") return;
   switch (event) {
@@ -45,6 +44,11 @@ export function track(event: TrackEvent, props?: TrackProps): void {
     case "onboarding_completed":
       trackEvent("onboarding_complete", { oncePerSession: true });
       trackAnalytics(event);
+      return;
+    case "reserve_step":
+    case "checkout_submit":
+      // PostHog only (no funnel_events schema change): shows which form step visitors drop at.
+      trackAnalytics(event, { props: typeof props?.step === "number" ? { step: props.step } : undefined });
       return;
     default:
       // Not a recorded funnel event yet; ignored on purpose.

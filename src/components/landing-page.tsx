@@ -82,7 +82,7 @@ export function LandingPage() {
         <section className="section closing" aria-labelledby="closing-title">
           <div className="shell">
             <h2 id="closing-title">Keep the account. Get better drafts.</h2>
-            <p>Reserve early access to screenshot-based profile, message and first-date planning help.</p>
+            <p>Screenshot-based profile, message and first-date planning help. You keep every account.</p>
             <CtaLink location="closing" className="btn btn-lime" />
           </div>
         </section>

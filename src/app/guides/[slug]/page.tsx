@@ -80,7 +80,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
       />
-      <SiteHeader showCta={false} />
+      <SiteHeader ctaHref={reserveHref} />
       <main>
         <article className="guide-article">
           <header className="guide-hero shell">
@@ -109,6 +109,12 @@ export default async function GuidePage({ params }: GuidePageProps) {
                     <strong>{section.example.label}</strong>
                     <p>{section.example.text}</p>
                   </aside>
+                ) : null}
+                {index === 0 ? (
+                  <div className="guide-inline-cta">
+                    <p>Want this done for your own profile?</p>
+                    <CtaLink href={reserveHref} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
+                  </div>
                 ) : null}
               </section>
             ))}
@@ -161,9 +167,9 @@ export default async function GuidePage({ params }: GuidePageProps) {
                 NoSwipe is building a screenshot-based dating concierge. We can review photos, draft profile copy and messages, and help plan dates. You make profile changes, swipe, send messages and confirm dates yourself.
               </p>
               <CtaLink href={reserveHref} location={`guide_${guide.slug}`} className="btn btn-lime">
-                Reserve a place for $1
+                Get started
               </CtaLink>
-              <small>The $1 is a waitlist fee, not payment for a completed service.</small>
+              <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>
           </div>
 

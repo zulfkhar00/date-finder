@@ -138,7 +138,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       <motion.div key={step} className="form-step" {...transition}>
         {step === 0 && <>
           <h2 ref={headingRef} tabIndex={-1}>First, about you.</h2>
-          <p>So we can understand the help you want. Your answers stay private.</p>
+          <p>Four short steps, about a minute. Your answers stay private.</p>
           <div className="field-grid">
             <div className="field"><label htmlFor="name">First name</label><input id="name" name="given-name" autoComplete="given-name" placeholder="e.g. Alex" maxLength={60} value={value.name} onChange={(event) => change("name", event.target.value)} /></div>
             <div className="field"><label htmlFor="age">Your age</label><input id="age" name="age" inputMode="numeric" placeholder="18+" maxLength={2} value={value.age} onChange={(event) => change("age", event.target.value.replace(/\D/g, ""))} /></div>
@@ -166,10 +166,10 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
         </>}
         {step === 3 && <>
           <h2 ref={headingRef} tabIndex={-1}>You’re all set.</h2>
-          <p>Last step: reserve early access. The refundable $1 fee does not start a service or give NoSwipe access to your apps.</p>
+          <p>Last step: secure checkout. NoSwipe never gets access to your dating apps.</p>
           <div className="review-box">
             <p style={{ marginTop: 0, fontWeight: 700 }}>Your apps: {value.apps.map((app) => datingAppLabels[app]).join(", ")}</p>
-            <p>You see exactly what you pay on the next screen, before you pay anything.</p>
+            <p>You see the exact price and what it covers on the next screen, before you pay anything.</p>
           </div>
           <p className="review-details">Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">terms</Link>.</p>
           <label className="checkbox-line"><input type="checkbox" checked={value.termsAccepted} onChange={(event) => change("termsAccepted", event.target.checked)} /><span>I agree to the terms and the privacy note.</span></label>
