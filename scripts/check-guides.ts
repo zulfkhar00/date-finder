@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import sitemap from "../src/app/sitemap";
 import { expandedGuides } from "../src/content/guide-expansion";
-import { getGuide, guideSlugs, guides } from "../src/content/guides";
+import { getGuide, guideSlugs, guides, seoGuides } from "../src/content/guides";
 
 const expectedSlugs = [
   "how-to-get-more-tinder-matches",
@@ -45,7 +45,8 @@ const sourceKindLabels = {
 const sitemapUrls = sitemap().map((entry) => entry.url);
 assert.deepEqual(expandedGuides.map((guide) => guide.slug), expectedSlugs);
 assert.equal(new Set(guideSlugs).size, guides.length, "guide routes must be unique");
-assert.equal(guides.length, 13, "preserve the four original guides and add nine");
+assert.equal(guides.length, 33, "four original guides, nine expansions and twenty SEO guides");
+assert.equal(seoGuides.length, 20);
 assert.equal(getGuide("not-a-guide"), undefined);
 
 for (const guide of guides) {
@@ -80,7 +81,30 @@ for (const guide of expandedGuides) {
   assert.ok(expandedGuides.some((other) => other.relatedSlugs?.includes(guide.slug)), `${guide.slug}: must have an inbound related link`);
 }
 
-console.log("guides: 13 unique routes, nine sourced expansions, sitemap entries and related links passed");
+const liveSlugs = new Set([...guides.slice(0, 13)].map((guide) => guide.slug));
+const seoSlugs = new Set(seoGuides.map((guide) => guide.slug));
+const seoTitles = new Set<string>();
+const seoDescriptions = new Set<string>();
+for (const guide of seoGuides) {
+  assert.ok(guide.sections.length >= 4 && guide.checklist.length >= 5 && guide.faqs.length >= 3, `${guide.slug}: structure`);
+  assert.equal(guide.relatedSlugs?.length, 3, `${guide.slug}: three related links`);
+  assert.equal(guide.relatedSlugs!.filter((slug) => liveSlugs.has(slug)).length, 2, `${guide.slug}: two links to live guides`);
+  assert.equal(guide.relatedSlugs!.filter((slug) => seoSlugs.has(slug)).length, 1, `${guide.slug}: one link to a new guide`);
+  assert.ok(guide.description.length >= 80 && guide.description.length <= 200, `${guide.slug}: description length`);
+  seoTitles.add(guide.title);
+  seoDescriptions.add(guide.description);
+  const text = [guide.intro, ...guide.sections.flatMap((s) => [s.title, ...s.paragraphs, ...(s.bullets ?? []), s.example?.text ?? ""]), ...guide.checklist, ...guide.faqs.flatMap((f) => [f.question, f.answer])].join(" ");
+  const words = text.split(/\s+/).length;
+  assert.ok(words >= 720 && words <= 1300, `${guide.slug}: ${words} words, expected 720-1300 of article copy (800+ with page chrome)`);
+  assert.doesNotMatch(text, /\bautomates?\b|do it for you|\$\s?1\b|\breserve\b(?! the right)|wait-?list/i, `${guide.slug}: banned phrasing`);
+  for (const section of guide.sections) {
+    if (section.example) assert.equal(section.example.label, "Example", `${guide.slug}: examples are labelled`);
+  }
+}
+assert.equal(seoTitles.size, 20);
+assert.equal(seoDescriptions.size, 20);
+
+console.log("guides: 33 unique routes, nine sourced expansions, sitemap entries and related links passed");
 
 async function checkRenderedGuides(baseUrl: string) {
   const indexResponse = await fetch(`${baseUrl}/guides`);
@@ -109,10 +133,11 @@ async function checkRenderedGuides(baseUrl: string) {
     assert.equal(reserveLinks.length, 3, `${path}: header, inline and closing CTAs`);
     for (const link of reserveLinks) {
       const cta = new URL(link, baseUrl);
-      assert.equal(cta.searchParams.get("utm_source"), "organic");
+      const isSeo = seoSlugs.has(guide.slug);
+      assert.equal(cta.searchParams.get("utm_source"), isSeo ? "seo" : "organic");
       assert.equal(cta.searchParams.get("utm_medium"), "guide");
       assert.equal(cta.searchParams.get("utm_campaign"), guide.slug);
-      assert.equal(cta.searchParams.get("utm_content"), `guide-${guide.slug}-reserve`);
+      assert.equal(cta.searchParams.get("utm_content"), isSeo ? guide.slug : `guide-${guide.slug}-reserve`);
       campaigns.add(cta.searchParams.get("utm_campaign")!);
       ctaContents.add(cta.searchParams.get("utm_content")!);
     }
@@ -148,7 +173,7 @@ async function checkRenderedGuides(baseUrl: string) {
   assert.equal(campaigns.size, guides.length);
   assert.equal(ctaContents.size, guides.length);
   assert.equal((await fetch(`${baseUrl}/guides/not-a-guide`)).status, 404);
-  console.log("guides HTTP: all 13 pages, metadata, JSON-LD, attributed CTAs, citations, index, sitemap and 404 passed");
+  console.log("guides HTTP: all 33 pages, metadata, JSON-LD, attributed CTAs, citations, index, sitemap and 404 passed");
 }
 
 if (process.env.GUIDE_TEST_BASE_URL) {

@@ -6,7 +6,7 @@ import { CtaLink } from "@/components/cta-link";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { getGuide, guideSlugs, guides } from "@/content/guides";
+import { getGuide, guideSlugs, guides, seoGuides } from "@/content/guides";
 
 type GuidePageProps = { params: Promise<{ slug: string }> };
 
@@ -38,14 +38,17 @@ export default async function GuidePage({ params }: GuidePageProps) {
   const relatedGuides = guide.relatedSlugs
     ? guide.relatedSlugs.map((relatedSlug) => guides.find((item) => item.slug === relatedSlug)).filter((item) => item !== undefined)
     : guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
+  const publishedIso = guide.publishedIso ?? "2026-10-29";
+  const publishedLabel = new Date(`${publishedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const isSeoGuide = seoGuides.some((item) => item.slug === guide.slug);
   const structuredData = [
     {
       "@context": "https://schema.org",
       "@type": "Article",
       headline: guide.title,
       description: guide.description,
-      datePublished: "2026-10-29",
-      dateModified: "2026-10-29",
+      datePublished: publishedIso,
+      dateModified: publishedIso,
       mainEntityOfPage: canonicalUrl,
       author: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
       publisher: { "@type": "Organization", name: "NoSwipe", url: "https://www.noswipe.app" },
@@ -71,7 +74,9 @@ export default async function GuidePage({ params }: GuidePageProps) {
     }
   ];
 
-  const reserveHref = `/reserve?utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve&ref=${guide.slug}`;
+  const reserveHref = isSeoGuide
+    ? `/reserve?utm_source=seo&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=${guide.slug}&ref=${guide.slug}`
+    : `/reserve?utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve&ref=${guide.slug}`;
 
   return (
     <div className="interior">
@@ -90,7 +95,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
             <p className="kicker">{guide.eyebrow}</p>
             <h1>{guide.title}</h1>
             <p className="guide-intro">{guide.intro}</p>
-            <p className="guide-meta">Published October 29, 2026 · {guide.readingTime}</p>
+            <p className="guide-meta">Published {publishedLabel} · {guide.readingTime}</p>
           </header>
 
           <div className="guide-body shell">
@@ -112,7 +117,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
                 ) : null}
                 {index === 0 ? (
                   <div className="guide-inline-cta">
-                    <p>Want this done for your own profile?</p>
+                    <p>{isSeoGuide ? "Want feedback on your own profile? Share a screenshot." : "Want this done for your own profile?"}</p>
                     <CtaLink href={reserveHref} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
                   </div>
                 ) : null}
