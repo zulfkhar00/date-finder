@@ -1,4 +1,6 @@
 import { expandedGuides } from "@/content/guide-expansion";
+import { seoGuidesBatch1 } from "@/content/seo-guides-1";
+import { seoGuidesBatch2 } from "@/content/seo-guides-2";
 
 export type GuideSection = {
   title: string;
@@ -19,6 +21,8 @@ export type Guide = {
   faqs: { question: string; answer: string }[];
   sources?: { label: string; url: string; kind: "guidance" | "platform-context" | "background" }[];
   relatedSlugs?: string[];
+  /** ISO date; defaults to the original launch date. */
+  publishedIso?: string;
 };
 
 const originalGuides: Guide[] = [
@@ -343,7 +347,9 @@ const originalGuides: Guide[] = [
   }
 ];
 
-export const guides: Guide[] = [...originalGuides, ...expandedGuides];
+export const guides: Guide[] = [...originalGuides, ...expandedGuides, ...seoGuidesBatch1, ...seoGuidesBatch2];
+
+export const seoGuides: Guide[] = [...seoGuidesBatch1, ...seoGuidesBatch2];
 
 export const guideSlugs = guides.map((guide) => guide.slug);
 
