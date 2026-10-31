@@ -20,11 +20,11 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
   if (!guide) return {};
   const url = `/guides/${guide.slug}`;
   return {
-    title: guide.title,
+    title: guide.metaTitle ?? guide.title,
     description: guide.description,
     alternates: { canonical: url },
-    openGraph: { type: "article", siteName: "NoSwipe", title: guide.title, description: guide.description, url, publishedTime: guide.publishedIso ?? "2026-10-29", authors: ["NoSwipe"] },
-    twitter: { card: "summary_large_image", title: guide.title, description: guide.description }
+    openGraph: { type: "article", siteName: "NoSwipe", title: guide.metaTitle ?? guide.title, description: guide.description, url, publishedTime: guide.publishedIso ?? "2026-10-29", authors: ["NoSwipe"] },
+    twitter: { card: "summary_large_image", title: guide.metaTitle ?? guide.title, description: guide.description }
   };
 }
 
@@ -45,7 +45,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
     {
       "@context": "https://schema.org",
       "@type": "Article",
-      headline: guide.title,
+      headline: guide.h1 ?? guide.title,
       description: guide.description,
       datePublished: publishedIso,
       dateModified: publishedIso,
@@ -93,7 +93,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
               <ArrowLeft size={17} aria-hidden="true" /> All guides
             </Link>
             <p className="kicker">{guide.eyebrow}</p>
-            <h1>{guide.title}</h1>
+            <h1>{guide.h1 ?? guide.title}</h1>
             <p className="guide-intro">{guide.intro}</p>
             <p className="guide-meta">Published {publishedLabel} · {guide.readingTime}</p>
           </header>
