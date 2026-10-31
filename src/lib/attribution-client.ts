@@ -81,11 +81,11 @@ export function getFunnelSessionId(): string {
   try {
     const existing = window.sessionStorage.getItem(SESSION_KEY);
     if (existing && existing.startsWith(PROBE_SESSION_PREFIX) === internal) return existing;
-    const created = internal ? PROBE_SESSION_PREFIX + crypto.randomUUID() : crypto.randomUUID();
+    const created = internal ? probeSessionId() : crypto.randomUUID();
     window.sessionStorage.setItem(SESSION_KEY, created);
     return created;
   } catch {
-    return internal ? PROBE_SESSION_PREFIX + crypto.randomUUID() : crypto.randomUUID();
+    return internal ? probeSessionId() : crypto.randomUUID();
   }
 }
 
@@ -127,4 +127,9 @@ export function trackEvent(event: ClientEventName, options: { oncePerSession?: b
   } catch {
     // Tracking must never affect the page.
   }
+}
+
+/** A valid UUID that starts with the probe prefix (the /api/event schema requires z.uuid()). */
+function probeSessionId(): string {
+  return PROBE_SESSION_PREFIX + crypto.randomUUID().slice(PROBE_SESSION_PREFIX.length);
 }
