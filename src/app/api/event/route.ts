@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { clientEventSchema } from "@/lib/attribution";
-import { recordFunnelEvent } from "@/lib/funnel";
+import { insertClientFunnelEvent } from "@/lib/funnel";
 import { isNonProductionOrigin } from "@/lib/internal-traffic";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -62,12 +62,14 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
-  await recordFunnelEvent(supabase, {
+  const result = await insertClientFunnelEvent(supabase, {
     event: parsed.data.event,
     sessionId: parsed.data.sessionId,
     variant: parsed.data.variant,
     utmCampaign: parsed.data.utmCampaign,
     ref: parsed.data.ref
   });
+  // A rejected insert used to look identical to success, which hid a missing migration for days.
+  if (!result.ok) return new NextResponse(null, { status: 503, headers: { "X-Funnel-Error": result.code } });
   return new NextResponse(null, { status: 204 });
 }
