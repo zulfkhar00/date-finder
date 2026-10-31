@@ -1,4 +1,5 @@
 import "server-only";
+import { getRealFunnel } from "@/lib/real-funnel";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LEAD_STAGES, RESERVATION_STATUSES, type LeadStage, type ReservationStatus } from "./data-shared";
 
@@ -47,61 +48,27 @@ export type OverviewData = {
   paidInRange: number;
   paidToday: number;
   paid7d: number;
+  totals: { visitors: number; getStarted: number; reserveStarts: number; onboardingComplete: number; checkouts: number; paid: number };
+  excluded: { founder: number; test_email: number; stripe_test: number; internalSessions: number };
 };
 
-function utcDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-/** sinceDays = null means all time. days = length of the daily series. */
+/** sinceDays = null means all time. Internal and test traffic is excluded (see lib/real-funnel). */
 export async function getOverview(sinceDays: number | null, days = 30): Promise<OverviewData> {
-  const supabase = getSupabaseAdmin();
-  const now = new Date();
-  const since = sinceDays === null ? null : new Date(now.getTime() - sinceDays * 24 * 60 * 60 * 1000);
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const paidCount = (from: Date | null) => {
-    let query = supabase.from("reservations").select("id", { count: "exact", head: true }).eq("status", "paid");
-    if (from) query = query.gte("paid_at", from.toISOString());
-    return query;
+  let f;
+  try {
+    f = await getRealFunnel(getSupabaseAdmin(), sinceDays);
+  } catch {
+    throw new AdminDataError("real_funnel", undefined);
+  }
+  return {
+    funnel: f.rows,
+    daily: f.daily.slice(-days),
+    paidInRange: f.paid,
+    paidToday: f.paidToday,
+    paid7d: f.paid7d,
+    totals: { visitors: f.visitors, getStarted: f.getStarted, reserveStarts: f.reserveStarts, onboardingComplete: f.onboardingComplete, checkouts: f.checkouts, paid: f.paid },
+    excluded: f.excluded
   };
-
-  const [funnel, daily, inRange, today, week] = await Promise.all([
-    supabase.rpc("admin_funnel_summary", { p_since: since ? since.toISOString() : null }),
-    supabase.rpc("admin_daily", { p_days: days }),
-    paidCount(since),
-    paidCount(todayStart),
-    paidCount(sevenDaysAgo)
-  ]);
-  if (funnel.error) fail("funnel_summary", funnel.error);
-  if (daily.error) fail("daily", daily.error);
-  if (inRange.error) fail("paid_count", inRange.error);
-  if (today.error) fail("paid_today", today.error);
-  if (week.error) fail("paid_7d", week.error);
-
-  const funnelRows: FunnelRow[] = ((funnel.data ?? []) as Record<string, unknown>[]).map((row) => ({
-    variant: String(row.variant ?? DEFAULT_VARIANT_LABEL),
-    utm_campaign: String(row.utm_campaign ?? NO_CAMPAIGN_LABEL),
-    visitors: Number(row.visitors ?? 0),
-    reserve_starts: Number(row.reserve_starts ?? 0),
-    checkouts: Number(row.checkouts ?? 0),
-    paid: Number(row.paid ?? 0)
-  }));
-
-  // Fill every UTC day in the window so the chart has no gaps.
-  const byDay = new Map<string, DailyPoint>();
-  for (const row of (daily.data ?? []) as Record<string, unknown>[]) {
-    const day = String(row.day);
-    byDay.set(day, { day, pageViews: Number(row.page_views ?? 0), visitors: Number(row.visitors ?? 0), paid: Number(row.paid ?? 0) });
-  }
-  const series: DailyPoint[] = [];
-  for (let i = days - 1; i >= 0; i -= 1) {
-    const day = utcDay(new Date(todayStart.getTime() - i * 24 * 60 * 60 * 1000));
-    series.push(byDay.get(day) ?? { day, pageViews: 0, visitors: 0, paid: 0 });
-  }
-
-  return { funnel: funnelRows, daily: series, paidInRange: inRange.count ?? 0, paidToday: today.count ?? 0, paid7d: week.count ?? 0 };
 }
 
 // ---------- Leads ----------

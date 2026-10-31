@@ -96,8 +96,26 @@ function firstTimeThisSession(key: string): boolean {
   }
 }
 
+const INTERNAL_KEY = "ns_internal";
+
+/**
+ * Founder opt-out: open any page with ?internal=1 once on a device and that browser stops sending
+ * funnel events; ?internal=0 turns it back on. Keeps our own clicking out of the numbers at the source.
+ */
+function isInternalBrowser(): boolean {
+  try {
+    const flag = new URLSearchParams(window.location.search).get("internal");
+    if (flag === "1") window.localStorage.setItem(INTERNAL_KEY, "1");
+    if (flag === "0") window.localStorage.removeItem(INTERNAL_KEY);
+    return window.localStorage.getItem(INTERNAL_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function trackEvent(event: ClientEventName, options: { oncePerSession?: boolean } = {}) {
   try {
+    if (isInternalBrowser()) return;
     if (options.oncePerSession && !firstTimeThisSession(event)) return;
     const attribution = captureAttribution();
     const body = JSON.stringify({ sessionId: getFunnelSessionId(), event, variant: attribution.variant, utmCampaign: attribution.utm_campaign, ref: attribution.ref });

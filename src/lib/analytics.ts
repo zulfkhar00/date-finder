@@ -32,6 +32,17 @@ function isPrivateUrl(href: unknown): boolean {
   return pathname === null || isPrivatePath(pathname);
 }
 
+// Founders (?internal=1 sets ns_internal, see attribution-client) and localhost/preview hosts never reach PostHog.
+function isInternalBrowser(): boolean {
+  try {
+    const host = window.location.hostname;
+    const production = host === "noswipe.app" || host.endsWith(".noswipe.app") || host === "morrow.zulfkhar.dev";
+    return !production || window.localStorage.getItem("ns_internal") === "1";
+  } catch {
+    return false;
+  }
+}
+
 // `href` is the URL about to be shown (defaults to the current one). Safe to call repeatedly: a
 // visitor who lands on /admin and then navigates to a public page gets initialised at that point.
 // Returns true only on the call that initialised PostHog (that call already tracked `href`).
@@ -54,6 +65,7 @@ export function initAnalytics(href?: string): boolean {
       capture_exceptions: false,
       before_send: (event) => {
         if (!event) return event;
+        if (isInternalBrowser()) return null;
         if (isPrivateUrl(event.properties?.$current_url ?? window.location.href)) return null;
         return scrubDeep(event);
       }
