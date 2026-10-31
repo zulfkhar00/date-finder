@@ -8,6 +8,7 @@ const description = "Screenshot-based help for dating profiles, openers, replies
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.noswipe.app"),
+  verification: { google: "FG463sEde4bFDRvBj8evdXtbiQOj2-dRzlC8_f4CW50" },
   title: { default: title, template: "%s — NoSwipe" },
   description,
   applicationName: "NoSwipe",
