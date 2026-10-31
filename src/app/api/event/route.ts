@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { clientEventSchema } from "@/lib/attribution";
 import { recordFunnelEvent } from "@/lib/funnel";
+import { isNonProductionOrigin } from "@/lib/internal-traffic";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -35,6 +36,11 @@ function clientKey(request: Request): string {
 export async function POST(request: Request) {
   if (rateLimited(clientKey(request), Date.now())) {
     return new NextResponse(null, { status: 429, headers: { "Retry-After": "60" } });
+  }
+
+  // Localhost and preview deployments never count: drop at the source instead of filtering later.
+  if (isNonProductionOrigin(request.headers.get("origin"), process.env.SITE_URL ? new URL(process.env.SITE_URL).hostname : undefined)) {
+    return new NextResponse(null, { status: 204 });
   }
 
   let payload: unknown;

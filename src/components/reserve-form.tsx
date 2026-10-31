@@ -21,7 +21,7 @@ type FormValue = {
   termsAccepted: boolean;
 };
 const initial: FormValue = { name: "", age: "", city: "", email: "", datingPreference: null, ageMin: "", ageMax: "", interests: "", relationshipGoal: null, apps: [], dateFrequency: null, termsAccepted: false };
-const stepNames = ["About you", "Who you’re looking for", "Your apps", "Get started"];
+const stepNames = ["About you", "Who you’re looking for", "Your apps"];
 const LAST = stepNames.length - 1;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,17 +78,17 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
     if (problem) { setError(problem); return; }
     setError("");
     const nextStep = Math.min(LAST, step + 1);
-    if (nextStep === LAST) track("onboarding_completed");
     setStep(nextStep);
     track("reserve_step", { step: nextStep + 1 });
   }
 
   async function submit() {
     if (submitting.current) return;
-    for (let i = 0; i < LAST; i++) { const problem = check(i); if (problem) { setStep(i); setError(problem); return; } }
+    for (let i = 0; i <= LAST; i++) { const problem = check(i); if (problem) { setStep(i); setError(problem); return; } }
     if (!value.termsAccepted) { setError("Tick the box to agree to the terms."); return; }
     submitting.current = true;
     setLoading(true); setError("");
+    track("onboarding_completed");
     track("checkout_submit");
     const body = {
       checkoutMode: "embedded",
@@ -138,7 +138,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
       <motion.div key={step} className="form-step" {...transition}>
         {step === 0 && <>
           <h2 ref={headingRef} tabIndex={-1}>First, about you.</h2>
-          <p>Four short steps, about a minute. Your answers stay private.</p>
+          <p>Three short steps, about a minute. Your answers stay private.</p>
           <div className="field-grid">
             <div className="field"><label htmlFor="name">First name</label><input id="name" name="given-name" autoComplete="given-name" placeholder="e.g. Alex" maxLength={60} value={value.name} onChange={(event) => change("name", event.target.value)} /></div>
             <div className="field"><label htmlFor="age">Your age</label><input id="age" name="age" inputMode="numeric" placeholder="18+" maxLength={2} value={value.age} onChange={(event) => change("age", event.target.value.replace(/\D/g, ""))} /></div>
@@ -163,15 +163,7 @@ export function ReserveForm({ cancelled }: { cancelled: boolean }) {
           <fieldset className="fieldset"><legend>Apps</legend><div className="choice-grid">{DATING_APPS.map((app) => <Choice key={app} pressed={value.apps.includes(app)} onClick={() => toggleApp(app)}>{datingAppLabels[app]}</Choice>)}</div></fieldset>
           <fieldset className="fieldset"><legend>How often do you want to be on a date?</legend><div className="choice-grid">{(Object.keys(dateFrequencyLabels) as ReservationInput["dateFrequency"][]).map((option) => <Choice key={option} pressed={value.dateFrequency === option} onClick={() => change("dateFrequency", option)}>{dateFrequencyLabels[option]}</Choice>)}</div></fieldset>
           <div className="review-box"><div><span>Photos</span><strong>Later</strong></div><p>Skip this for now. If concierge access opens, you can share real photos or screenshots for ranking and draft suggestions. We never create fake photos.</p></div>
-        </>}
-        {step === 3 && <>
-          <h2 ref={headingRef} tabIndex={-1}>You’re all set.</h2>
-          <p>Last step: secure checkout. NoSwipe never gets access to your dating apps.</p>
-          <div className="review-box">
-            <p style={{ marginTop: 0, fontWeight: 700 }}>Your apps: {value.apps.map((app) => datingAppLabels[app]).join(", ")}</p>
-            <p>You see the exact price and what it covers on the next screen, before you pay anything.</p>
-          </div>
-          <p className="review-details">Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">terms</Link>.</p>
+          <p className="review-details">NoSwipe never gets access to your dating apps. You see the exact price and what it covers on the next screen, before you pay anything. Your answers stay private; see the <Link href="/privacy" target="_blank">privacy note</Link> and <Link href="/terms" target="_blank">terms</Link>.</p>
           <label className="checkbox-line"><input type="checkbox" checked={value.termsAccepted} onChange={(event) => change("termsAccepted", event.target.checked)} /><span>I agree to the terms and the privacy note.</span></label>
         </>}
       </motion.div>
