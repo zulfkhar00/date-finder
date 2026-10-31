@@ -48,6 +48,33 @@ export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelE
 }
 
 /**
+ * Insert for browser events. Unlike recordFunnelEvent it reports failure (Postgres/PostgREST error
+ * code, e.g. 23514 when funnel_events_event_check predates get_started/onboarding_complete) so
+ * /api/event can answer 503 instead of a silent 204. Never throws, never logs row contents.
+ */
+export async function insertClientFunnelEvent(supabase: SupabaseClient, input: FunnelEvent): Promise<{ ok: true } | { ok: false; code: string }> {
+  try {
+    const row = {
+      event: input.event,
+      session_id: input.sessionId ?? null,
+      variant: input.variant ?? null,
+      utm_campaign: input.utmCampaign ?? null,
+      ...(input.ref ? { ref: input.ref } : {})
+    };
+    let { error } = await supabase.from("funnel_events").insert(row);
+    if (error && input.ref && isUndefinedColumn(error)) ({ error } = await supabase.from("funnel_events").insert(withoutRef(row)));
+    if (error) {
+      console.error("Funnel event insert failed", input.event, error.code);
+      return { ok: false, code: error.code || "unknown" };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error("Funnel event insert failed", input.event, error instanceof Error ? error.name : "unknown error");
+    return { ok: false, code: "exception" };
+  }
+}
+
+/**
  * Records `paid` for a Checkout Session, copying the funnel session, variant and campaign from
  * the matching `checkout_created` event. Idempotent across webhook retries. Never throws.
  * Resolves true on the first delivery for this session, false on a repeat, null if unknown.

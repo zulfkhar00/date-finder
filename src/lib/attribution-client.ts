@@ -1,3 +1,4 @@
+import { PROBE_SESSION_PREFIX } from "@/lib/internal-traffic";
 import { attributionSchema, cleanVariant, UTM_KEYS, type Attribution, type ClientEventName } from "@/lib/attribution";
 
 // Browser-only helpers. First-touch attribution lives in a first-party cookie (30 days) so a
@@ -74,14 +75,17 @@ export function captureInternalLinkAttribution(href: string): Attribution {
 }
 
 export function getFunnelSessionId(): string {
+  // Founder/test browsers get a probe-prefixed id: their events are recorded (so we can prove the
+  // funnel works end to end) but the real-funnel numbers drop every probe session.
+  const internal = isInternalBrowser();
   try {
     const existing = window.sessionStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const created = crypto.randomUUID();
+    if (existing && existing.startsWith(PROBE_SESSION_PREFIX) === internal) return existing;
+    const created = internal ? PROBE_SESSION_PREFIX + crypto.randomUUID() : crypto.randomUUID();
     window.sessionStorage.setItem(SESSION_KEY, created);
     return created;
   } catch {
-    return crypto.randomUUID();
+    return internal ? PROBE_SESSION_PREFIX + crypto.randomUUID() : crypto.randomUUID();
   }
 }
 
@@ -99,8 +103,9 @@ function firstTimeThisSession(key: string): boolean {
 const INTERNAL_KEY = "ns_internal";
 
 /**
- * Founder opt-out: open any page with ?internal=1 once on a device and that browser stops sending
- * funnel events; ?internal=0 turns it back on. Keeps our own clicking out of the numbers at the source.
+ * Founder flag: open any page with ?internal=1 once on a device and that browser is marked
+ * internal; ?internal=0 turns it back on as a normal visitor. Internal browsers still send funnel
+ * events, under a probe session id (see getFunnelSessionId), so they never count as real users.
  */
 function isInternalBrowser(): boolean {
   try {
@@ -115,7 +120,6 @@ function isInternalBrowser(): boolean {
 
 export function trackEvent(event: ClientEventName, options: { oncePerSession?: boolean } = {}) {
   try {
-    if (isInternalBrowser()) return;
     if (options.oncePerSession && !firstTimeThisSession(event)) return;
     const attribution = captureAttribution();
     const body = JSON.stringify({ sessionId: getFunnelSessionId(), event, variant: attribution.variant, utmCampaign: attribution.utm_campaign, ref: attribution.ref });
