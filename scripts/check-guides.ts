@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import sitemap from "../src/app/sitemap";
 import { expandedGuides } from "../src/content/guide-expansion";
+import { guideSeo } from "../src/content/guide-seo";
 import { getGuide, guideSlugs, guides, seoGuides } from "../src/content/guides";
 
 const expectedSlugs = [
@@ -103,6 +104,22 @@ for (const guide of seoGuides) {
 }
 assert.equal(seoTitles.size, 20);
 assert.equal(seoDescriptions.size, 20);
+
+const metaTitles = new Set<string>();
+const queries = new Set<string>();
+for (const guide of guides) {
+  const seo = guideSeo[guide.slug];
+  assert.ok(seo, `${guide.slug}: needs a target query entry`);
+  assert.ok(guide.metaTitle && `${guide.metaTitle} — NoSwipe`.length <= 60, `${guide.slug}: title tag must be 60 chars or less with suffix`);
+  assert.ok(guide.description.length <= 155 && guide.description.length >= 80, `${guide.slug}: description length ${guide.description.length}`);
+  assert.ok(guide.h1 && guide.intro, `${guide.slug}: h1 and intro`);
+  metaTitles.add(guide.metaTitle!);
+  queries.add(seo.query);
+  const copy = [guide.metaTitle, guide.h1, guide.description, guide.intro].join(" ");
+  assert.doesNotMatch(copy, /\bautomates?\b|\$\s?\d|wait-?list|\breserve\b|\d+\s?%/i, `${guide.slug}: banned phrasing in SEO copy`);
+}
+assert.equal(metaTitles.size, guides.length, "title tags must be unique");
+assert.equal(queries.size, guides.length, "target queries must be unique");
 
 console.log("guides: 33 unique routes, nine sourced expansions, sitemap entries and related links passed");
 

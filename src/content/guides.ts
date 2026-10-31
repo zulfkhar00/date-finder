@@ -1,4 +1,5 @@
 import { expandedGuides } from "@/content/guide-expansion";
+import { guideSeo } from "@/content/guide-seo";
 import { seoGuidesBatch1 } from "@/content/seo-guides-1";
 import { seoGuidesBatch2 } from "@/content/seo-guides-2";
 
@@ -21,6 +22,10 @@ export type Guide = {
   faqs: { question: string; answer: string }[];
   sources?: { label: string; url: string; kind: "guidance" | "platform-context" | "background" }[];
   relatedSlugs?: string[];
+  /** Full <title> text (layout appends " — NoSwipe"). Falls back to title. */
+  metaTitle?: string;
+  /** On-page H1. Falls back to title. */
+  h1?: string;
   /** ISO date; defaults to the original launch date. */
   publishedIso?: string;
 };
@@ -347,9 +352,16 @@ const originalGuides: Guide[] = [
   }
 ];
 
-export const guides: Guide[] = [...originalGuides, ...expandedGuides, ...seoGuidesBatch1, ...seoGuidesBatch2];
+function withSeo(guide: Guide): Guide {
+  const seo = guideSeo[guide.slug];
+  if (!seo) return guide;
+  return { ...guide, metaTitle: seo.metaTitle, h1: seo.h1, description: seo.description, intro: seo.intro };
+}
 
-export const seoGuides: Guide[] = [...seoGuidesBatch1, ...seoGuidesBatch2];
+export const guides: Guide[] = [...originalGuides, ...expandedGuides, ...seoGuidesBatch1, ...seoGuidesBatch2].map(withSeo);
+
+const seoSlugSet = new Set([...seoGuidesBatch1, ...seoGuidesBatch2].map((guide) => guide.slug));
+export const seoGuides: Guide[] = guides.filter((guide) => seoSlugSet.has(guide.slug));
 
 export const guideSlugs = guides.map((guide) => guide.slug);
 
