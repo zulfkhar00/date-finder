@@ -17,7 +17,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/reserve`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteUrl}/guides`, changeFrequency: "monthly", priority: 0.8 },
     ...aiPages.map((page) => ({ url: `${siteUrl}${page.path}`, lastModified: `${page.publishedIso}T12:00:00Z`, changeFrequency: "monthly" as const, priority: 0.8 })),
-    { url: `${siteUrl}/llms.txt`, changeFrequency: "monthly", priority: 0.3 },
     ...guideEntries,
     { url: `${siteUrl}/privacy`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${siteUrl}/terms`, changeFrequency: "yearly", priority: 0.2 },

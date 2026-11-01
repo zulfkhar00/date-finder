@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { ogImages } from "@/lib/og";
 
 const description = "Terms for the refundable $1 NoSwipe early-access reservation and screenshot-based dating concierge drafts.";
 
@@ -9,8 +10,8 @@ export const metadata: Metadata = {
   title: "Terms",
   description,
   alternates: { canonical: "/terms" },
-  openGraph: { title: "NoSwipe terms", description, url: "/terms" },
-  twitter: { title: "NoSwipe terms", description }
+  openGraph: { images: ogImages, title: "NoSwipe terms", description, url: "/terms" },
+  twitter: { images: ogImages, title: "NoSwipe terms", description }
 };
 
 export default function TermsPage() {

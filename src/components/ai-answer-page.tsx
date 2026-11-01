@@ -4,6 +4,7 @@ import { FunnelTracker } from "@/components/funnel-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import type { AiPage } from "@/content/ai-pages";
+import { ogImages } from "@/lib/og";
 
 const site = "https://www.noswipe.app";
 
@@ -12,8 +13,8 @@ export function aiPageMetadata(page: AiPage) {
     title: page.metaTitle,
     description: page.description,
     alternates: { canonical: page.path },
-    openGraph: { type: "article" as const, siteName: "NoSwipe", title: page.metaTitle, description: page.description, url: page.path, publishedTime: page.publishedIso, authors: ["NoSwipe"] },
-    twitter: { card: "summary_large_image" as const, title: page.metaTitle, description: page.description }
+    openGraph: { images: ogImages, type: "article" as const, siteName: "NoSwipe", title: page.metaTitle, description: page.description, url: page.path, publishedTime: page.publishedIso, authors: ["NoSwipe"] },
+    twitter: { images: ogImages, card: "summary_large_image" as const, title: page.metaTitle, description: page.description }
   };
 }
 
@@ -38,14 +39,15 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
     }
   ];
   const slug = page.path.slice(1);
-  const reserveHref = `/reserve?utm_source=seo&utm_medium=answer&utm_campaign=${slug}&ref=${slug}`;
+  const reserveHref = `/reserve?ref=${slug}`;
+  const reserveUtm = `utm_source=seo&utm_medium=answer&utm_campaign=${slug}`;
   const publishedLabel = new Date(`${page.publishedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
   return (
     <div className="interior">
       <FunnelTracker event="page_view" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-      <SiteHeader ctaHref={reserveHref} />
+      <SiteHeader ctaHref={reserveHref} ctaUtm={reserveUtm} />
       <main>
         <article className="guide-article">
           <header className="guide-hero shell">
@@ -81,7 +83,7 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
               <p className="kicker">Want a second pair of eyes?</p>
               <h2 id="guide-cta-title">Keep the account. Get better drafts.</h2>
               <p>NoSwipe drafts profile suggestions, openers, replies and date plans from screenshots you share. You make profile changes, send messages and confirm dates yourself.</p>
-              <CtaLink href={reserveHref} location={`answer_${slug}`} className="btn btn-lime">Get started</CtaLink>
+              <CtaLink href={reserveHref} utm={reserveUtm} location={`answer_${slug}`} className="btn btn-lime">Get started</CtaLink>
               <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>
           </div>

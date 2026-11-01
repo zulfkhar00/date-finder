@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ConciergePrivacySection } from "./concierge-section";
+import { ogImages } from "@/lib/og";
 
 const description = "How NoSwipe handles early-access details, campaign data, payments, and any photos or screenshots you choose to share.";
 
@@ -9,8 +10,8 @@ export const metadata: Metadata = {
   title: "Privacy note",
   description,
   alternates: { canonical: "/privacy" },
-  openGraph: { title: "NoSwipe privacy note", description, url: "/privacy" },
-  twitter: { title: "NoSwipe privacy note", description }
+  openGraph: { images: ogImages, title: "NoSwipe privacy note", description, url: "/privacy" },
+  twitter: { images: ogImages, title: "NoSwipe privacy note", description }
 };
 
 export default function PrivacyPage() {

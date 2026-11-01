@@ -4,7 +4,9 @@ import { ArrowRight } from "lucide-react";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { aiPages } from "@/content/ai-pages";
 import { guides } from "@/content/guides";
+import { ogImages } from "@/lib/og";
 
 const title = "Practical dating-app profile, match and message guides";
 const description =
@@ -14,8 +16,8 @@ export const metadata: Metadata = {
   title: "Dating profile and message guides",
   description,
   alternates: { canonical: "/guides" },
-  openGraph: { title, description, url: "/guides" },
-  twitter: { title, description }
+  openGraph: { images: ogImages, title, description, url: "/guides" },
+  twitter: { images: ogImages, title, description }
 };
 
 export default function GuidesPage() {
@@ -61,6 +63,13 @@ export default function GuidesPage() {
             </article>
           ))}
         </section>
+
+        <nav className="shell related-guides" aria-label="Quick answers">
+          <p className="kicker">Quick answers</p>
+          <div>
+            {aiPages.map((page) => <Link href={page.path} key={page.path}>{page.h1}</Link>)}
+          </div>
+        </nav>
 
         <section className="shell guide-principle" aria-labelledby="guide-principle-title">
           <p className="kicker">How NoSwipe works</p>

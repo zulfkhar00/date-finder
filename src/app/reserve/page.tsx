@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import { Check } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { ReserveForm } from "@/components/reserve-form";
+import { ogImages } from "@/lib/og";
 
-const description = "Join the refundable $1 NoSwipe early-access list for screenshot-based profile, message and first-date planning help. You keep control of your dating-app accounts.";
+const description = "Join NoSwipe early access for a refundable $1: screenshot-based help with your profile, messages and first dates. You keep your dating-app accounts.";
 
 export const metadata: Metadata = {
   title: "Reserve early access",
   description,
   alternates: { canonical: "/reserve" },
-  openGraph: { title: "Reserve NoSwipe early access", description, url: "/reserve" },
-  twitter: { title: "Reserve NoSwipe early access", description }
+  openGraph: { images: ogImages, title: "Reserve NoSwipe early access", description, url: "/reserve" },
+  twitter: { images: ogImages, title: "Reserve NoSwipe early access", description }
 };
 
 export default async function ReservePage({ searchParams }: { searchParams: Promise<{ cancelled?: string }> }) {
