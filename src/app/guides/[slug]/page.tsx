@@ -7,6 +7,7 @@ import { FunnelTracker } from "@/components/funnel-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getGuide, guideSlugs, guides, seoGuides } from "@/content/guides";
+import { ogImages } from "@/lib/og";
 
 type GuidePageProps = { params: Promise<{ slug: string }> };
 
@@ -23,8 +24,8 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
     title: guide.metaTitle ?? guide.title,
     description: guide.description,
     alternates: { canonical: url },
-    openGraph: { type: "article", siteName: "NoSwipe", title: guide.metaTitle ?? guide.title, description: guide.description, url, publishedTime: guide.publishedIso ?? "2026-10-29", authors: ["NoSwipe"] },
-    twitter: { card: "summary_large_image", title: guide.metaTitle ?? guide.title, description: guide.description }
+    openGraph: { images: ogImages, type: "article", siteName: "NoSwipe", title: guide.metaTitle ?? guide.title, description: guide.description, url, publishedTime: guide.publishedIso ?? "2026-10-29", authors: ["NoSwipe"] },
+    twitter: { images: ogImages, card: "summary_large_image", title: guide.metaTitle ?? guide.title, description: guide.description }
   };
 }
 
@@ -35,9 +36,11 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
   const canonicalUrl = `https://www.noswipe.app/guides/${guide.slug}`;
   const guidanceSources = guide.sources?.filter((source) => source.kind === "guidance") ?? [];
-  const relatedGuides = guide.relatedSlugs
-    ? guide.relatedSlugs.map((relatedSlug) => guides.find((item) => item.slug === relatedSlug)).filter((item) => item !== undefined)
-    : guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
+  // Hand-picked guides first, then the next two in list order, so every guide is linked from its neighbours.
+  const position = guides.findIndex((item) => item.slug === guide.slug);
+  const neighbours = [1, 2, 3].map((step) => guides[(position + step) % guides.length]);
+  const picked = guide.relatedSlugs?.map((relatedSlug) => guides.find((item) => item.slug === relatedSlug)).filter((item) => item !== undefined) ?? [];
+  const relatedGuides = [...picked, ...neighbours].filter((item, index, all) => item.slug !== guide.slug && all.findIndex((other) => other.slug === item.slug) === index).slice(0, Math.max(picked.length + 2, 3));
   const publishedIso = guide.publishedIso ?? "2026-10-29";
   const publishedLabel = new Date(`${publishedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   const isSeoGuide = seoGuides.some((item) => item.slug === guide.slug);
@@ -74,9 +77,10 @@ export default async function GuidePage({ params }: GuidePageProps) {
     }
   ];
 
-  const reserveHref = isSeoGuide
-    ? `/reserve?utm_source=seo&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=${guide.slug}&ref=${guide.slug}`
-    : `/reserve?utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve&ref=${guide.slug}`;
+  const reserveHref = `/reserve?ref=${guide.slug}`;
+  const reserveUtm = isSeoGuide
+    ? `utm_source=seo&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=${guide.slug}`
+    : `utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve`;
 
   return (
     <div className="interior">
@@ -85,7 +89,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
       />
-      <SiteHeader ctaHref={reserveHref} />
+      <SiteHeader ctaHref={reserveHref} ctaUtm={reserveUtm} />
       <main>
         <article className="guide-article">
           <header className="guide-hero shell">
@@ -118,7 +122,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
                 {index === 0 ? (
                   <div className="guide-inline-cta">
                     <p>{isSeoGuide ? "Want feedback on your own profile? Share a screenshot." : "Want this done for your own profile?"}</p>
-                    <CtaLink href={reserveHref} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
+                    <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
                   </div>
                 ) : null}
               </section>
@@ -171,7 +175,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
               <p>
                 NoSwipe is building a screenshot-based dating concierge. We can review photos, draft profile copy and messages, and help plan dates. You make profile changes, swipe, send messages and confirm dates yourself.
               </p>
-              <CtaLink href={reserveHref} location={`guide_${guide.slug}`} className="btn btn-lime">
+              <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
                 Get started
               </CtaLink>
               <small>Takes about a minute. You see the exact price before you pay anything.</small>
