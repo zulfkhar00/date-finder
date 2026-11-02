@@ -30,6 +30,8 @@ export const EVENT_LABELS: Record<string, string> = {
   page_view: "Viewed landing page",
   get_started: "Clicked Get started",
   reserve_start: "Opened onboarding form",
+  reserve_step_2: "Reached onboarding step 2 (who you are looking for)",
+  reserve_step_3: "Reached onboarding step 3 (apps)",
   onboarding_complete: "Finished onboarding answers",
   checkout_created: "Started Stripe Checkout",
   checkout_canceled: "Came back from Checkout without paying",
