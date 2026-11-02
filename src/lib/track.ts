@@ -46,9 +46,13 @@ export function track(event: TrackEvent, props?: TrackProps): void {
       trackAnalytics(event);
       return;
     case "reserve_step":
-    case "checkout_submit":
-      // PostHog only (no funnel_events schema change): shows which form step visitors drop at.
+      // Step 2/3 reached: recorded in funnel_events (needs supabase/2026-11-02-funnel-steps.sql) and PostHog.
+      if (props?.step === 2) trackEvent("reserve_step_2", { oncePerSession: true });
+      if (props?.step === 3) trackEvent("reserve_step_3", { oncePerSession: true });
       trackAnalytics(event, { props: typeof props?.step === "number" ? { step: props.step } : undefined });
+      return;
+    case "checkout_submit":
+      trackAnalytics(event);
       return;
     default:
       // Not a recorded funnel event yet; ignored on purpose.
