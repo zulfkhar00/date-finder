@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FunnelEventName } from "@/lib/attribution";
+import type { TrafficFields } from "@/lib/traffic";
 
 type FunnelEvent = {
   event: FunnelEventName;
@@ -8,6 +9,8 @@ type FunnelEvent = {
   variant?: string | null;
   utmCampaign?: string | null;
   ref?: string | null;
+  /** Source, landing page, device, country (supabase/2026-11-03-traffic.sql). Browser events only. */
+  traffic?: TrafficFields;
   /** When set, a repeated insert with the same key is ignored (e.g. Stripe webhook retries). */
   dedupeKey?: string;
 };
@@ -54,15 +57,25 @@ export async function recordFunnelEvent(supabase: SupabaseClient, input: FunnelE
  */
 export async function insertClientFunnelEvent(supabase: SupabaseClient, input: FunnelEvent): Promise<{ ok: true } | { ok: false; code: string }> {
   try {
-    const row = {
+    const base = {
       event: input.event,
       session_id: input.sessionId ?? null,
       variant: input.variant ?? null,
       utm_campaign: input.utmCampaign ?? null,
       ...(input.ref ? { ref: input.ref } : {})
     };
-    let { error } = await supabase.from("funnel_events").insert(row);
-    if (error && input.ref && isUndefinedColumn(error)) ({ error } = await supabase.from("funnel_events").insert(withoutRef(row)));
+    // Traffic columns come from supabase/2026-11-03-traffic.sql; only non-null values are sent, and
+    // an undefined-column error falls back to the older shapes so events keep flowing before the migration.
+    const traffic = Object.fromEntries(Object.entries(input.traffic ?? {}).filter(([, value]) => value !== null && value !== undefined));
+    const attempts: Record<string, unknown>[] = [{ ...base, ...traffic }];
+    if (Object.keys(traffic).length > 0) attempts.push(base);
+    if (input.ref) attempts.push(withoutRef(base));
+
+    let error: { code?: string | null } | null = null;
+    for (const row of attempts) {
+      ({ error } = await supabase.from("funnel_events").insert(row));
+      if (!error || !isUndefinedColumn(error)) break;
+    }
     if (error) {
       console.error("Funnel event insert failed", input.event, error.code);
       return { ok: false, code: error.code || "unknown" };

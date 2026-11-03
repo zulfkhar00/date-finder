@@ -43,6 +43,7 @@ export function DailyChart({ points }: { points: DailyPoint[] }) {
         <span><span className={styles.legendSwatch} style={{ background: VIEWS }} />Page views (left axis)</span>
         <span><span className={styles.legendSwatch} style={{ background: PAID }} />Paid reservations (right axis)</span>
       </div>
+      <div className={styles.chartScroll}>
       <svg className={styles.chart} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Daily page views and paid reservations">
         {ticks.map((t) => {
           const y = PAD.top + innerH - (t / 4) * innerH;
@@ -69,6 +70,7 @@ export function DailyChart({ points }: { points: DailyPoint[] }) {
           </rect>
         ))}
       </svg>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { CONTENT_PREVIEW_BUCKET, previewPath, syncRequestSchema } from "@/lib/content";
+import { CONTENT_PREVIEW_BUCKET, METRIC_KEYS, previewPath, syncRequestSchema, type SyncPost } from "@/lib/content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
 
   if (posts.length > 0) {
-    const rows = posts.map((post) => ({
+    const base = (post: SyncPost) => ({
       external_ref: post.external_ref,
       title: post.title,
       caption: post.caption,
@@ -55,11 +55,35 @@ export async function POST(request: Request) {
       created_at: post.created_at,
       preview_path: post.preview ? previewPath(post.external_ref, post.preview.ext) : null,
       updated_at: now
+    });
+    // A post that carries metrics is a full snapshot (absent keys become null). Posts without any
+    // metric keys are upserted WITHOUT those columns, so an old payload never wipes stored numbers.
+    const hasMetrics = (post: SyncPost) => METRIC_KEYS.some((key) => post[key] !== undefined) || post.metrics_at !== undefined;
+    const withMetrics = posts.filter(hasMetrics).map((post) => ({
+      ...base(post),
+      ...Object.fromEntries(METRIC_KEYS.map((key) => [key, post[key] ?? null])),
+      metrics_at: post.metrics_at ?? now
     }));
-    const { error } = await supabase.from("content_posts").upsert(rows, { onConflict: "external_ref" });
-    if (error) {
-      console.error("Content sync upsert failed", error.code ?? "unknown");
-      return NextResponse.json({ error: "Upsert failed", code: error.code ?? null }, { status: 500 });
+    const plain = posts.filter((post) => !hasMetrics(post)).map(base);
+
+    let failed: { code?: string | null } | null = null;
+    if (plain.length > 0) {
+      const { error } = await supabase.from("content_posts").upsert(plain, { onConflict: "external_ref" });
+      if (error) failed = error;
+    }
+    if (!failed && withMetrics.length > 0) {
+      let { error } = await supabase.from("content_posts").upsert(withMetrics, { onConflict: "external_ref" });
+      // Metric columns not migrated yet: keep the queue syncing, drop the numbers.
+      if (error && (error.code === "42703" || error.code === "PGRST204")) {
+        console.error("Content sync: metric columns missing, apply supabase/2026-11-03-traffic.sql");
+        const stripped = posts.filter(hasMetrics).map(base);
+        ({ error } = await supabase.from("content_posts").upsert(stripped, { onConflict: "external_ref" }));
+      }
+      if (error) failed = error;
+    }
+    if (failed) {
+      console.error("Content sync upsert failed", failed.code ?? "unknown");
+      return NextResponse.json({ error: "Upsert failed", code: failed.code ?? null }, { status: 500 });
     }
   }
 

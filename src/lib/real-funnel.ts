@@ -64,30 +64,59 @@ export async function getRealFunnel(supabase: SupabaseClient, sinceDays: number 
   const [events, allReservations] = await Promise.all([
     fetchAll<EventRow>("funnel_events", "id, created_at, event, session_id, variant, utm_campaign, dedupe_key", supabase, since, "created_at"),
     // All reservations, not just the window: a paid_at inside the window can belong to an older row.
-    fetchAll<ReservationRow>("reservations", "id, created_at, email, status, paid_at, stripe_checkout_session_id, variant, utm_campaign", supabase, null, "created_at")
+    fetchAll<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at")
   ]);
+  return computeRealFunnel(events, allReservations, sinceDays, now);
+}
 
+export const RESERVATION_COLUMNS = "id, created_at, email, status, paid_at, stripe_checkout_session_id, variant, utm_campaign";
+export { fetchAll as fetchAllRows };
+export type { EventRow, ReservationRow };
+
+/**
+ * Funnel sessions that belong to our own probes or to an excluded (founder / test / Stripe test)
+ * checkout. Shared with the traffic report so every admin number drops the same sessions.
+ */
+export function internalSessionIds(events: Pick<EventRow, "event" | "session_id" | "dedupe_key">[], badStripeSessions: Set<string>): Set<string> {
+  const stripeIdOf = (key: string | null) => (key ? key.slice(key.indexOf(":") + 1) : "");
+  const internal = new Set<string>();
+  for (const e of events) {
+    if (e.session_id?.startsWith(PROBE_SESSION_PREFIX)) internal.add(e.session_id);
+    if (e.session_id && (e.event === "checkout_created" || e.event === "paid")) {
+      const id = stripeIdOf(e.dedupe_key);
+      if (badStripeSessions.has(id) || id.startsWith("cs_test_")) internal.add(e.session_id);
+    }
+  }
+  return internal;
+}
+
+/** Real reservations plus the Stripe sessions of the excluded ones. `since`/`untilIso` only bound the exclusion counts. */
+export function splitReservations(all: ReservationRow[], since: string | null, untilIso: string | null) {
   const excluded: Exclusions = { founder: 0, test_email: 0, stripe_test: 0, internalSessions: 0 };
   const badStripeSessions = new Set<string>();
   const real: ReservationRow[] = [];
-  for (const row of allReservations) {
+  for (const row of all) {
     const reason = reservationExclusion(row);
     if (!reason) { real.push(row); continue; }
     if (row.stripe_checkout_session_id) badStripeSessions.add(row.stripe_checkout_session_id);
-    if (!since || row.created_at >= since) excluded[reason] += 1;
+    if ((!since || row.created_at >= since) && (!untilIso || row.created_at < untilIso)) excluded[reason] += 1;
   }
+  return { real, badStripeSessions, excluded };
+}
 
-  // Funnel sessions that belong to an excluded checkout.
-  const stripeIdOf = (key: string | null) => (key ? key.slice(key.indexOf(":") + 1) : "");
-  const internalSessions = new Set<string>();
-  for (const e of events) {
-    if (e.session_id?.startsWith(PROBE_SESSION_PREFIX)) internalSessions.add(e.session_id);
-    if (e.session_id && (e.event === "checkout_created" || e.event === "paid")) {
-      const id = stripeIdOf(e.dedupe_key);
-      if (badStripeSessions.has(id) || id.startsWith("cs_test_")) internalSessions.add(e.session_id);
-    }
-  }
-  excluded.internalSessions = internalSessions.size;
+/**
+ * The pure half of getRealFunnel: takes rows already fetched (events may cover more than the window)
+ * and computes the window [now - sinceDays, untilMs). `untilMs` is how the previous period is built.
+ */
+export function computeRealFunnel(allEvents: EventRow[], allReservations: ReservationRow[], sinceDays: number | null, now = new Date(), untilMs?: number): RealFunnel {
+  const since = sinceDays === null ? null : new Date(now.getTime() - sinceDays * DAY).toISOString();
+  const untilIso = untilMs === undefined ? null : new Date(untilMs).toISOString();
+  const events = allEvents.filter((e) => (!since || e.created_at >= since) && (!untilIso || e.created_at < untilIso));
+  const { real, badStripeSessions, excluded } = splitReservations(allReservations, since, untilIso);
+  // Sessions are judged on ALL fetched events: the checkout that marks a session internal may sit outside the window.
+  const internalSessions = internalSessionIds(allEvents, badStripeSessions);
+  const windowSessions = new Set(events.map((e) => e.session_id));
+  excluded.internalSessions = [...internalSessions].filter((id) => windowSessions.has(id)).length;
 
   const sessions = new Map<string, { variant: string; campaign: string; pageView: boolean; getStarted: boolean; started: boolean; done: boolean }>();
   const daily = new Map<string, { pageViews: number; visitors: Set<string> }>();
@@ -122,7 +151,7 @@ export async function getRealFunnel(supabase: SupabaseClient, sinceDays: number 
     if (s.done) onboardingComplete += 1;
   }
 
-  const inWindow = (iso: string | null) => !!iso && (!since || iso >= since);
+  const inWindow = (iso: string | null) => !!iso && (!since || iso >= since) && (!untilIso || iso < untilIso);
   const paidRows = real.filter((r) => r.status === "paid");
   let checkouts = 0, paid = 0;
   for (const r of real) {

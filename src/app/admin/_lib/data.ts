@@ -1,5 +1,8 @@
 import "server-only";
-import { getRealFunnel } from "@/lib/real-funnel";
+import { computeRealFunnel, type RealFunnel } from "@/lib/real-funnel";
+import { buildTrafficModel, computeAlarms, DAY, periodStats, type Alarm, type DimRow } from "@/lib/traffic-report";
+import { loadTrafficRows } from "./traffic-data";
+import { getQueueCounts } from "./queue-data";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LEAD_STAGES, RESERVATION_STATUSES, type LeadStage, type ReservationStatus } from "./data-shared";
 
@@ -42,32 +45,66 @@ export type FunnelRow = {
 
 export type DailyPoint = { day: string; pageViews: number; visitors: number; paid: number };
 
+export type OverviewTotals = { visitors: number; getStarted: number; reserveStarts: number; onboardingComplete: number; checkouts: number; paid: number };
+
 export type OverviewData = {
   funnel: FunnelRow[];
   daily: DailyPoint[];
   paidInRange: number;
   paidToday: number;
   paid7d: number;
-  totals: { visitors: number; getStarted: number; reserveStarts: number; onboardingComplete: number; checkouts: number; paid: number };
+  totals: OverviewTotals;
+  /** Same-length window right before this one. null for "all time". */
+  previous: OverviewTotals | null;
+  topChannels: DimRow[];
+  alarms: Alarm[];
+  trafficCaptured: boolean;
   excluded: { founder: number; test_email: number; stripe_test: number; internalSessions: number };
 };
 
+const toOverviewTotals = (f: RealFunnel): OverviewTotals => ({ visitors: f.visitors, getStarted: f.getStarted, reserveStarts: f.reserveStarts, onboardingComplete: f.onboardingComplete, checkouts: f.checkouts, paid: f.paid });
+
 /** sinceDays = null means all time. Internal and test traffic is excluded (see lib/real-funnel). */
 export async function getOverview(sinceDays: number | null, days = 30): Promise<OverviewData> {
-  let f;
+  const now = new Date();
+  const nowMs = now.getTime();
+  // Enough history for the previous period AND the alarms (24 h, and 7 d vs the 7 d before).
+  const windowDays = sinceDays === null ? null : Math.max(sinceDays * 2, 14);
+  let rows;
   try {
-    f = await getRealFunnel(getSupabaseAdmin(), sinceDays);
+    rows = await loadTrafficRows(windowDays === null ? null : nowMs - windowDays * DAY);
   } catch {
     throw new AdminDataError("real_funnel", undefined);
   }
+  const current = computeRealFunnel(rows.events, rows.reservations, sinceDays, now);
+  const previous = sinceDays === null ? null : computeRealFunnel(rows.events, rows.reservations, sinceDays * 2, now, nowMs - sinceDays * DAY);
+
+  const model = buildTrafficModel(rows.events, rows.reservations);
+  let fromMs = nowMs - (sinceDays ?? 30) * DAY;
+  if (sinceDays === null) for (const s of model.sessions.values()) fromMs = Math.min(fromMs, s.firstAt);
+  const range = periodStats(model, fromMs, nowMs + 1);
+  const week = periodStats(model, nowMs - 7 * DAY, nowMs + 1);
+  const priorWeek = periodStats(model, nowMs - 14 * DAY, nowMs - 7 * DAY);
+  const queue = await getQueueCounts(nowMs);
+  const alarms = computeAlarms({
+    visitors24h: periodStats(model, nowMs - DAY, nowMs + 1).totals.visitors,
+    posts24h: queue?.posted24h ?? null,
+    queueNext24h: queue?.scheduledNext24h ?? null,
+    conv: { visitors: week.totals.visitors, paid: week.totals.paid, prevVisitors: priorWeek.totals.visitors, prevPaid: priorWeek.totals.paid }
+  });
+
   return {
-    funnel: f.rows,
-    daily: f.daily.slice(-days),
-    paidInRange: f.paid,
-    paidToday: f.paidToday,
-    paid7d: f.paid7d,
-    totals: { visitors: f.visitors, getStarted: f.getStarted, reserveStarts: f.reserveStarts, onboardingComplete: f.onboardingComplete, checkouts: f.checkouts, paid: f.paid },
-    excluded: f.excluded
+    funnel: current.rows,
+    daily: current.daily.slice(-days),
+    paidInRange: current.paid,
+    paidToday: current.paidToday,
+    paid7d: current.paid7d,
+    totals: toOverviewTotals(current),
+    previous: previous ? toOverviewTotals(previous) : null,
+    topChannels: range.channels.slice(0, 5),
+    alarms,
+    trafficCaptured: rows.trafficColumns && model.captureSince !== null,
+    excluded: current.excluded
   };
 }
 
