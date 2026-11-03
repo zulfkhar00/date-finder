@@ -20,7 +20,7 @@ export default async function AdminTrafficPage({ searchParams }: { searchParams:
   if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
 
   const rangeParam = (await searchParams).range;
-  const range: RangeKey = typeof rangeParam === "string" && rangeParam in RANGES ? (rangeParam as RangeKey) : "7d";
+  const range: RangeKey = typeof rangeParam === "string" && Object.hasOwn(RANGES, rangeParam) ? (rangeParam as RangeKey) : "7d";
 
   let data: TrafficPageData | null = null;
   let problem = false;

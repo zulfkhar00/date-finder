@@ -20,7 +20,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
   if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
 
   const rangeParam = (await searchParams).range;
-  const range: RangeKey = typeof rangeParam === "string" && rangeParam in RANGES ? (rangeParam as RangeKey) : "30d";
+  const range: RangeKey = typeof rangeParam === "string" && Object.hasOwn(RANGES, rangeParam) ? (rangeParam as RangeKey) : "30d";
 
   let data: OverviewData | null = null;
   let problem: "schema" | "query" | null = null;
@@ -63,7 +63,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
             <Kpi label="Onboarding done" value={formatInt(totals.onboardingComplete)} hint={`${percent(totals.onboardingComplete, totals.reserveStarts)} of opened`} delta={<DeltaBadge current={totals.onboardingComplete} previous={prev?.onboardingComplete} />} />
             <Kpi label="Checkouts opened" value={formatInt(totals.checkouts)} hint="Real reservations" delta={<DeltaBadge current={totals.checkouts} previous={prev?.checkouts} />} />
             <Kpi label="Paid" value={formatInt(data.paidInRange)} hint="Live-mode, non-founder" delta={<DeltaBadge current={data.paidInRange} previous={prev?.paid} />} />
-            <Kpi label="Visitor → paid" value={percent(totals.paid, totals.visitors)} hint="Go at ≥3%" delta={prev && prev.visitors > 0 && totals.visitors > 0 ? <DeltaBadge current={(totals.paid / totals.visitors) * 100} previous={(prev.paid / prev.visitors) * 100} unit="pt" /> : null} />
+            <Kpi label="Visitor → paid" value={percent(totals.paid, totals.visitors)} hint="Go at ≥3%" delta={prev && prev.visitors > 0 && totals.visitors > 0 ? <DeltaBadge current={(totals.paid / totals.visitors) * 100} previous={(prev.paid / prev.visitors) * 100} /> : null} />
             <Kpi label="Paid today" value={formatInt(data.paidToday)} hint="Since 00:00 UTC" />
             <Kpi label="Paid, last 7 days" value={formatInt(data.paid7d)} hint="Rolling 7 × 24 h" />
           </section>

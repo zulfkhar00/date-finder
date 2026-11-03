@@ -104,6 +104,8 @@ export function buildTrafficModel(events: TrafficEvent[], allReservations: Reser
     else if (e.event === "onboarding_complete") s.done = true;
   }
   for (const s of sessions.values()) {
+    // Crawlers that run JS (Lighthouse, site audits) are not visitors.
+    if (s.device === "bot") { sessions.delete(s.id); continue; }
     const r = raw.get(s.id)!;
     if (s.captured) s.channel = resolveChannel(r.utm, r.ref);
   }
