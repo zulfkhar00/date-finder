@@ -185,13 +185,14 @@ An external sync job owned by the founders calls `POST /api/content/sync` every 
 
 ## Free /try tool
 
-`/try` and `/api/try` use `ANTHROPIC_API_KEY` plus the Supabase server key. Apply `supabase/2026-11-02-try-tool.sql` (idempotent; adds `try_runs`, the claim/release functions and the `try_*` funnel events). Optional runtime env, all with safe defaults:
+`/try` and `/api/try` run as a Vercel serverless function and use `ANTHROPIC_API_KEY` plus the Supabase server key. Apply `supabase/2026-11-02-try-tool.sql` first (idempotent; adds `try_runs`, the claim/release/usage functions and the `try_*` funnel events; run it after any other migration that rewrites `funnel_events_event_check`). Optional env (Vercel project settings, runtime only, never `NEXT_PUBLIC_`), all with safe defaults:
 
 ```dotenv
-TRY_DAILY_CAP=300            # global free runs per UTC day, then "come back tomorrow"
-TRY_SESSION_DAILY_LIMIT=3    # per browser per day
-TRY_IP_DAILY_LIMIT=6         # per IP hash per day
-TRY_HASH_SALT=...            # salt for IP/session hashes (falls back to the Supabase key)
+TRY_DAILY_CAP=300              # global free runs per UTC day, then "come back tomorrow"
+TRY_DAILY_TOKEN_CAP=8000000    # hard daily spend ceiling in input-token equivalents (input + 5 x output); releasing a run never refunds it
+TRY_SESSION_DAILY_LIMIT=3      # per browser per day
+TRY_IP_DAILY_LIMIT=6           # per IP hash per day (IPv6 is hashed by /64)
+TRY_HASH_SALT=...              # salt for IP/session hashes (falls back to the Supabase key)
 ```
 
-Before the SQL is applied the route falls back to per-process in-memory counters (resets on restart). Images are never stored or logged.
+Limits live in Supabase because serverless instances do not share memory. If the database or the migration is unavailable, `/api/try` fails closed and shows "temporarily unavailable". Request bodies are capped at 4.4 MB (Vercel rejects over 4.5 MB); the browser keeps uploads under about 3.8 MB. Images are never stored or logged.

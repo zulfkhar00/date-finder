@@ -22,7 +22,16 @@ export type DraftInput = {
   note?: string;
 };
 
-export type DraftResult = { inputSummary: string; output: DraftOutput };
+export type DraftUsage = { inputTokens: number; outputTokens: number };
+export type DraftResult = { inputSummary: string; output: DraftOutput; usage: DraftUsage };
+
+/** The model ran but gave nothing usable (truncated, refused). Carries the tokens it consumed so callers can still meter spend. */
+export class DraftOutputError extends Error {
+  constructor(message: string, readonly usage: DraftUsage) {
+    super(message);
+    this.name = "DraftOutputError";
+  }
+}
 
 const summary = z.string().describe(
   "One or two plain sentences, under 400 characters, describing what the input showed. No names, handles, phone numbers, workplaces or photos of her; this is the only record we keep."
@@ -80,7 +89,7 @@ export const DRAFT_SCHEMAS = {
 const INTRO: Record<DraftMode, string> = {
   concierge: "You are the drafting engine for a private dating concierge pilot. A human operator reviews every draft before the client sees it, and the client sends every message himself. You never contact anyone.",
   self_serve: `You are the drafting engine for NoSwipe's free self-serve tool. The person reads your draft directly and sends every message themselves. You never contact anyone.
-The user's gender is not given: speak to them as "you", do not assume, and read "he/his/client" in the task below as "the user". Never identify anyone from their face. If an image is not a dating photo or screenshot, or shows nudity or someone who looks under 18, do not describe it: say so in operator_flags and leave it out. In operator_flags, list what the user should double-check or fill in before using the draft. Write placeholders as [add your own: favourite trail].`
+The user's gender is not given: speak to them as "you", do not assume, and read "he/his/client" in the task below as "the user", and read "her/she" for the match as "their/they" (the match can be any gender). Never identify anyone from their face. If an image is not a dating photo or screenshot, or shows nudity or someone who looks under 18, do not describe it: say so in operator_flags and leave it out. In operator_flags, list what the user should double-check or fill in before using the draft. Write placeholders as [add your own: favourite trail].`
 };
 
 const SHARED_RULES = `Rules that always apply:
@@ -187,9 +196,10 @@ export async function draft(input: DraftInput, options: { client?: DraftClient }
     output_config: { format: zodOutputFormat(schema) }
   });
 
+  const usage: DraftUsage = { inputTokens: message.usage?.input_tokens ?? 0, outputTokens: message.usage?.output_tokens ?? 0 };
   const parsed = message.parsed_output;
-  if (!parsed) throw new Error(`Draft returned no structured output (stop_reason: ${message.stop_reason ?? "unknown"})`);
+  if (!parsed) throw new DraftOutputError(`Draft returned no structured output (stop_reason: ${message.stop_reason ?? "unknown"})`, usage);
   const output = normalize({ ...parsed, kind: input.kind, message: "" } as DraftOutput);
   output.message = formatClientMessage(output);
-  return { inputSummary: String(parsed.input_summary).slice(0, 1000), output };
+  return { inputSummary: String(parsed.input_summary).slice(0, 1000), output, usage };
 }

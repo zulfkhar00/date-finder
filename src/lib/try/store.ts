@@ -1,8 +1,13 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { MemoryRunStore, type ClaimResult, type RunStore } from "./limits";
+import type { ClaimResult, RunStore } from "./limits";
 
-/** Postgres-backed store (supabase/2026-11-02-try-tool.sql). Counts survive restarts and are shared across instances. */
+/**
+ * Postgres-backed store (supabase/2026-11-02-try-tool.sql). Counts are shared across every serverless
+ * instance and survive restarts. If the database or the migration is unavailable, claim() throws and
+ * /api/try answers "temporarily unavailable": the cost guard fails closed, never falls back to
+ * per-instance memory.
+ */
 export class SupabaseRunStore implements RunStore {
   async claim({ ipHash, sessionHash, kind, limits }: Parameters<RunStore["claim"]>[0]): Promise<ClaimResult> {
     const { data, error } = await getSupabaseAdmin().rpc("try_claim_run", {
@@ -11,7 +16,8 @@ export class SupabaseRunStore implements RunStore {
       p_kind: kind,
       p_session_limit: limits.sessionPerDay,
       p_ip_limit: limits.ipPerDay,
-      p_daily_cap: limits.dailyCap
+      p_daily_cap: limits.dailyCap,
+      p_token_cap: limits.tokenCap
     });
     const row = Array.isArray(data) ? data[0] : data;
     if (error || !row) throw new Error(`try_claim_run failed${error?.code ? ` (${error.code})` : ""}`);
@@ -20,47 +26,18 @@ export class SupabaseRunStore implements RunStore {
   }
 
   async release(runId: string): Promise<void> {
-    await getSupabaseAdmin().rpc("try_release_run", { p_run_id: Number(runId) });
-  }
-}
-
-/**
- * Uses Supabase, and falls back to per-process memory counters when the database or the migration is
- * unavailable, so the tool keeps working (with weaker, restart-resettable limits) instead of going dark.
- */
-export class FallbackRunStore implements RunStore {
-  private memory = new MemoryRunStore();
-  private owners = new Map<string, "db" | "memory">();
-
-  constructor(private primary: RunStore = new SupabaseRunStore(), private onFallback: (error: unknown) => void = () => undefined) {}
-
-  async claim(input: Parameters<RunStore["claim"]>[0]): Promise<ClaimResult> {
-    try {
-      const result = await this.primary.claim(input);
-      if (result.allowed) this.owners.set(result.runId, "db");
-      return result;
-    } catch (error) {
-      this.onFallback(error);
-      const result = await this.memory.claim(input);
-      if (result.allowed) this.owners.set(result.runId, "memory");
-      return result;
-    }
+    const { error } = await getSupabaseAdmin().rpc("try_release_run", { p_run_id: Number(runId) });
+    if (error) throw new Error(`try_release_run failed (${error.code ?? "unknown"})`);
   }
 
-  async release(runId: string): Promise<void> {
-    const owner = this.owners.get(runId);
-    this.owners.delete(runId);
-    if (owner === "memory") return this.memory.release(runId);
-    try {
-      await this.primary.release(runId);
-    } catch {
-      // A run that could not be released simply stays counted.
-    }
+  async recordUsage(runId: string, tokens: number): Promise<void> {
+    const { error } = await getSupabaseAdmin().rpc("try_record_usage", { p_run_id: Number(runId), p_tokens: tokens });
+    if (error) throw new Error(`try_record_usage failed (${error.code ?? "unknown"})`);
   }
 }
 
 let shared: RunStore | null = null;
-export function getRunStore(onFallback: (error: unknown) => void): RunStore {
-  if (!shared) shared = new FallbackRunStore(new SupabaseRunStore(), onFallback);
+export function getRunStore(): RunStore {
+  if (!shared) shared = new SupabaseRunStore();
   return shared;
 }

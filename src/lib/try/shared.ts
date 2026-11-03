@@ -11,8 +11,14 @@ export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 /** Longest edge after the browser resizes a picture. Matches the size the model reads natively. */
 export const MAX_IMAGE_EDGE = 1568;
 export const MAX_ABOUT_CHARS = 600;
-/** Hard ceiling on one request body: 6 images at the per-image cap plus form fields. */
-export const MAX_REQUEST_BYTES = MAX_IMAGES * MAX_IMAGE_BYTES + 256 * 1024;
+/**
+ * Vercel functions reject request bodies over 4.5 MB before our code runs. The browser keeps the whole
+ * upload under TOTAL_UPLOAD_BYTES (each image is squeezed to TARGET_IMAGE_BYTES or less) and the server
+ * refuses anything over MAX_REQUEST_BYTES with a clear message.
+ */
+export const TOTAL_UPLOAD_BYTES = 3_800_000;
+export const TARGET_IMAGE_BYTES = Math.floor(TOTAL_UPLOAD_BYTES / MAX_IMAGES);
+export const MAX_REQUEST_BYTES = 4_400_000;
 
 export const TRY_KIND_LABELS: Record<TryKind, { title: string; hint: string; max: number }> = {
   profile: { title: "My profile", hint: "Up to 6 photos or screenshots of your profile. You get a photo ranking, a bio and prompt answers.", max: MAX_IMAGES },

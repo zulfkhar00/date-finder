@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { draft } from "@/lib/concierge/draft";
 import { recordFunnelEvent } from "@/lib/funnel";
@@ -7,7 +8,7 @@ import { handleTryRequest } from "@/lib/try/handler";
 import { getRunStore } from "@/lib/try/store";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 60;
 
 function reportError(label: string, status?: number) {
   // Only a label and a status code: never the request, the images or the model's output.
@@ -21,17 +22,20 @@ function salt(): string {
 
 export async function POST(request: Request) {
   return handleTryRequest(request, {
-    store: getRunStore((error) => reportError(`try_store_fallback:${error instanceof Error ? error.name : "unknown"}`)),
+    store: getRunStore(),
     draft: (input) => draft(input),
     salt: salt(),
     reportError,
     shouldRecord: (origin) => !isNonProductionOrigin(origin, process.env.SITE_URL ? new URL(process.env.SITE_URL).hostname : undefined),
     recordResult: ({ sessionId }) => {
-      try {
-        void recordFunnelEvent(getSupabaseAdmin(), { event: "try_result", sessionId });
-      } catch {
-        // Funnel tracking must never affect the response.
-      }
+      // after(): runs once the response is sent, and keeps the function alive until it finishes (serverless).
+      after(async () => {
+        try {
+          await recordFunnelEvent(getSupabaseAdmin(), { event: "try_result", sessionId });
+        } catch {
+          // Funnel tracking must never affect the response.
+        }
+      });
     }
   });
 }

@@ -115,7 +115,7 @@ export function TryTool() {
     ready.forEach((tile) => tile.image && form.append("images", tile.image.file));
     const previews = ready.map((tile) => tile.image?.previewUrl ?? "");
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 100_000);
+    const timeout = window.setTimeout(() => controller.abort(), 70_000);
     window.setTimeout(() => outRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     try {
       const response = await fetch("/api/try", { method: "POST", body: form, signal: controller.signal });
@@ -184,7 +184,7 @@ export function TryTool() {
             )}
           </div>
           {notice && <p className="try-notice" role="status">{notice}</p>}
-          <p className="try-fine">Pictures are shrunk and cleaned of location data on your device, read once to write your draft, then thrown away. We never store them.</p>
+          <p className="try-fine">Pictures are shrunk and cleaned of location data on your device, then sent to our AI provider to write the draft. Never stored by us.</p>
         </div>
 
         <div className="try-fieldset">
@@ -355,7 +355,7 @@ function ResultView({ result, previews }: { result: PublicResult; previews: stri
             {result.alternative && <Draft text={result.alternative} note="Another way to say it" />}
           </Block>
         )}
-        {result.ask_out_now && result.date_ask && <Block title="She seems up for meeting"><Draft text={result.date_ask} /></Block>}
+        {result.ask_out_now && result.date_ask && <Block title="Looks open to meeting"><Draft text={result.date_ask} /></Block>}
         <Flags items={result.operator_flags} />
       </>
     );

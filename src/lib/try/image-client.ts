@@ -1,12 +1,14 @@
 // Browser-only. Re-encodes every picked image through a canvas: that drops EXIF (location, device,
 // timestamps), fixes rotation and caps the longest edge. The original file is never uploaded.
 
-import { MAX_IMAGE_BYTES, MAX_IMAGE_EDGE } from "./shared";
+import { MAX_IMAGE_EDGE, TARGET_IMAGE_BYTES } from "./shared";
 
 export type ProcessedImage = { file: File; previewUrl: string };
 
 export class ImageError extends Error {}
 
+const EDGES = [MAX_IMAGE_EDGE, 1280, 1024, 800, 640];
+const QUALITIES = [0.86, 0.72, 0.6];
 const HEIC = /\.(heic|heif)$/i;
 
 async function decode(file: File): Promise<{ source: CanvasImageSource; width: number; height: number; close: () => void }> {
@@ -39,20 +41,28 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     throw new ImageError("We couldn't open that image. Try a screenshot or a JPEG or PNG.");
   }
   try {
-    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(decoded.width, decoded.height));
-    const width = Math.max(1, Math.round(decoded.width * scale));
-    const height = Math.max(1, Math.round(decoded.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-    if (!context) throw new ImageError("Your browser can't prepare images. Try another browser.");
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, width, height);
-    context.drawImage(decoded.source, 0, 0, width, height);
-    let blob = await toBlob(canvas, 0.86);
-    if (blob.size > MAX_IMAGE_BYTES) blob = await toBlob(canvas, 0.6);
-    if (blob.size > MAX_IMAGE_BYTES) throw new ImageError("That image is too large. Try a smaller one.");
+    // Squeeze progressively (smaller edge, lower quality) until the image fits its share of the upload
+    // budget, so a whole batch stays under the host's request body limit.
+    let blob: Blob | null = null;
+    for (const edge of EDGES) {
+      const scale = Math.min(1, edge / Math.max(decoded.width, decoded.height));
+      const width = Math.max(1, Math.round(decoded.width * scale));
+      const height = Math.max(1, Math.round(decoded.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new ImageError("Your browser can't prepare images. Try another browser.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(decoded.source, 0, 0, width, height);
+      for (const quality of QUALITIES) {
+        blob = await toBlob(canvas, quality);
+        if (blob.size <= TARGET_IMAGE_BYTES) break;
+      }
+      if (blob && blob.size <= TARGET_IMAGE_BYTES) break;
+    }
+    if (!blob || blob.size > TARGET_IMAGE_BYTES) throw new ImageError("That image is too large. Try a smaller one.");
     const name = (file.name.replace(/\.[^.]+$/, "") || "image").replace(/[^\w-]+/g, "_").slice(0, 40);
     const processed = new File([blob], `${name}.jpg`, { type: "image/jpeg" });
     return { file: processed, previewUrl: URL.createObjectURL(processed) };

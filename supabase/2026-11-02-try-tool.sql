@@ -2,7 +2,7 @@
 -- Idempotent and additive: safe to run again, in any order relative to other funnel_events migrations
 -- (run it LAST if another migration also rewrites funnel_events_event_check with a fixed list).
 -- No personal data: ip_hash / session_hash are HMACs (server salt + UTC day) computed by the app.
--- The app keeps working before this is applied: /api/try falls back to an in-memory limiter.
+-- Until this is applied /api/try fails closed ("temporarily unavailable"): the limits live here, not in memory.
 
 create table if not exists public.try_runs (
   id bigint generated always as identity primary key,
@@ -13,6 +13,10 @@ create table if not exists public.try_runs (
   kind text not null check (kind in ('profile', 'opener', 'reply')),
   status text not null default 'counted' check (status in ('counted', 'released'))
 );
+
+-- Spend (input-token equivalents: input + 5 x output) of runs that reached the model. Releasing a run
+-- (model never ran) flips status but never touches this, so the daily spend cap cannot be refunded.
+alter table public.try_runs add column if not exists tokens bigint not null default 0;
 
 create index if not exists try_runs_day_idx on public.try_runs (day, status);
 create index if not exists try_runs_day_ip_idx on public.try_runs (day, ip_hash);
@@ -25,13 +29,16 @@ grant select on public.try_runs to service_role;
 
 -- Atomic check-and-count. The advisory lock serialises concurrent claims for the same UTC day,
 -- so the global cap cannot be overshot by parallel requests. Also drops rows older than 14 days.
+drop function if exists public.try_claim_run(text, text, text, int, int, int);
+
 create or replace function public.try_claim_run(
   p_ip_hash text,
   p_session_hash text,
   p_kind text,
   p_session_limit int,
   p_ip_limit int,
-  p_daily_cap int
+  p_daily_cap int,
+  p_token_cap bigint
 )
 returns table (allowed boolean, reason text, run_id bigint, session_remaining int)
 language plpgsql
@@ -43,6 +50,7 @@ declare
   v_session int;
   v_ip int;
   v_daily int;
+  v_tokens bigint;
   v_id bigint;
 begin
   perform pg_advisory_xact_lock(hashtext('try_runs:' || v_day::text));
@@ -51,6 +59,7 @@ begin
   select count(*) into v_session from public.try_runs where day = v_day and status = 'counted' and session_hash = p_session_hash;
   select count(*) into v_ip from public.try_runs where day = v_day and status = 'counted' and ip_hash = p_ip_hash;
   select count(*) into v_daily from public.try_runs where day = v_day and status = 'counted';
+  select coalesce(sum(tokens), 0) into v_tokens from public.try_runs where day = v_day;
 
   if v_session >= p_session_limit then
     return query select false, 'session'::text, null::bigint, 0;
@@ -60,7 +69,7 @@ begin
     return query select false, 'ip'::text, null::bigint, 0;
     return;
   end if;
-  if v_daily >= p_daily_cap then
+  if v_daily >= p_daily_cap or v_tokens >= p_token_cap then
     return query select false, 'cap'::text, null::bigint, 0;
     return;
   end if;
@@ -82,8 +91,19 @@ as $$
   update public.try_runs set status = 'released' where id = p_run_id;
 $$;
 
-revoke all on function public.try_claim_run(text, text, text, int, int, int) from public, anon, authenticated;
-grant execute on function public.try_claim_run(text, text, text, int, int, int) to service_role;
+create or replace function public.try_record_usage(p_run_id bigint, p_tokens bigint)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.try_runs set tokens = tokens + greatest(p_tokens, 0) where id = p_run_id;
+$$;
+
+revoke all on function public.try_claim_run(text, text, text, int, int, int, bigint) from public, anon, authenticated;
+grant execute on function public.try_claim_run(text, text, text, int, int, int, bigint) to service_role;
+revoke all on function public.try_record_usage(bigint, bigint) from public, anon, authenticated;
+grant execute on function public.try_record_usage(bigint, bigint) to service_role;
 revoke all on function public.try_release_run(bigint) from public, anon, authenticated;
 grant execute on function public.try_release_run(bigint) to service_role;
 
