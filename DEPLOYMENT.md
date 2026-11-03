@@ -182,3 +182,17 @@ Redeploy after setting them. **Check it** with a Stripe test-mode reservation us
 2. Set `CONTENT_SYNC_TOKEN` (32+ random characters) in the production environment and redeploy.
 
 An external sync job owned by the founders calls `POST /api/content/sync` every 5 minutes with that bearer token. It upserts every video, uploads previews through one-time signed upload URLs, receives the open requests, applies them to the queue, and reports them done on the next call. The page only reads; previews are served as 10-minute signed URLs.
+
+## Free /try tool
+
+`/try` and `/api/try` run as a Vercel serverless function and use `ANTHROPIC_API_KEY` plus the Supabase server key. Apply `supabase/2026-11-02-try-tool.sql` first (idempotent; adds `try_runs`, the claim/release/usage functions and the `try_*` funnel events; run it after any other migration that rewrites `funnel_events_event_check`). Optional env (Vercel project settings, runtime only, never `NEXT_PUBLIC_`), all with safe defaults:
+
+```dotenv
+TRY_DAILY_CAP=300              # global free runs per UTC day, then "come back tomorrow"
+TRY_DAILY_TOKEN_CAP=8000000    # hard daily spend ceiling in input-token equivalents (input + 5 x output); releasing a run never refunds it
+TRY_SESSION_DAILY_LIMIT=3      # per browser per day
+TRY_IP_DAILY_LIMIT=6           # per IP hash per day (IPv6 is hashed by /64)
+TRY_HASH_SALT=...              # salt for IP/session hashes (falls back to the Supabase key)
+```
+
+Limits live in Supabase because serverless instances do not share memory. If the database or the migration is unavailable, `/api/try` fails closed and shows "temporarily unavailable". Request bodies are capped at 4.4 MB (Vercel rejects over 4.5 MB); the browser keeps uploads under about 3.8 MB. Images are never stored or logged.

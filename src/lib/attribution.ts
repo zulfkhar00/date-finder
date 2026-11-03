@@ -12,9 +12,10 @@ export const REFERRER_MAX = 255;
 // `ref` = the IG reel id (or any short source tag) in links like noswipe.app/?ref=DAbc123.
 export const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled"] as const;
+export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled", "try_start", "try_cta_click"] as const;
 export type ClientEventName = (typeof CLIENT_EVENTS)[number];
-export const SERVER_EVENTS = ["checkout_created", "paid"] as const;
+// try_result is recorded by /api/try when a free run succeeds.
+export const SERVER_EVENTS = ["checkout_created", "paid", "try_result"] as const;
 export type FunnelEventName = (typeof CLIENT_EVENTS)[number] | (typeof SERVER_EVENTS)[number];
 
 export function cleanUtm(value: unknown): string | undefined {

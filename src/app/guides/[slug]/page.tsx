@@ -78,6 +78,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
   ];
 
   const reserveHref = `/reserve?ref=${guide.slug}`;
+  const tryHref = `/try?ref=${guide.slug}`;
   const reserveUtm = isSeoGuide
     ? `utm_source=seo&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=${guide.slug}`
     : `utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve`;
@@ -122,7 +123,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
                 {index === 0 ? (
                   <div className="guide-inline-cta">
                     <p>{isSeoGuide ? "Want feedback on your own profile? Share a screenshot." : "Want this done for your own profile?"}</p>
-                    <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
+                    <CtaLink href={tryHref} utm={reserveUtm} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Try it free</CtaLink>
                   </div>
                 ) : null}
               </section>
@@ -175,8 +176,8 @@ export default async function GuidePage({ params }: GuidePageProps) {
               <p>
                 NoSwipe is building a screenshot-based dating concierge. We can review photos, draft profile copy and messages, and help plan dates. You make profile changes, swipe, send messages and confirm dates yourself.
               </p>
-              <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
-                Get started
+              <CtaLink href={tryHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
+                Try it free
               </CtaLink>
               <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>

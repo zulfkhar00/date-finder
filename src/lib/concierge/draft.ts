@@ -9,8 +9,12 @@ export const DRAFT_MODEL = "claude-sonnet-5-5";
 
 export type DraftImage = { mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif"; base64: string };
 
+/** "concierge" = an operator reviews the draft (Telegram pilot). "self_serve" = the free /try tool, the user reads it directly. */
+export type DraftMode = "concierge" | "self_serve";
+
 export type DraftInput = {
   kind: DraftKind;
+  mode?: DraftMode;
   client: { name: string; voiceNotes: string; apps: string[] };
   /** Screenshots or photos, held in memory only. Never persisted, never logged. */
   images: DraftImage[];
@@ -18,7 +22,16 @@ export type DraftInput = {
   note?: string;
 };
 
-export type DraftResult = { inputSummary: string; output: DraftOutput };
+export type DraftUsage = { inputTokens: number; outputTokens: number };
+export type DraftResult = { inputSummary: string; output: DraftOutput; usage: DraftUsage };
+
+/** The model ran but gave nothing usable (truncated, refused). Carries the tokens it consumed so callers can still meter spend. */
+export class DraftOutputError extends Error {
+  constructor(message: string, readonly usage: DraftUsage) {
+    super(message);
+    this.name = "DraftOutputError";
+  }
+}
 
 const summary = z.string().describe(
   "One or two plain sentences, under 400 characters, describing what the input showed. No names, handles, phone numbers, workplaces or photos of her; this is the only record we keep."
@@ -73,9 +86,13 @@ export const DRAFT_SCHEMAS = {
   })
 } as const;
 
-const SHARED_RULES = `You are the drafting engine for a private dating concierge pilot. A human operator reviews every draft before the client sees it, and the client sends every message himself. You never contact anyone.
+const INTRO: Record<DraftMode, string> = {
+  concierge: "You are the drafting engine for a private dating concierge pilot. A human operator reviews every draft before the client sees it, and the client sends every message himself. You never contact anyone.",
+  self_serve: `You are the drafting engine for NoSwipe's free self-serve tool. The person reads your draft directly and sends every message themselves. You never contact anyone.
+The user's gender is not given: speak to them as "you", do not assume, and read "he/his/client" in the task below as "the user", and read "her/she" for the match as "their/they" (the match can be any gender). Never identify anyone from their face. If an image is not a dating photo or screenshot, or shows nudity or someone who looks under 18, do not describe it: say so in operator_flags and leave it out. In operator_flags, list what the user should double-check or fill in before using the draft. Write placeholders as [add your own: favourite trail].`
+};
 
-Rules that always apply:
+const SHARED_RULES = `Rules that always apply:
 - Write in the client's own voice, from his voice notes below. Match his tone, length, punctuation and humour. If the notes are thin, keep it simple, warm and natural.
 - Never invent facts about him: job, height, age, hobbies, travel, pets, anything. Use only what his voice notes or the input state. If a strong line needs a fact you do not have, write a placeholder like [ask client: favourite trail] and add it to operator_flags.
 - Never invent facts about her. Reference only what is visible in the input.
@@ -107,7 +124,9 @@ const KIND_RULES: Record<DraftKind, string> = {
 function systemPrompt(input: DraftInput) {
   const apps = input.client.apps.length ? input.client.apps.join(", ") : "not specified (assume Tinder)";
   const voice = input.client.voiceNotes.trim() || "(no voice notes yet: keep it simple and natural, and flag missing facts)";
-  return `${SHARED_RULES}
+  return `${INTRO[input.mode ?? "concierge"]}
+
+${SHARED_RULES}
 
 ${KIND_RULES[input.kind]}
 
@@ -138,8 +157,11 @@ export function hasAnthropicKey() {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
+/** The one SDK method draft() needs, so tests can inject a fake client. */
+export type DraftClient = { messages: { parse: Anthropic["messages"]["parse"] } };
+
 let client: Anthropic | null = null;
-function getClient() {
+function getClient(): DraftClient {
   if (!client) {
     // metadata_only keeps prompt and image content out of any OpenTelemetry spans.
     client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, openTelemetry: { traces: { contentMode: "metadata_only" } } });
@@ -151,8 +173,8 @@ function getClient() {
  * Drafts one concierge job. Returns null (no-op) when ANTHROPIC_API_KEY is not set.
  * Images are passed straight through to the API from memory and are not stored anywhere.
  */
-export async function draft(input: DraftInput): Promise<DraftResult | null> {
-  if (!hasAnthropicKey()) return null;
+export async function draft(input: DraftInput, options: { client?: DraftClient } = {}): Promise<DraftResult | null> {
+  if (!options.client && !hasAnthropicKey()) return null;
   const schema = DRAFT_SCHEMAS[input.kind];
   const note = input.note?.trim();
   const content: Anthropic.ContentBlockParam[] = [
@@ -166,7 +188,7 @@ export async function draft(input: DraftInput): Promise<DraftResult | null> {
     }
   ];
 
-  const message = await getClient().messages.parse({
+  const message = await (options.client ?? getClient()).messages.parse({
     model: DRAFT_MODEL,
     max_tokens: 4000,
     system: systemPrompt(input),
@@ -174,9 +196,10 @@ export async function draft(input: DraftInput): Promise<DraftResult | null> {
     output_config: { format: zodOutputFormat(schema) }
   });
 
+  const usage: DraftUsage = { inputTokens: message.usage?.input_tokens ?? 0, outputTokens: message.usage?.output_tokens ?? 0 };
   const parsed = message.parsed_output;
-  if (!parsed) throw new Error(`Draft returned no structured output (stop_reason: ${message.stop_reason ?? "unknown"})`);
+  if (!parsed) throw new DraftOutputError(`Draft returned no structured output (stop_reason: ${message.stop_reason ?? "unknown"})`, usage);
   const output = normalize({ ...parsed, kind: input.kind, message: "" } as DraftOutput);
   output.message = formatClientMessage(output);
-  return { inputSummary: String(parsed.input_summary).slice(0, 1000), output };
+  return { inputSummary: String(parsed.input_summary).slice(0, 1000), output, usage };
 }
