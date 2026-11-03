@@ -168,10 +168,13 @@ async function checkRenderedGuides(baseUrl: string) {
     assert.ok(html.includes('<meta property="og:type" content="article"'), `${path}: article metadata`);
     const links = [...html.matchAll(/<a\b[^>]*href="([^\"]+)"/g)].map((match) => match[1].replace(/&amp;/g, "&"));
     const reserveLinks = links.filter((href) => href.startsWith("/reserve"));
-    assert.equal(reserveLinks.length, 3, `${path}: header, inline and closing CTAs`);
-    // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged /reserve URL per page.
-    for (const link of reserveLinks) {
-      assert.equal(link, `/reserve?ref=${guide.slug}`, `${path}: CTA href carries only ref`);
+    const tryLinks = links.filter((href) => href.startsWith("/try"));
+    assert.equal(reserveLinks.length, 1, `${path}: header CTA`);
+    assert.equal(tryLinks.length, 2, `${path}: inline and closing CTAs go to the free tool`);
+    // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.
+    assert.equal(reserveLinks[0], `/reserve?ref=${guide.slug}`, `${path}: header CTA href carries only ref`);
+    for (const link of tryLinks) {
+      assert.equal(link, `/try?ref=${guide.slug}`, `${path}: CTA href carries only ref`);
       refs.add(link);
     }
     assert.ok(html.includes("You see the exact price before you pay anything."));

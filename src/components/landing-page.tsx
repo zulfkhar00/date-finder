@@ -28,7 +28,7 @@ export function LandingPage() {
             <h1 id="hero-title"><span className="line">Better profiles.</span><span className="line">Better <span className="mark">drafts.</span></span></h1>
             <p className="hero-sub">NoSwipe turns the context you share into profile suggestions, openers, replies and first-date plans. <strong>You keep your accounts, choose who to like and send every message yourself.</strong></p>
             <div className="hero-cta" id="hero-cta">
-              <CtaLink location="hero" />
+              <CtaLink href="/try" location="hero">Try it free</CtaLink>
               <a href="#get" className="hero-alt">See what you get <ArrowDown size={16} strokeWidth={2.5} /></a>
             </div>
           </div>

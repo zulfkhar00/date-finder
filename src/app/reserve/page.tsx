@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { ReserveForm } from "@/components/reserve-form";
@@ -23,6 +24,7 @@ export default async function ReservePage({ searchParams }: { searchParams: Prom
         <span className="sticker">About 2 minutes</span>
         <h1>Let’s set you up.</h1>
         <p>Tell us about you, your type and the apps where you want profile and message help.</p>
+        <p><Link href="/try" className="text-link">Want to see it work first? Try it free.</Link></p>
       </div>
       <div className="reserve-grid">
         <aside className="reserve-side panel" style={{ background: "var(--lime)" }}>

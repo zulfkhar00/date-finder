@@ -40,6 +40,7 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
   ];
   const slug = page.path.slice(1);
   const reserveHref = `/reserve?ref=${slug}`;
+  const tryHref = `/try?ref=${slug}`;
   const reserveUtm = `utm_source=seo&utm_medium=answer&utm_campaign=${slug}`;
   const publishedLabel = new Date(`${page.publishedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
@@ -83,7 +84,7 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
               <p className="kicker">Want a second pair of eyes?</p>
               <h2 id="guide-cta-title">Keep the account. Get better drafts.</h2>
               <p>NoSwipe drafts profile suggestions, openers, replies and date plans from screenshots you share. You make profile changes, send messages and confirm dates yourself.</p>
-              <CtaLink href={reserveHref} utm={reserveUtm} location={`answer_${slug}`} className="btn btn-lime">Get started</CtaLink>
+              <CtaLink href={tryHref} utm={reserveUtm} location={`answer_${slug}`} className="btn btn-lime">Try it free</CtaLink>
               <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>
           </div>
