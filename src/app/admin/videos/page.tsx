@@ -6,6 +6,8 @@ import { Badge, QueryErrorNotice, SetupNotice } from "../_components/notices";
 import { requestContentAction } from "./actions";
 import { ActionButton } from "./action-button";
 import { getVideos, type VideosData } from "./data";
+import { Cadence, PostedStats, PostMetrics } from "./insights";
+import { shortcodeFromUrl } from "@/lib/traffic-report";
 import styles from "../admin.module.css";
 
 const TABS = {
@@ -88,13 +90,20 @@ export default async function AdminVideosPage({ searchParams }: { searchParams: 
       ) : null}
       {problem === "query" ? <QueryErrorNotice /> : null}
 
+      {data && (tab === "posted" || tab === "next") ? (
+        <>
+          {tab === "posted" ? <PostedStats posts={data.posts.filter((post) => post.status === "posted")} metricsAvailable={data.metricsAvailable} byShortcode={data.instagram?.byShortcode ?? new Map()} /> : null}
+          <Cadence posts={data.posts} instagram={data.instagram} nowMs={data.nowMs} />
+        </>
+      ) : null}
+
       {data ? (
         shown.length === 0 ? (
           <div className={`${styles.card} ${styles.empty}`}>Nothing here yet.</div>
         ) : (
           <section className={styles.videoGrid} aria-label={TABS[tab].label}>
             {shown.map((post) => (
-              <VideoCard key={post.id} post={post} preview={post.preview_path ? data.previews.get(post.preview_path) : undefined} open={data.open.get(post.id)} />
+              <VideoCard key={post.id} post={post} preview={post.preview_path ? data.previews.get(post.preview_path) : undefined} open={data.open.get(post.id)} visits={tab === "posted" ? data.instagram?.byShortcode.get(shortcodeFromUrl(post.post_url) ?? "") : undefined} />
             ))}
           </section>
         )
@@ -103,7 +112,7 @@ export default async function AdminVideosPage({ searchParams }: { searchParams: 
   );
 }
 
-function VideoCard({ post, preview, open }: { post: ContentPost; preview?: string; open?: OpenContentAction }) {
+function VideoCard({ post, preview, open, visits }: { post: ContentPost; preview?: string; open?: OpenContentAction; visits?: number }) {
   const isJpg = post.preview_path?.endsWith(".jpg");
   const fixes = Array.isArray(post.fixes) ? post.fixes.filter((fix) => fix && typeof fix.what === "string") : [];
   return (
@@ -146,6 +155,7 @@ function VideoCard({ post, preview, open }: { post: ContentPost; preview?: strin
             </>
           ) : null}
         </dl>
+        {post.status === "posted" ? <PostMetrics post={post} visits={visits} /> : null}
         {post.caption ? <p className={styles.videoCaption}>{post.caption}</p> : null}
         {post.status === "fix" && fixes.length > 0 ? (
           <ul className={styles.videoFixes}>

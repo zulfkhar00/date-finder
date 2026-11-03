@@ -3,6 +3,7 @@ import { clientEventSchema } from "@/lib/attribution";
 import { insertClientFunnelEvent } from "@/lib/funnel";
 import { isNonProductionOrigin } from "@/lib/internal-traffic";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { trafficFromRequest } from "@/lib/traffic";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   let payload: unknown;
   try {
     const body = await request.text();
-    if (body.length > 1024) return new NextResponse(null, { status: 413 });
+    if (body.length > 4096) return new NextResponse(null, { status: 413 });
     payload = JSON.parse(body);
   } catch {
     return new NextResponse(null, { status: 400 });
@@ -67,7 +68,9 @@ export async function POST(request: Request) {
     sessionId: parsed.data.sessionId,
     variant: parsed.data.variant,
     utmCampaign: parsed.data.utmCampaign,
-    ref: parsed.data.ref
+    ref: parsed.data.ref,
+    // Reduced here and nowhere else: the UA and geo headers are read, then dropped.
+    traffic: trafficFromRequest(parsed.data, request.headers, process.env.SITE_URL ? new URL(process.env.SITE_URL).hostname : undefined)
   });
   // A rejected insert used to look identical to success, which hid a missing migration for days.
   if (!result.ok) return new NextResponse(null, { status: 503, headers: { "X-Funnel-Error": result.code } });

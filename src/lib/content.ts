@@ -18,6 +18,11 @@ export const ACTION_FROM_STATUS: Record<ContentAction, ContentStatus> = {
 export const CONTENT_PREVIEW_BUCKET = "content-previews";
 
 const isoTime = z.iso.datetime({ offset: true });
+const metric = z.number().int().min(0).max(2_000_000_000).nullable().optional();
+
+/** Instagram performance columns on content_posts (supabase/2026-11-03-traffic.sql). */
+export const METRIC_KEYS = ["views", "likes", "comments", "shares", "reach", "saves"] as const;
+export type MetricKey = (typeof METRIC_KEYS)[number];
 const REF_PATTERN = /^[a-f0-9]{16,64}$/;
 
 export const syncPostSchema = z.object({
@@ -33,6 +38,14 @@ export const syncPostSchema = z.object({
   fixes: z.array(z.object({ t: z.string().max(40), what: z.string().max(1000) })).max(20),
   duration_s: z.number().min(0).max(9999).nullable(),
   created_at: isoTime,
+  /** Optional performance snapshot; old payloads without these still work. */
+  views: metric,
+  likes: metric,
+  comments: metric,
+  shares: metric,
+  reach: metric,
+  saves: metric,
+  metrics_at: isoTime.nullable().optional(),
   /** Preview the sync has ready for this row, or null. */
   preview: z.object({ ext: z.enum(["mp4", "jpg"]), upload: z.boolean() }).nullable()
 });
@@ -63,6 +76,13 @@ export type ContentPost = {
   duration_s: number | null;
   created_at: string;
   updated_at: string;
+  views?: number | null;
+  likes?: number | null;
+  comments?: number | null;
+  shares?: number | null;
+  reach?: number | null;
+  saves?: number | null;
+  metrics_at?: string | null;
 };
 
 export type OpenContentAction = { id: string; post_id: string; action: ContentAction; requested_by: string; created_at: string };

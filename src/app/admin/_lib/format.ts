@@ -24,6 +24,16 @@ export function percent(numerator: number, denominator: number): string {
   return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)}%`;
 }
 
+/** 75 -> "1m 15s", 7500 -> "2h 5m", 100000 -> "1d 4h". null -> "—". */
+export function formatDuration(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds)) return "—";
+  const s = Math.round(seconds);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
+}
+
 export const STATUS_LABELS: Record<string, string> = { pending: "Pending", paid: "Paid", refunded: "Refunded", expired: "Expired" };
 export const STAGE_LABELS: Record<string, string> = { new: "New", contacted: "Contacted", pilot: "Pilot", declined: "Declined" };
 export const EVENT_LABELS: Record<string, string> = {

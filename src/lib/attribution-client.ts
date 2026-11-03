@@ -122,7 +122,20 @@ export function trackEvent(event: ClientEventName, options: { oncePerSession?: b
   try {
     if (options.oncePerSession && !firstTimeThisSession(event)) return;
     const attribution = captureAttribution();
-    const body = JSON.stringify({ sessionId: getFunnelSessionId(), event, variant: attribution.variant, utmCampaign: attribution.utm_campaign, ref: attribution.ref });
+    // Source hints ride on every event (first-touch cookie values); where the visit came from and
+    // which page it landed on are only meaningful once, on page_view. The server reduces them.
+    const landing = event === "page_view" ? { referrer: externalReferrer(), landingPath: window.location.pathname } : {};
+    const body = JSON.stringify({
+      sessionId: getFunnelSessionId(),
+      event,
+      variant: attribution.variant,
+      utmCampaign: attribution.utm_campaign,
+      ref: attribution.ref,
+      utmSource: attribution.utm_source,
+      utmMedium: attribution.utm_medium,
+      utmContent: attribution.utm_content,
+      ...landing
+    });
     void fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
   } catch {
     // Tracking must never affect the page.

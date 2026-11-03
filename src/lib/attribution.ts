@@ -70,5 +70,12 @@ export const clientEventSchema = z.object({
   event: z.enum(CLIENT_EVENTS),
   variant: z.unknown().optional().transform(cleanVariant),
   utmCampaign: optionalUtm,
-  ref: optionalRef
+  ref: optionalRef,
+  // Traffic capture. The browser sends raw hints; the server reduces them (referrer to a host,
+  // landing to a path) before anything is stored. See src/lib/traffic.ts.
+  utmSource: optionalUtm,
+  utmMedium: optionalUtm,
+  utmContent: optionalUtm,
+  referrer: z.string().max(512).optional().catch(undefined),
+  landingPath: z.string().max(200).optional().catch(undefined)
 });

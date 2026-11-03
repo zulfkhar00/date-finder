@@ -1,7 +1,11 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { requireAdminPage } from "@/lib/admin-auth";
 import { AdminDataError, getOverview, type OverviewData } from "./_lib/data";
 import { formatInt, percent } from "./_lib/format";
+import { AlarmsRow } from "./_components/alarms";
+import { DeltaBadge } from "./_components/delta";
+import { DimTable } from "./_components/dim-table";
 import { DailyChart } from "./_components/daily-chart";
 import { FunnelTable, groupFunnel } from "./_components/funnel-table";
 import { QueryErrorNotice, SchemaNotice, SetupNotice } from "./_components/notices";
@@ -26,6 +30,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
     problem = error instanceof AdminDataError && error.schemaMissing ? "schema" : "query";
   }
 
+  const prev = data?.previous ?? null;
   const totals = data?.totals ?? { visitors: 0, getStarted: 0, reserveStarts: 0, onboardingComplete: 0, checkouts: 0, paid: 0 };
 
   return (
@@ -49,14 +54,16 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
 
       {data ? (
         <>
+          <AlarmsRow alarms={data.alarms} />
+
           <section className={styles.kpis} aria-label="Key numbers">
-            <Kpi label="Visitors" value={formatInt(totals.visitors)} hint={RANGE_LABELS[range]} />
-            <Kpi label="Get started clicks" value={formatInt(totals.getStarted)} hint={`${percent(totals.getStarted, totals.visitors)} of visitors`} />
-            <Kpi label="Onboarding opened" value={formatInt(totals.reserveStarts)} hint={`${percent(totals.reserveStarts, totals.visitors)} of visitors`} />
-            <Kpi label="Onboarding done" value={formatInt(totals.onboardingComplete)} hint={`${percent(totals.onboardingComplete, totals.reserveStarts)} of opened`} />
-            <Kpi label="Checkouts opened" value={formatInt(totals.checkouts)} hint="Real reservations" />
-            <Kpi label="Paid" value={formatInt(data.paidInRange)} hint="Live-mode, non-founder" />
-            <Kpi label="Visitor → paid" value={percent(totals.paid, totals.visitors)} hint="Go at ≥3%" />
+            <Kpi label="Visitors" value={formatInt(totals.visitors)} hint={RANGE_LABELS[range]} delta={<DeltaBadge current={totals.visitors} previous={prev?.visitors} />} />
+            <Kpi label="Get started clicks" value={formatInt(totals.getStarted)} hint={`${percent(totals.getStarted, totals.visitors)} of visitors`} delta={<DeltaBadge current={totals.getStarted} previous={prev?.getStarted} />} />
+            <Kpi label="Onboarding opened" value={formatInt(totals.reserveStarts)} hint={`${percent(totals.reserveStarts, totals.visitors)} of visitors`} delta={<DeltaBadge current={totals.reserveStarts} previous={prev?.reserveStarts} />} />
+            <Kpi label="Onboarding done" value={formatInt(totals.onboardingComplete)} hint={`${percent(totals.onboardingComplete, totals.reserveStarts)} of opened`} delta={<DeltaBadge current={totals.onboardingComplete} previous={prev?.onboardingComplete} />} />
+            <Kpi label="Checkouts opened" value={formatInt(totals.checkouts)} hint="Real reservations" delta={<DeltaBadge current={totals.checkouts} previous={prev?.checkouts} />} />
+            <Kpi label="Paid" value={formatInt(data.paidInRange)} hint="Live-mode, non-founder" delta={<DeltaBadge current={data.paidInRange} previous={prev?.paid} />} />
+            <Kpi label="Visitor → paid" value={percent(totals.paid, totals.visitors)} hint="Go at ≥3%" delta={prev && prev.visitors > 0 && totals.visitors > 0 ? <DeltaBadge current={(totals.paid / totals.visitors) * 100} previous={(prev.paid / prev.visitors) * 100} unit="pt" /> : null} />
             <Kpi label="Paid today" value={formatInt(data.paidToday)} hint="Since 00:00 UTC" />
             <Kpi label="Paid, last 7 days" value={formatInt(data.paid7d)} hint="Rolling 7 × 24 h" />
           </section>
@@ -68,6 +75,9 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
             <DailyChart points={data.daily} />
           </section>
 
+          <DimTable title="Top channels" dimension="Source" rows={data.topChannels} note={data.trafficCaptured ? undefined : "Source data is not captured yet (apply supabase/2026-11-03-traffic.sql); everything shows as (not captured)."} limit={5} />
+          <p className={styles.sub}><Link href="/admin/traffic" className={styles.rowLink}>Open full traffic report</Link></p>
+
           <div className={styles.grid2}>
             <FunnelTable title="Funnel by variant" dimension="Variant" rows={groupFunnel(data.funnel, "variant")} />
             <FunnelTable title="Funnel by campaign" dimension="utm_campaign" rows={groupFunnel(data.funnel, "utm_campaign")} />
@@ -78,11 +88,12 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
   );
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({ label, value, hint, delta }: { label: string; value: string; hint?: string; delta?: ReactNode }) {
   return (
     <div className={styles.kpi}>
       <div className={styles.kpiLabel}>{label}</div>
       <div className={styles.kpiValue}>{value}</div>
+      {delta ? <div className={styles.kpiDelta}>{delta}</div> : null}
       {hint ? <div className={styles.kpiHint}>{hint}</div> : null}
     </div>
   );

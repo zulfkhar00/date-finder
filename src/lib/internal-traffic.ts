@@ -8,7 +8,7 @@ const FOUNDER_EMAILS = ["meyrlansuirkhanov@gmail.com", "olxzulfar@gmail.com"];
 export const PROBE_SESSION_PREFIX = "00000000-";
 
 /** Hosts a real visitor can reach production on. Anything else (localhost, previews) is not recorded. */
-const PRODUCTION_HOSTS = ["noswipe.app", "www.noswipe.app", "morrow.zulfkhar.dev"];
+export const PRODUCTION_HOSTS = ["noswipe.app", "www.noswipe.app", "morrow.zulfkhar.dev"];
 
 function gmailCanonical(email: string): string {
   const [local, domain] = email.toLowerCase().trim().split("@");

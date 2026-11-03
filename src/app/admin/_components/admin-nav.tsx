@@ -6,6 +6,7 @@ import styles from "../admin.module.css";
 
 const LINKS = [
   { href: "/admin", label: "Overview" },
+  { href: "/admin/traffic", label: "Traffic" },
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/concierge", label: "Concierge" },
   { href: "/admin/videos", label: "Videos" }
