@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse, readCheckoutResponse } from "../src/lib/checkout-presentation.ts";
 
-assert.equal(CHECKOUT_LINE_ITEM.name, "noswipe — reserve early access");
-assert.match(CHECKOUT_LINE_ITEM.description, /refundable early-access waitlist fee/i);
+assert.equal(CHECKOUT_LINE_ITEM.name, "noswipe — early access");
+assert.match(CHECKOUT_LINE_ITEM.description, /refundable early-access reservation/i);
 assert.match(CHECKOUT_LINE_ITEM.description, /does not start a service/i);
 assert.equal(/activates|matches|dates/i.test(CHECKOUT_LINE_ITEM.description), false, "line item never promises service or outcomes");
+assert.equal(/\$1|USD 1|wait-?list|holds? your spot/i.test(`${CHECKOUT_LINE_ITEM.name} ${CHECKOUT_LINE_ITEM.description}`), false, "line item avoids prohibited copy");
 
 const origin = "https://www.noswipe.app";
 const publicKey = "pk_test_example";

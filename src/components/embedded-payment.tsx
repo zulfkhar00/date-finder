@@ -54,9 +54,9 @@ export function EmbeddedPayment({ payment, onBack }: { payment: Payment; onBack:
   }, [payment, attempt, router]);
 
   return <section className="embedded-payment" aria-labelledby="payment-heading">
-    <h2 id="payment-heading">Reserve your spot.</h2>
-    <p className="payment-note"><Lock size={16} aria-hidden="true" /> Secure payment · $1.00 once</p>
-    <p className="review-details">Refundable early-access waitlist fee. Payment reserves a spot; it does not start a service.</p>
+    <h2 id="payment-heading">Confirm early access.</h2>
+    <p className="payment-note"><Lock size={16} aria-hidden="true" /> Secure one-time payment</p>
+    <p className="review-details">The reservation payment is refundable and does not start a service.</p>
     {state === "loading" && <p role="status" className="payment-loading"><span className="spinner" aria-hidden="true" /> Loading secure payment…</p>}
     <div ref={container} className="payment-frame" />
     {state === "error" && <div className="form-error" role="alert">

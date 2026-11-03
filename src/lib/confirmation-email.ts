@@ -8,11 +8,11 @@ export const EMAIL_LOGO_URL = "https://www.noswipe.app/brand/email-logo.png";
 export type ConfirmationEmail = { subject: string; text: string; html: string };
 
 export function buildConfirmationEmail(): ConfirmationEmail {
-  const subject = "You're in — your spot is reserved";
-  const footer = "You're getting this because you signed up at NoSwipe. Your $1 is refundable. Questions? Just reply to this email.";
+  const subject = "You're in — early access confirmed";
+  const footer = "You're getting this because you signed up at NoSwipe. Your reservation payment is refundable. Questions? Just reply to this email.";
 
   const text = [
-    "You're in — your spot is reserved.",
+    "You're in — early access confirmed.",
     "",
     "You're on the early-access list. We'll email you if a concierge place opens.",
     "NoSwipe prepares profile copy, message drafts and date plans from the context you choose to share. You keep control of your accounts and send every message yourself.",
@@ -29,7 +29,7 @@ export function buildConfirmationEmail(): ConfirmationEmail {
 <body style="margin:0;padding:0;background:#ffffff;">
 <div style="max-width:480px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#111111;">
 <p style="margin:0 0 24px;"><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="NoSwipe" style="display:block;border:0;width:48px;height:48px;"></p>
-<p style="margin:0 0 16px;font-size:22px;font-weight:700;">You're in — your spot is reserved.</p>
+<p style="margin:0 0 16px;font-size:22px;font-weight:700;">You're in — early access confirmed.</p>
 <p style="margin:0 0 16px;">You're on the early-access list. We'll email you if a concierge place opens.</p>
 <p style="margin:0 0 16px;">NoSwipe prepares profile copy, message drafts and date plans from the context you choose to share. You keep control of your accounts and send every message yourself.</p>
 <p style="margin:0 0 16px;">Nothing to do until then.</p>

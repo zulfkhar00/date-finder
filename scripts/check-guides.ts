@@ -135,7 +135,7 @@ for (const page of aiPages) {
 for (const text of [llmsTxt(), llmsFullTxt()]) {
   assert.match(text, /does not log in/i);
   assert.match(text, /sends every message/i);
-  assert.match(text, /USD 1/);
+  assert.doesNotMatch(text, /\$1|USD 1|wait-?list|holds? your spot/i);
   for (const page of aiPages) assert.ok(text.includes(page.path), `llms: ${page.path}`);
 }
 const robotsAgents = robots().rules;

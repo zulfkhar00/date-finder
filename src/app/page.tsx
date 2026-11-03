@@ -19,7 +19,7 @@ const structuredData = [
     url: site,
     logo: `${site}/brand/email-logo.png`,
     email: "support@noswipe.app",
-    description: "NoSwipe drafts dating profile suggestions, openers, replies and first-date plans from screenshots users share. Users send every message themselves."
+    description: "NoSwipe is an AI dating assistant for Tinder, Hinge and Bumble that drafts profile suggestions, openers, replies and first-date plans from screenshots users share."
   },
   { "@context": "https://schema.org", "@type": "WebSite", name: "NoSwipe", url: site },
   {
@@ -37,7 +37,7 @@ const structuredData = [
       "First-date plans and invitation wording",
       "No access to dating-app accounts: the user sends every message"
     ],
-    description: "Screenshot-based help for dating profiles, openers, replies and first-date plans. You keep every account and send every message yourself."
+    description: "AI help for dating profiles, openers, replies and first-date plans on Tinder, Hinge and Bumble. You keep every account and send every message yourself."
   },
   {
     "@context": "https://schema.org",

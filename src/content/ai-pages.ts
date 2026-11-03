@@ -55,7 +55,7 @@ export const aiPages: AiPage[] = [
       {
         title: "Price",
         paragraphs: [
-          "NoSwipe is in early access. Today the site takes a one-time, refundable USD 1 early-access payment, and the terms say it does not start a service. You see the exact price on the checkout screen before you pay, and prices for any ongoing service will be shown to you before you decide to join it."
+          "NoSwipe is in early access. Today the site takes a one-time, refundable early-access payment, and the terms say it does not start a service. You see the exact price on the checkout screen before you pay, and prices for any ongoing service will be shown to you before you decide to join it."
         ]
       }
     ],
@@ -64,7 +64,7 @@ export const aiPages: AiPage[] = [
       { question: "Is an AI dating assistant the same as a swipe bot?", answer: "No. A swipe bot logs in to your account and acts for you, which the apps' terms are written against. A drafting assistant only produces text and suggestions for you to use." },
       { question: "Does NoSwipe log in to my Tinder, Hinge or Bumble account?", answer: "No. NoSwipe works from screenshots you choose to share. It does not log in, swipe, like, send messages or confirm dates." },
       { question: "Can an AI dating assistant promise matches or dates?", answer: "No. It can improve how clearly your profile and messages read, but it cannot control whether someone replies or agrees to meet." },
-      { question: "How much does NoSwipe cost?", answer: "During early access the site takes a one-time refundable USD 1 payment that does not start a service. You see the exact price at checkout before paying." }
+      { question: "How much does NoSwipe cost?", answer: "During early access the site takes a one-time refundable payment that does not start a service. You see the exact price at checkout before paying." }
     ],
     related: [
       { href: "/best-ai-dating-assistant-2026", label: "Best AI dating assistant 2026: what to look for" },
@@ -117,7 +117,7 @@ export const aiPages: AiPage[] = [
         title: "5. The price is clear before you pay",
         paragraphs: [
           "You should see the exact price, what it covers and how to get a refund before you enter card details. Watch for trial-to-subscription flows that hide the renewal.",
-          "NoSwipe, for reference, is built to this checklist: it drafts only, you send everything, and the exact price is shown at checkout before you pay. In early access the site takes a one-time refundable USD 1 payment that does not start a service. Judge any tool, ours included, against the same five points."
+          "NoSwipe, for reference, is built to this checklist: it drafts only, you send everything, and the exact price is shown at checkout before you pay. In early access the site takes a one-time refundable payment that does not start a service. Judge any tool, ours included, against the same five points."
         ]
       }
     ],

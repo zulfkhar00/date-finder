@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 
 // The one $1.00 line item Stripe Checkout shows. First place the price appears in the flow.
-export const CHECKOUT_LINE_ITEM = { name: "noswipe — reserve early access", description: "Refundable early-access waitlist fee. Does not start a service." } as const;
+export const CHECKOUT_LINE_ITEM = { name: "noswipe — early access", description: "Refundable early-access reservation. Does not start a service." } as const;
 
 export type EmbeddedPayment = { mode: "embedded"; sessionId: string; clientSecret: string; publishableKey: string };
 export type CheckoutResponse = EmbeddedPayment | { mode: "hosted"; url: string };

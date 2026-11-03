@@ -25,7 +25,7 @@ export function LandingPage() {
         <section className="shell hero" aria-labelledby="hero-title">
           <div className="hero-copy">
             <span className="sticker">Tinder · Bumble · Hinge</span>
-            <h1 id="hero-title"><span className="line">Better profiles.</span><span className="line">Better <span className="mark">drafts.</span></span></h1>
+            <h1 id="hero-title"><span className="line">Your AI dating assistant.</span><span className="line">Better <span className="mark">profiles and drafts.</span></span></h1>
             <p className="hero-sub">NoSwipe turns the context you share into profile suggestions, openers, replies and first-date plans. <strong>You keep your accounts, choose who to like and send every message yourself.</strong></p>
             <div className="hero-cta" id="hero-cta">
               <CtaLink href="/try" location="hero">Try it free</CtaLink>

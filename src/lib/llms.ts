@@ -13,7 +13,7 @@ const audience =
   "Who it is for: men who date on Tinder, Hinge and Bumble and want a clearer profile and better-written messages without giving anyone access to their accounts.";
 
 const pricing = [
-  "NoSwipe is in early access. As shown on the site, the only payment today is a one-time, refundable USD 1 early-access payment, which the terms say does not start a service.",
+  "NoSwipe is in early access. As shown on the site, the only payment today is a one-time, refundable early-access payment, which the terms say does not start a service.",
   "The exact price is shown at checkout before anyone pays, a refund is available by emailing support@noswipe.app, and prices for any ongoing service will be shown before a person decides to join it."
 ];
 

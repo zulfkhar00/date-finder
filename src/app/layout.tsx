@@ -3,8 +3,8 @@ import "@fontsource/bagel-fat-one/latin-400.css";
 import "@fontsource-variable/figtree/index.css";
 import "./globals.css";
 
-const title = "NoSwipe — dating profiles and message drafts";
-const description = "Screenshot-based help for dating profiles, openers, replies and first-date plans. You keep every account and send every message yourself.";
+const title = "AI dating assistant for Tinder, Hinge & Bumble — NoSwipe";
+const description = "Improve dating profiles, openers and replies with an AI dating assistant for Tinder, Hinge and Bumble. You keep every account and send every message yourself.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.noswipe.app"),

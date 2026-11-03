@@ -4,9 +4,9 @@ import { buildConfirmationEmail } from "../src/lib/confirmation-email.ts";
 import { buildAdminLoginEmail } from "../src/lib/admin-login-email.ts";
 
 const email = buildConfirmationEmail();
-assert.equal(email.subject, "You're in — your spot is reserved");
+assert.equal(email.subject, "You're in — early access confirmed");
 for (const body of [email.text, email.html]) {
-  assert.ok(body.includes("You're in — your spot is reserved."));
+  assert.ok(body.includes("You're in — early access confirmed."));
   assert.equal(/#[0-9]+ in|in the queue|queue position/i.test(body), false, "never show the queue number");
   assert.ok(body.includes("You're on the early-access list."));
   assert.ok(body.includes("We'll email you if a concierge place opens."));
@@ -17,6 +17,7 @@ for (const body of [email.text, email.html]) {
   assert.ok(body.includes("https://noswipe.app"));
   assert.ok(body.includes("reply to this email"));
   assert.ok(body.includes("early-access"));
+  assert.equal(/\$1|USD 1|wait-?list|holds? your spot|your spot is reserved/i.test(body), false, "no prohibited reservation copy");
 }
 assert.ok(email.html.includes('href="https://noswipe.app"'));
 assert.ok(email.html.includes('src="https://www.noswipe.app/brand/email-logo.png"'), "logo in the header");
