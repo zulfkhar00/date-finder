@@ -13,7 +13,8 @@ Satisfied by ANY of:
     holds at least one pair;
   * label `no-visual-change` AND a written reason (>=10 chars) in that same section.
 
-Exempt: dependabot, PRs touching no user-visible path, bases listed in exempt_bases.
+Exempt: dependabot, PRs touching no user-visible path, bases listed in exempt_bases,
+head branches starting with a prefix in exempt_head_prefixes.
 State is read from the GitHub API at run time (the workflow re-runs on body/label edits).
 Fails closed when the API cannot be read.
 
@@ -217,11 +218,14 @@ def committed_images(files: list[str]) -> tuple[int, int, int]:
     return b, a, u
 
 
-def evaluate(*, files, body, labels, comments, base_ref, author, cfg, label_actor=None):
+def evaluate(*, files, body, labels, comments, base_ref, author, cfg, label_actor=None, head_ref=""):
     if base_ref in cfg.get("exempt_bases", []):
         return True, [f"Base `{base_ref}` is exempt."]
     if author.startswith(("dependabot", "renovate")):
         return True, ["bot author - not applicable."]
+    for pre in cfg.get("exempt_head_prefixes", []):
+        if head_ref.startswith(pre):
+            return True, [f"Branch `{head_ref}` is exempt (reviewed through its own preview flow)."]
     patterns = cfg.get("ui_patterns") or DEFAULT_PATTERNS
     ui = [f for f in files if is_ui_path(f, patterns)]
     if not ui:
@@ -303,6 +307,7 @@ def fetch(repo: str, pr: int, token: str, api_url: str) -> dict:
         "comments": paged(f"{base}/issues/{pr}/comments?per_page=100", token),
         "base_ref": p["base"]["ref"],
         "author": (p.get("user") or {}).get("login", ""),
+        "head_ref": p["head"]["ref"],
         "label_actor": actor,
     }
 
