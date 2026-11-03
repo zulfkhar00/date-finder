@@ -165,3 +165,7 @@ bdh :aweb chat extend-wait <alias> "need more time"  # Ask for patience
 Before any substantial change, follow **[docs/agent-coordination.md](docs/agent-coordination.md)**:
 check the other agent's work for overlap, create and claim a task with `bdh`, work on its own branch,
 close the task when done. Do it automatically, without being asked.
+
+## Screenshots in every UI PR (CI-enforced)
+
+A PR that changes anything a user sees must carry **BEFORE and AFTER screenshots/video** in the `## Screenshots BEFORE / AFTER` section of its description (drag them in, or commit them under `docs/screenshots/<pr>/` as `before-*.png` / `after-*.png`). Capture from the real UI: `node scripts/pr-shots.mjs <baseURL> <outDir> /route ...` (Playwright; add `--mobile` for a phone viewport). The PR shots bot posts public-route BEFORE/AFTER automatically. Nothing visible changes: add the label `no-visual-change` and a one-line reason in that section. The CI check **UI proof** (`.github/workflows/ui-proof.yml`, paths in `.github/ui-proof.json`) fails the PR otherwise; editing the description or label re-runs it. Agents: UI PRs must include BEFORE/AFTER per the PR template.

@@ -1,0 +1,38 @@
+name: UI proof
+
+# A PR that changes user-visible files must carry BEFORE/AFTER screenshots in the
+# "## Screenshots BEFORE / AFTER" section of its description (or commit them under
+# docs/screenshots/<pr>/), or carry the `no-visual-change` label + a one-line reason.
+# Re-evaluates itself when the description or labels change.
+# Paths that count as user-visible: .github/ui-proof.json. Script: scripts/check_ui_proof.py.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: ui-proof-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ui-proof:
+    name: UI proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts
+            .github
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check BEFORE/AFTER screenshots
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/check_ui_proof.py --repo "${{ github.repository }}" --pr "${{ github.event.pull_request.number }}"

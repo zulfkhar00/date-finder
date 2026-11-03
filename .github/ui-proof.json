@@ -1,0 +1,10 @@
+{
+  "ui_patterns": [
+    "src/app/**",
+    "src/components/**",
+    "public/**",
+    "**/*.tsx",
+    "**/*.css"
+  ],
+  "exempt_bases": []
+}
