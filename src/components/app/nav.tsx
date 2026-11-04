@@ -18,8 +18,8 @@ export function BottomNav({ base = "", needsYou = 0 }: { base?: string; needsYou
     <nav className="app-nav" aria-label="Main">
       <ul>
         {TABS.map(({ href, label, Icon }) => {
-          const full = `${base}${href}`;
-          const active = pathname === full || pathname.startsWith(`${full}/`);
+          const full = base === "/demo" && href === "/home" ? base : `${base}${href}`;
+          const active = pathname === full || (href !== "/home" && pathname.startsWith(`${full}/`));
           return (
             <li key={href}>
               <Link href={full} aria-current={active ? "page" : undefined}>
