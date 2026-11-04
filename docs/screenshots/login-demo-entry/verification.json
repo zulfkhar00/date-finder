@@ -1,0 +1,21 @@
+{
+  "fixture": "local production build and signed-out production BEFORE, disposable browser",
+  "checks": [
+    {
+      "viewport": "desktop",
+      "email_form_visible": true,
+      "demo_link_touch_height": 56,
+      "demo_and_chats_navigation": true,
+      "horizontal_overflow": false,
+      "signup_or_send_requests": 0
+    },
+    {
+      "viewport": "mobile",
+      "email_form_visible": true,
+      "demo_link_touch_height": 56,
+      "demo_and_chats_navigation": true,
+      "horizontal_overflow": false,
+      "signup_or_send_requests": 0
+    }
+  ]
+}

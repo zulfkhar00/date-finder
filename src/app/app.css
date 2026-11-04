@@ -141,3 +141,7 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .app-kv dt{color:var(--grape-3);font-weight:700}.app-kv dd{margin:0;font-weight:700;text-align:right}
 @media(min-width:760px){.app-main{padding-top:36px}.app-stats{grid-template-columns:repeat(3,1fr)}}
 @media(prefers-reduced-motion:reduce){.app-btn,.ob-bar span,.app-switch,.app-switch::after{transition:none}}
+
+/* A clear route out of the sample app and into the real signup flow. */
+.app-demo-banner{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 16px}
+.app-demo-start{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 18px;border-radius:var(--r-pill);background:var(--grape);color:var(--paper);font-size:14px;letter-spacing:0;text-transform:none}

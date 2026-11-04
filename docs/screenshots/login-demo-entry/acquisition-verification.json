@@ -1,0 +1,29 @@
+{
+  "scope": "demo acquisition loop, disposable browser; all event POSTs mocked204",
+  "checks": [
+    {
+      "viewport": "desktop",
+      "sample_label_visible": true,
+      "demo_signup_cta_touch_px": 44,
+      "horizontal_overflow": false,
+      "demo_entry_page_view": true,
+      "first_touch_campaign_ref_preserved": true,
+      "same_session_cta_event": true,
+      "signup_reaches_existing_email_gate": true,
+      "production_writes": 0,
+      "email_submissions": 0
+    },
+    {
+      "viewport": "mobile",
+      "sample_label_visible": true,
+      "demo_signup_cta_touch_px": 44,
+      "horizontal_overflow": false,
+      "demo_entry_page_view": true,
+      "first_touch_campaign_ref_preserved": true,
+      "same_session_cta_event": true,
+      "signup_reaches_existing_email_gate": true,
+      "production_writes": 0,
+      "email_submissions": 0
+    }
+  ]
+}
