@@ -172,9 +172,9 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
             <aside className="guide-cta" aria-labelledby="guide-cta-title">
               <p className="kicker">Want a second pair of eyes?</p>
-              <h2 id="guide-cta-title">Keep the account. Get better drafts.</h2>
+              <h2 id="guide-cta-title">Rather skip the swiping?</h2>
               <p>
-                NoSwipe is building a screenshot-based dating concierge. We can review photos, draft profile copy and messages, and help plan dates. You make profile changes, swipe, send messages and confirm dates yourself.
+                NoSwipe is AI dating automation for Tinder, Hinge and Bumble. It fixes your profile, swipes on people who fit, chats in your voice and books the date. You just show up.
               </p>
               <CtaLink href={tryHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
                 Try it free

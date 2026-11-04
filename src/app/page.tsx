@@ -19,7 +19,7 @@ const structuredData = [
     url: site,
     logo: `${site}/brand/email-logo.png`,
     email: "support@noswipe.app",
-    description: "NoSwipe drafts dating profile suggestions, openers, replies and first-date plans from screenshots users share. Users send every message themselves."
+    description: "NoSwipe is AI dating automation: it swipes, chats and books first dates for its users on Tinder, Hinge and Bumble, using their own accounts and real photos."
   },
   { "@context": "https://schema.org", "@type": "WebSite", name: "NoSwipe", url: site },
   {
@@ -30,14 +30,15 @@ const structuredData = [
     applicationCategory: "LifestyleApplication",
     operatingSystem: "Web",
     publisher: { "@id": `${site}/#organization` },
-    audience: { "@type": "Audience", audienceType: "Men who date on Tinder, Hinge and Bumble" },
+    audience: { "@type": "Audience", audienceType: "Men who are done swiping on Tinder, Hinge and Bumble" },
     featureList: [
-      "Profile and photo-order suggestions from screenshots",
-      "Opener and reply drafts in the user's own voice",
-      "First-date plans and invitation wording",
-      "No access to dating-app accounts: the user sends every message"
+      "Swipes on Tinder, Hinge and Bumble for people who match the user's type and dealbreakers",
+      "Opens and keeps up conversations in the user's own voice",
+      "Books first dates and sends the user the plan: where, when, who",
+      "Fixes the profile first: photo order, bio and prompt answers",
+      "The user's own accounts, real photos and matches"
     ],
-    description: "Screenshot-based help for dating profiles, openers, replies and first-date plans. You keep every account and send every message yourself."
+    description: "Stop swiping. NoSwipe swipes, chats and books dates for you on Tinder, Hinge and Bumble. You just show up."
   },
   {
     "@context": "https://schema.org",

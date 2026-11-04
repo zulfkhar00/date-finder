@@ -4,7 +4,7 @@ export function ConciergePrivacySection() {
     <>
       <h2>Concierge pilot</h2>
       <p>
-        If you are invited to the concierge pilot, you send screenshots and photos to our Telegram bot and we send back drafts: profile text, openers, replies and date plans. A person on our team reviews every draft before you get it, and you send every message yourself. We never log in to, swipe on or message from your dating apps.
+        If you are invited to the concierge pilot, you send screenshots and photos to our Telegram bot and we send back drafts: profile text, openers, replies and date plans. A person on our team reviews every draft before you get it. If you choose the done-for-you service, NoSwipe swipes, messages and schedules dates in your own dating-app accounts only with your permission, and you can withdraw that permission at any time.
       </p>
       <p>
         <strong>What we store.</strong> Your first name, the apps you use, the notes you give us about yourself and how you write, your Telegram chat ID, and the numbers you share for your progress (matches per week, conversations, dates scheduled). For each request we keep a short text summary of what you sent, the draft we wrote, and our reviewer&apos;s notes. Before any of that text is saved we automatically remove phone numbers, @handles, email addresses and links.

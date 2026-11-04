@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { ReserveForm } from "@/components/reserve-form";
 import { ogImages } from "@/lib/og";
 
-const description = "Join NoSwipe early access for a refundable $1: screenshot-based help with your profile, messages and first dates. You keep your dating-app accounts.";
+const description = "Join NoSwipe early access for a refundable $1: AI that swipes, chats and books first dates for you on Tinder, Hinge and Bumble.";
 
 export const metadata: Metadata = {
   title: "Reserve early access",

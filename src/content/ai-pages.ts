@@ -17,59 +17,226 @@ export type AiPage = {
 export const aiPages: AiPage[] = [
   {
     path: "/ai-dating-assistant",
-    metaTitle: "AI Dating Assistant: What It Is and How It Works",
+    metaTitle: "AI Dating Assistant: Swipes, Chats, Books Dates",
     h1: "What is an AI dating assistant?",
     eyebrow: "AI dating assistant",
-    description: "An AI dating assistant drafts your profile, openers and replies from what you share. You send everything. What it does, what it cannot, how NoSwipe fits.",
-    answer: "An AI dating assistant is a tool that drafts your dating profile, first messages and replies from the photos or screenshots you share, while you stay in charge of your account and send every message yourself. The safe kind never logs in to Tinder, Hinge or Bumble, never swipes and never sends anything for you.",
-    publishedIso: "2026-10-30",
+    description: "An AI dating assistant that actually does the work: swipes on people who fit, chats in your voice and books the date on Tinder, Hinge and Bumble.",
+    answer: "An AI dating assistant is software that takes the grind out of dating apps: it swipes, starts conversations, keeps them going and sets up the date. NoSwipe does all of that on your own Tinder, Hinge and Bumble accounts, so the only part left for you is showing up.",
+    publishedIso: "2026-11-04",
     sections: [
       {
-        title: "What an AI dating assistant does",
+        title: "What it actually does",
         paragraphs: [
-          "Most of the work in online dating is writing: a bio, prompt answers, an opener that is better than “hey”, a reply that keeps a conversation moving, an invitation that is easy to say yes to. An AI dating assistant helps with that writing and with the choices around it, such as which photo goes first.",
-          "It works from context you provide, usually screenshots of your own profile or of a conversation. It gives you drafts and suggestions. You decide what to change and what to send."
+          "Online dating is mostly admin. Hours of swiping, a dozen chats that die after “hey”, and a week of back-and-forth to agree on a Thursday. An AI dating assistant takes that admin off your hands.",
+          "You tell it who you want to meet and what you won't compromise on. It does the rest."
         ],
         bullets: [
-          "Reviews your photos and suggests an order",
-          "Drafts or rewrites your bio and prompt answers in your voice",
-          "Suggests openers based on a match's profile",
-          "Drafts replies and ways to suggest a plan",
-          "Helps plan a first date and word the invitation"
-        ]
-      },
-      {
-        title: "What it should not do",
-        paragraphs: [
-          "Be careful with any tool that asks for your dating-app password, swipes for you or sends messages from your account. Dating apps write rules against bots and third-party automation, and an account can be restricted or banned. A drafting assistant avoids the whole problem by never touching the account.",
-          "No assistant can guarantee matches, replies or dates. Anyone promising a number is guessing. The honest claim is smaller: clearer profiles and better-written messages, which you still have to send and follow through on."
+          "Swipes on people who match your type and dealbreakers",
+          "Opens with something better than “hey”, based on their profile",
+          "Keeps the conversation going in your voice",
+          "Moves to a date and books it, then sends you the plan",
+          "Fixes your profile first: photo order, bio and prompt answers"
         ]
       },
       {
         title: "How NoSwipe works",
         paragraphs: [
-          "NoSwipe is a screenshot-based dating assistant built mainly for men who date on Tinder, Hinge and Bumble. You choose what to share. NoSwipe prepares profile suggestions, openers, replies and date plans. You make the profile changes, send the messages and confirm the dates yourself.",
-          "NoSwipe does not log in to your apps, swipe, like profiles, send messages or book dates. Screenshots are used only to prepare your drafts, are deleted after drafting and are never used to train AI models. NoSwipe is in early access, so the screenshot service opens to people as places become available; the privacy note explains the details."
+          "Tell us your type, your dealbreakers and which apps you use. NoSwipe gets your profile into shape, then swipes, chats and schedules on Tinder, Hinge and Bumble. When a date is set, you get where, when and who.",
+          "It runs on your own accounts with your real photos. The matches and conversations are yours. Say stop and it stops."
         ]
       },
       {
-        title: "Price",
+        title: "What it can't do",
         paragraphs: [
-          "NoSwipe is in early access. Today the site takes a one-time, refundable USD 1 early-access payment, and the terms say it does not start a service. You see the exact price on the checkout screen before you pay, and prices for any ongoing service will be shown to you before you decide to join it."
+          "Nobody can promise that a specific person says yes. What changes is the volume and the quality: more good matches, fewer dead chats, and dates that actually get on the calendar."
         ]
       }
     ],
     faqs: [
-      { question: "What is an AI dating assistant?", answer: "It is a tool that drafts dating profile copy, openers, replies and date plans from the context you share. You send everything and keep control of your accounts." },
-      { question: "Is an AI dating assistant the same as a swipe bot?", answer: "No. A swipe bot logs in to your account and acts for you, which the apps' terms are written against. A drafting assistant only produces text and suggestions for you to use." },
-      { question: "Does NoSwipe log in to my Tinder, Hinge or Bumble account?", answer: "No. NoSwipe works from screenshots you choose to share. It does not log in, swipe, like, send messages or confirm dates." },
-      { question: "Can an AI dating assistant promise matches or dates?", answer: "No. It can improve how clearly your profile and messages read, but it cannot control whether someone replies or agrees to meet." },
-      { question: "How much does NoSwipe cost?", answer: "During early access the site takes a one-time refundable USD 1 payment that does not start a service. You see the exact price at checkout before paying." }
+      { question: "What is an AI dating assistant?", answer: "Software that does the work on dating apps for you: swiping, chatting and scheduling dates. NoSwipe does this on Tinder, Hinge and Bumble." },
+      { question: "Does NoSwipe swipe for me?", answer: "Yes. It swipes on people who fit your type and dealbreakers, so you don't spend your evenings doing it." },
+      { question: "Does it chat for me?", answer: "Yes. It opens conversations and keeps them going in your voice, then moves them toward a date." },
+      { question: "Does it book the date?", answer: "Yes. When a match says yes, NoSwipe sets the time and place and sends you the plan." },
+      { question: "Can it guarantee dates?", answer: "No one can guarantee another person's answer. NoSwipe takes care of the swiping, chatting and scheduling so more conversations turn into dates." }
     ],
     related: [
-      { href: "/best-ai-dating-assistant-2026", label: "Best AI dating assistant 2026: what to look for" },
-      { href: "/ai-dating-apps-vs-dating-coaches", label: "AI dating apps vs dating coaches: what actually helps" },
-      { href: "/guides/do-ai-dating-assistants-work", label: "Do AI dating assistants actually work?" }
+      { href: "/dating-app-automation", label: "AI dating app automation: how it works" },
+      { href: "/tinder-automation", label: "Tinder automation with AI" },
+      { href: "/hinge-automation", label: "Hinge AI automation" },
+      { href: "/bumble-automation", label: "Bumble AI automation" }
+    ]
+  },
+  {
+    path: "/dating-app-automation",
+    metaTitle: "AI Dating App Automation: Swipes, Chats, Dates",
+    h1: "AI dating app automation",
+    eyebrow: "Dating app automation",
+    description: "Automate your dating apps with AI. NoSwipe swipes, chats and books first dates for you on Tinder, Hinge and Bumble. You just show up.",
+    answer: "AI dating app automation means software runs your dating apps for you: it swipes, messages and schedules dates instead of you doing it by hand. NoSwipe automates Tinder, Hinge and Bumble end to end, from the first swipe to a booked first date.",
+    publishedIso: "2026-11-04",
+    sections: [
+      {
+        title: "Why people automate dating apps",
+        paragraphs: [
+          "The average dating-app session is swiping on autopilot, at midnight, half paying attention. It is slow, it is boring, and it is the part of dating that has nothing to do with actually meeting someone.",
+          "Automation hands that part to AI and gives you back the evenings."
+        ]
+      },
+      {
+        title: "What NoSwipe automates",
+        paragraphs: ["Everything between “I should get back on the apps” and “see you Thursday at 8”."],
+        bullets: [
+          "Swiping: only on people who match your type and dealbreakers",
+          "Openers: written from their profile, not copy-paste lines",
+          "Conversation: kept going in your voice, so nothing dies on day two",
+          "Scheduling: the date gets booked and the plan lands in your messages",
+          "Profile: photo order, bio and prompts fixed before the first swipe"
+        ]
+      },
+      {
+        title: "Which dating apps",
+        paragraphs: [
+          "NoSwipe runs Tinder, Hinge and Bumble today. Using something else, like Raya, The League, Coffee Meets Bagel, OkCupid or Feeld? Tell us during signup."
+        ]
+      }
+    ],
+    faqs: [
+      { question: "Can you automate dating apps with AI?", answer: "Yes. NoSwipe uses AI to swipe, chat and schedule first dates on Tinder, Hinge and Bumble." },
+      { question: "Which dating apps does NoSwipe automate?", answer: "Tinder, Hinge and Bumble. Tell us at signup if you use a different app." },
+      { question: "Is it my account?", answer: "Yes. NoSwipe works on your own accounts with your real photos, and the matches stay yours." },
+      { question: "What do I have to do?", answer: "Tell us your type and dealbreakers, then go on the dates." }
+    ],
+    related: [
+      { href: "/tinder-automation", label: "Tinder automation with AI" },
+      { href: "/hinge-automation", label: "Hinge AI automation" },
+      { href: "/bumble-automation", label: "Bumble AI automation" },
+      { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" }
+    ]
+  },
+  {
+    path: "/tinder-automation",
+    metaTitle: "Tinder Automation: AI That Swipes for You",
+    h1: "Tinder automation with AI",
+    eyebrow: "Tinder",
+    description: "Stop swiping on Tinder. NoSwipe's AI swipes on people who fit, chats in your voice and books the date. Tinder automation that ends in real dates.",
+    answer: "Tinder automation uses AI to swipe, message and set up dates on Tinder for you. NoSwipe swipes only on people who fit your type, keeps the chats alive in your voice and books the first date.",
+    publishedIso: "2026-11-04",
+    sections: [
+      {
+        title: "Tinder without the thumb workout",
+        paragraphs: [
+          "Tinder rewards volume and punishes attention spans. You swipe for forty minutes, get a match, and she unmatches before you finish typing. NoSwipe does the volume part, and does it selectively, so you only hear about the people worth meeting."
+        ],
+        bullets: ["Selective swiping on your type", "Openers written from her profile", "Chats kept going, so matches don't go cold", "First date booked, plan sent to you"]
+      },
+      {
+        title: "Your Tinder profile, fixed first",
+        paragraphs: ["Before the first swipe, NoSwipe sorts your photos into the order that gets right swipes and rewrites your bio so it says something."]
+      }
+    ],
+    faqs: [
+      { question: "Is there an AI that swipes on Tinder for you?", answer: "Yes. NoSwipe swipes on Tinder for you, only on people who match your type and dealbreakers." },
+      { question: "Can AI message my Tinder matches?", answer: "Yes. NoSwipe opens and keeps up conversations in your voice and moves them toward a date." },
+      { question: "Does NoSwipe also do Hinge and Bumble?", answer: "Yes. It runs Tinder, Hinge and Bumble together." },
+      { question: "Will it use my real Tinder photos?", answer: "Yes. Your own account and your real photos, just in a better order with a better bio." }
+    ],
+    related: [
+      { href: "/hinge-automation", label: "Hinge AI automation" },
+      { href: "/bumble-automation", label: "Bumble AI automation" },
+      { href: "/dating-app-automation", label: "AI dating app automation" }
+    ]
+  },
+  {
+    path: "/hinge-automation",
+    metaTitle: "Hinge AI: Automate Likes, Prompts and Chats",
+    h1: "Hinge AI automation",
+    eyebrow: "Hinge",
+    description: "Hinge on autopilot. NoSwipe's AI likes the right profiles, comments on prompts, keeps the chat going and books the date. You just show up.",
+    answer: "Hinge AI automation means AI sends your likes and comments, runs the conversation and sets up the date on Hinge. NoSwipe reads each profile, comments on the prompt that's actually worth commenting on, and turns the chat into a booked first date.",
+    publishedIso: "2026-11-04",
+    sections: [
+      {
+        title: "Hinge is a writing app. Let AI write.",
+        paragraphs: [
+          "On Hinge the like is the opener. A good comment on a prompt beats a hundred silent likes. NoSwipe writes those comments from what she actually said, in your voice, and keeps going once she answers."
+        ],
+        bullets: ["Likes with a real comment, not a silent heart", "Your own prompt answers rewritten to start conversations", "Chats moved to a plan instead of fading out", "Date booked, details sent to you"]
+      }
+    ],
+    faqs: [
+      { question: "Is there AI for Hinge?", answer: "Yes. NoSwipe handles your Hinge likes, prompt comments, conversations and first-date scheduling." },
+      { question: "Can AI write my Hinge prompts?", answer: "Yes. NoSwipe rewrites your prompt answers so they give people something to reply to." },
+      { question: "Does it work with Tinder and Bumble too?", answer: "Yes. NoSwipe runs Tinder, Hinge and Bumble." },
+      { question: "Does it comment on Hinge prompts?", answer: "Yes. It picks the prompt worth answering and writes a comment that gives her something to reply to." }
+    ],
+    related: [
+      { href: "/tinder-automation", label: "Tinder automation with AI" },
+      { href: "/bumble-automation", label: "Bumble AI automation" },
+      { href: "/dating-app-automation", label: "AI dating app automation" }
+    ]
+  },
+  {
+    path: "/bumble-automation",
+    metaTitle: "Bumble AI: Automate Swipes, Replies and Dates",
+    h1: "Bumble AI automation",
+    eyebrow: "Bumble",
+    description: "Bumble on autopilot. NoSwipe's AI swipes on people who fit, replies before the 24-hour timer runs out and books the date.",
+    answer: "Bumble AI automation uses AI to swipe, reply to matches and set up dates on Bumble. On Bumble she messages first and the match expires if you don't answer in time, so NoSwipe replies fast, keeps it going and books the date.",
+    publishedIso: "2026-11-04",
+    sections: [
+      {
+        title: "Never lose a match to the timer",
+        paragraphs: [
+          "Bumble matches expire. Miss a day and a good one is gone. NoSwipe swipes on your type, answers her first message quickly and in your voice, and turns the chat into a plan."
+        ],
+        bullets: ["Swipes on your type only", "Fast replies, so matches don't expire", "Conversation kept going in your voice", "First date booked, plan sent to you"]
+      }
+    ],
+    faqs: [
+      { question: "Is there AI for Bumble?", answer: "Yes. NoSwipe swipes, replies and books first dates on Bumble for you." },
+      { question: "Will it reply before my Bumble match expires?", answer: "That's the point. NoSwipe replies quickly so good matches don't run out of time." },
+      { question: "Does it also run Tinder and Hinge?", answer: "Yes. NoSwipe runs Tinder, Hinge and Bumble." },
+      { question: "What do I have to do on Bumble?", answer: "Tell us your type and dealbreakers, then go on the dates." }
+    ],
+    related: [
+      { href: "/tinder-automation", label: "Tinder automation with AI" },
+      { href: "/hinge-automation", label: "Hinge AI automation" },
+      { href: "/dating-app-automation", label: "AI dating app automation" }
+    ]
+  },
+  {
+    path: "/ai-dating-apps-vs-dating-coaches",
+    metaTitle: "AI Dating Assistant vs Dating Coach: What Helps",
+    h1: "AI dating assistant vs dating coach: what actually helps",
+    eyebrow: "Comparison",
+    description: "A dating coach teaches you. An AI dating assistant does the swiping, chatting and scheduling for you. Where each one fits.",
+    answer: "A dating coach works on you: confidence, habits and how you come across in person. An AI dating assistant like NoSwipe works on the apps: it swipes, chats and books dates, so you spend your time on dates instead of on your phone.",
+    publishedIso: "2026-11-04",
+    sections: [
+      {
+        title: "What an AI dating assistant is good at",
+        paragraphs: ["Everything repetitive. Swiping, first messages, keeping ten chats alive, finding a night that works. It never gets tired and it never forgets to reply."],
+        bullets: ["Swipes on your type", "Chats in your voice", "Books the date", "Fixes your profile"]
+      },
+      {
+        title: "What a dating coach is good at",
+        paragraphs: ["The part that happens in the room. Nerves, conversation, reading the moment, handling rejection. A good coach notices patterns across weeks that no app can."]
+      },
+      {
+        title: "Use both",
+        paragraphs: ["Let NoSwipe fill the calendar. Let a coach, or a brutally honest friend, help with what happens once you're there."]
+      }
+    ],
+    faqs: [
+      { question: "Is an AI dating assistant better than a dating coach?", answer: "They do different jobs. NoSwipe runs your dating apps; a coach works on you in person." },
+      { question: "Can AI replace a dating coach?", answer: "Not for in-person skills. It can replace the hours of swiping, messaging and scheduling." },
+      { question: "Does NoSwipe act as a dating coach?", answer: "No. NoSwipe swipes, chats and books dates for you on Tinder, Hinge and Bumble." },
+      { question: "Can I use NoSwipe and a coach together?", answer: "Yes. NoSwipe fills the calendar and a coach helps with the dates themselves." }
+    ],
+    related: [
+      { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" },
+      { href: "/best-ai-dating-assistant-2026", label: "Best AI dating assistant 2026" },
+      { href: "/dating-app-automation", label: "AI dating app automation" }
     ]
   },
   {
@@ -77,123 +244,26 @@ export const aiPages: AiPage[] = [
     metaTitle: "Best AI Dating Assistant 2026: What to Look For",
     h1: "Best AI dating assistant 2026: what to look for",
     eyebrow: "Buyer's checklist",
-    description: "The best AI dating assistant in 2026 never touches your account, keeps your voice, is honest about results and clear on privacy and price. A checklist.",
-    answer: "The best AI dating assistant in 2026 is one that only drafts, so it never logs in to your dating apps, swipes or sends for you, and it keeps your voice and your photos real. Check five things before you pay: account safety, voice, privacy, honest claims and a clear price.",
-    publishedIso: "2026-10-30",
+    description: "The best AI dating assistant in 2026 does the work, not just the writing: it swipes, chats and books dates. Five things to check before you pay.",
+    answer: "The best AI dating assistant in 2026 doesn't just suggest messages; it swipes, chats and books the date for you. Check five things: does it do the whole job, does it sound like you, does it keep your real photos, is it honest about results, and is the price clear.",
+    publishedIso: "2026-11-04",
     sections: [
-      {
-        title: "1. It never touches your account",
-        paragraphs: [
-          "Ask one question: does the tool need my dating-app login? If yes, walk away. Tinder, Hinge and Bumble all have terms aimed at bots and third-party automation, and the risk of a restricted or banned account sits with you, not the tool.",
-          "A screenshot-based assistant avoids this. It reads what you show it and returns text."
-        ]
-      },
-      {
-        title: "2. The messages still sound like you",
-        paragraphs: [
-          "A draft you would never say out loud is a liability on a first date. Look for a tool that asks about you, uses details from the other person's profile and gives you something to edit, not a pasted pickup line.",
-          "Test it: read three drafts aloud. If you would wince, the tool is not matching your voice."
-        ]
-      },
-      {
-        title: "3. It is clear about screenshots and privacy",
-        paragraphs: [
-          "A dating screenshot includes another person who never agreed to be shared. Ask how long the tool keeps screenshots, whether they are used for training and whether you can delete them. Blur or crop names, faces, phone numbers and locations first."
-        ],
-        bullets: [
-          "Stated retention: how long, and where",
-          "A plain answer on training use",
-          "A way to ask for deletion",
-          "No requirement to share more than you choose"
-        ]
-      },
-      {
-        title: "4. It does not promise outcomes",
-        paragraphs: [
-          "Be wary of promised match counts, “X times more dates” and invented reviews. Nobody controls whether another person replies. A trustworthy tool promises better drafts and better-organised profiles, and says what it cannot do."
-        ]
-      },
-      {
-        title: "5. The price is clear before you pay",
-        paragraphs: [
-          "You should see the exact price, what it covers and how to get a refund before you enter card details. Watch for trial-to-subscription flows that hide the renewal.",
-          "NoSwipe, for reference, is built to this checklist: it drafts only, you send everything, and the exact price is shown at checkout before you pay. In early access the site takes a one-time refundable USD 1 payment that does not start a service. Judge any tool, ours included, against the same five points."
-        ]
-      }
+      { title: "1. It does the whole job", paragraphs: ["Many “AI dating” tools only write a pickup line and leave the swiping, the follow-up and the scheduling to you. The useful ones run the apps end to end and hand you a date."] },
+      { title: "2. It sounds like you", paragraphs: ["If the messages sound like a bot, the date is awkward before it starts. Read three of its messages out loud. If you'd wince, keep looking."] },
+      { title: "3. Your real photos and your own account", paragraphs: ["No fake photos, no new profiles. The person who shows up to the date should be the one in the pictures."] },
+      { title: "4. No fake promises", paragraphs: ["Be wary of promised multiples of dates and reviews that read like ads. Nobody controls another person's yes."] },
+      { title: "5. The price is clear before you pay", paragraphs: ["You should see the exact price and what it covers before you enter a card. NoSwipe shows the price at checkout."] }
     ],
     faqs: [
-      { question: "What should I look for in an AI dating assistant?", answer: "Look for a tool that never needs your dating-app login, keeps your voice, explains how it handles screenshots, avoids outcome promises and shows the exact price before you pay." },
-      { question: "Is it safe to give an AI dating assistant my login?", answer: "It is the main thing to avoid. Dating-app terms are written against bots and third-party automation, so a tool acting inside your account puts the account at risk." },
-      { question: "Should I share screenshots with an AI tool?", answer: "Only if you are comfortable with its retention and privacy terms. Blur or crop other people's names, faces, phone numbers and locations first." },
-      { question: "Can an AI dating assistant promise more matches?", answer: "No. Matches depend on other people. Treat any promised result as a warning sign." },
-      { question: "Is NoSwipe the best AI dating assistant?", answer: "That is for you to judge. NoSwipe is built to the checklist on this page: drafts only, you send everything, no account access and a price shown before you pay." }
+      { question: "What should I look for in an AI dating assistant?", answer: "One that does the whole job (swiping, chatting and scheduling), sounds like you, keeps your real photos, avoids fake promises and shows the price up front." },
+      { question: "Is there an AI that does dating apps for you?", answer: "Yes. NoSwipe swipes, chats and books first dates for you on Tinder, Hinge and Bumble." },
+      { question: "Is NoSwipe the best AI dating assistant?", answer: "Judge it on the five points above. It's built to pass all of them." },
+      { question: "Can an AI dating assistant promise more matches?", answer: "No. Matches depend on other people. Treat any promised number as a warning sign." }
     ],
     related: [
       { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" },
-      { href: "/guides/dating-screenshot-privacy", label: "What to blur before sharing dating screenshots" },
-      { href: "/guides/dating-app-swipe-bots-banned", label: "Can you get banned for using a swipe bot?" }
-    ]
-  },
-  {
-    path: "/ai-dating-apps-vs-dating-coaches",
-    metaTitle: "AI Dating Apps vs Dating Coaches: What Helps",
-    h1: "AI dating apps vs dating coaches: what actually helps",
-    eyebrow: "Comparison",
-    description: "AI dating assistants and dating coaches help in different ways. Where each works, where each falls short, and how to choose without fake promises.",
-    answer: "An AI dating assistant helps most with the writing and the quick decisions, such as your bio, your openers and your replies, while a dating coach helps most with habits, confidence and accountability over time. Neither can guarantee matches or dates, so pick the one that fits the problem you actually have.",
-    publishedIso: "2026-10-30",
-    sections: [
-      {
-        title: "What an AI dating assistant is good at",
-        paragraphs: [
-          "An assistant is there at the moment you are stuck: a match just replied and you do not know what to say, or your bio reads flat. It turns the context you share into drafts within minutes and is usually cheaper than ongoing human coaching.",
-          "Its limits are real. It has not met you, cannot see how you come across in person and cannot hold you accountable. You still send every message and show up to every date."
-        ],
-        bullets: [
-          "Profile and photo suggestions from screenshots",
-          "Opener and reply drafts in your voice",
-          "Date-plan and invitation wording",
-          "Available when the conversation is happening"
-        ]
-      },
-      {
-        title: "What a dating coach is good at",
-        paragraphs: [
-          "A coach works on you, not just your text. Good coaching covers how you approach dating, how you handle rejection, how you come across in conversation and what you do between apps and dates. A person can notice patterns across weeks that a one-off draft cannot.",
-          "The trade-offs are cost, scheduling and quality. Coaching is unregulated, so check what a coach actually offers, avoid anyone promising a result and ask what happens if it is not a fit."
-        ],
-        bullets: [
-          "Confidence, mindset and in-person skills",
-          "Honest feedback from a real person",
-          "Accountability over several weeks",
-          "Help with patterns, not only single messages"
-        ]
-      },
-      {
-        title: "How to choose",
-        paragraphs: [
-          "If your problem is words and presentation (a weak profile, stalled conversations, awkward invitations), start with an assistant. If your problem is confidence, anxiety, or what happens once you are in the room, a coach or a trusted friend will help more.",
-          "Many people use both: a coach for the long game and an assistant for the daily drafting. What matters is the shared rule. Whoever or whatever helps, you send the messages and you go on the date."
-        ]
-      },
-      {
-        title: "Where NoSwipe fits",
-        paragraphs: [
-          "NoSwipe is an assistant, not a coach. It drafts profiles, openers, replies and date plans from screenshots you share, never logs in to your dating apps and never sends for you. It does not replace human coaching, and it does not promise matches or dates."
-        ]
-      }
-    ],
-    faqs: [
-      { question: "Is an AI dating assistant better than a dating coach?", answer: "Neither is better overall. An assistant is faster for drafting profiles and messages; a coach is better for confidence, habits and accountability." },
-      { question: "Can AI replace a dating coach?", answer: "Not fully. AI can draft and suggest, but it cannot observe you in person or hold you accountable over time." },
-      { question: "Do dating coaches promise results?", answer: "They should not. Be cautious of any coach or tool that promises matches or dates." },
-      { question: "Can I use an AI dating assistant and a coach together?", answer: "Yes. Many people use a coach for the bigger picture and an assistant for day-to-day drafting. You still send your own messages." },
-      { question: "Does NoSwipe act as a dating coach?", answer: "No. NoSwipe drafts profile suggestions, openers, replies and date plans from screenshots you share. You send everything yourself." }
-    ],
-    related: [
-      { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" },
-      { href: "/best-ai-dating-assistant-2026", label: "Best AI dating assistant 2026: what to look for" },
-      { href: "/guides/ai-dating-messages-ok", label: "Is it OK to use AI to write dating messages?" }
+      { href: "/dating-app-automation", label: "AI dating app automation" },
+      { href: "/ai-dating-apps-vs-dating-coaches", label: "AI dating assistant vs dating coach" }
     ]
   }
 ];

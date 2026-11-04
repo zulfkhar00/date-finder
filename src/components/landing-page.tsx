@@ -9,12 +9,12 @@ import { StickyCta } from "@/components/sticky-cta";
 import { Testimonials } from "@/components/testimonials";
 import { YourWeek } from "@/components/your-week";
 
-const strip = ["Tinder", "Bumble", "Hinge", "Photo review", "Profile copy", "Message drafts", "First-date plans", "You stay in control"];
+const strip = ["Tinder", "Hinge", "Bumble", "Swipes for you", "Chats for you", "Books the date", "Your type only", "You just show up"];
 
 const steps = [
-  { title: "Tell us what you need", body: "Share your goals, the apps you use and only the photos or screenshots you want reviewed." },
-  { title: "Get tailored drafts", body: "NoSwipe prepares profile copy, photo feedback, openers, replies and first-date plans from that context." },
-  { title: "Choose what to use", body: "You keep every account, choose who to like, edit the drafts and send every message yourself." }
+  { title: "Tell us your type", body: "Your apps, your dealbreakers, who you actually want to meet. Takes two minutes." },
+  { title: "We run your apps", body: "NoSwipe swipes on people who fit, opens with something better than \u201chey\u201d and keeps the chat going in your voice." },
+  { title: "Show up to the date", body: "When it\u2019s a yes, the date gets booked and the plan lands in your messages: where, when, who." }
 ];
 
 export function LandingPage() {
@@ -25,8 +25,8 @@ export function LandingPage() {
         <section className="shell hero" aria-labelledby="hero-title">
           <div className="hero-copy">
             <span className="sticker">Tinder · Bumble · Hinge</span>
-            <h1 id="hero-title"><span className="line">Better profiles.</span><span className="line">Better <span className="mark">drafts.</span></span></h1>
-            <p className="hero-sub">NoSwipe turns the context you share into profile suggestions, openers, replies and first-date plans. <strong>You keep your accounts, choose who to like and send every message yourself.</strong></p>
+            <h1 id="hero-title"><span className="line">Stop swiping.</span><span className="line">Start <span className="mark">dating.</span></span></h1>
+            <p className="hero-sub">NoSwipe is AI that runs your Tinder, Hinge and Bumble. It swipes on people who actually fit, chats in your voice and books the date. <strong>You just show up.</strong></p>
             <div className="hero-cta" id="hero-cta">
               <CtaLink href="/try" location="hero">Try it free</CtaLink>
               <a href="#get" className="hero-alt">See what you get <ArrowDown size={16} strokeWidth={2.5} /></a>
@@ -35,8 +35,8 @@ export function LandingPage() {
           <div className="hero-art">
             <span className="blob blob-a" aria-hidden="true" />
             <span className="blob blob-b" aria-hidden="true" />
-            <span className="sticker float-sticker float-1" aria-hidden="true">screenshots in</span>
-            <span className="sticker float-sticker float-2" aria-hidden="true">drafts out</span>
+            <span className="sticker float-sticker float-1" aria-hidden="true">we swipe</span>
+            <span className="sticker float-sticker float-2" aria-hidden="true">you date</span>
             <HeroPhone />
           </div>
         </section>
@@ -81,8 +81,8 @@ export function LandingPage() {
 
         <section className="section closing" aria-labelledby="closing-title">
           <div className="shell">
-            <h2 id="closing-title">Keep the account. Get better drafts.</h2>
-            <p>Screenshot-based profile, message and first-date planning help. You keep every account.</p>
+            <h2 id="closing-title">Your thumb deserves a break.</h2>
+            <p>AI that swipes, chats and books dates for you on Tinder, Hinge and Bumble.</p>
             <CtaLink location="closing" className="btn btn-lime" />
           </div>
         </section>
