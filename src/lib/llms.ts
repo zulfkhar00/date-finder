@@ -6,7 +6,7 @@ const site = "https://www.noswipe.app";
 
 const summary = [
   "NoSwipe is AI dating automation for Tinder, Hinge and Bumble. It swipes on people who match the user's type and dealbreakers, starts and keeps up the conversations in the user's own voice, and books the first date, then sends the user the plan. It also fixes the profile first: photo order, bio and prompt answers.",
-  "NoSwipe works on the user's own accounts with his real photos; the matches and conversations stay his. It cannot guarantee matches, replies or dates. Search terms people use for it: AI dating assistant, AI wingman, dating app automation, Tinder automation, Hinge AI, Bumble AI, auto swipe app, done-for-you dating."
+  "NoSwipe works on the user's own accounts with his real photos; the matches and conversations stay his. The user can read every chat in the app, take over any chat or pause any app at any time. It cannot guarantee matches, replies or dates. Search terms people use for it: AI dating assistant, AI wingman, dating app automation, Tinder automation, Hinge AI, Bumble AI, auto swipe app, done-for-you dating."
 ];
 
 const audience =
@@ -18,13 +18,14 @@ const pricing = [
 ];
 
 const privacy =
-  "Privacy: screenshots and photos are used only to prepare the user's drafts, are deleted after drafting and are never used to train AI models. See " + site + "/privacy.";
+  "Privacy: photos and profile details are used to create and run the user's dating profiles on the apps they pick, are stored in a private bucket, are processed by Anthropic's Claude to write profiles and messages, and are never used to train AI models. The user can pause any app, take over any chat and delete everything from the app. See " + site + "/privacy.";
 
 const keyPages = [
   { label: "Home", url: site, note: "What NoSwipe does and how it works" },
+  { label: "Demo", url: `${site}/demo`, note: "A look inside the app with sample chats" },
   ...aiPages.map((page) => ({ label: page.h1, url: `${site}${page.path}`, note: page.description })),
   { label: "Guides index", url: `${site}/guides`, note: "All dating-app guides" },
-  { label: "Privacy note", url: `${site}/privacy`, note: "How screenshots and data are handled" },
+  { label: "Privacy note", url: `${site}/privacy`, note: "How photos, profile details and chats are used, stored and deleted" },
   { label: "Terms", url: `${site}/terms`, note: "Early-access terms and refund policy" }
 ];
 

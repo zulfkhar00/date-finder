@@ -223,13 +223,6 @@ export const guideSeo: Record<string, GuideSeo> = {
     description: "First date ideas that aren't drinks: twelve low-pressure plans by time and budget, with notes on noise, easy exits and backup plans.",
     intro: "Looking for first date ideas that are not drinks? Drinks are the default because they are easy, not because they are good. A plan with something to look at or do gives you both a topic and an easy exit. Here are twelve, grouped by time and budget."
   },
-  "dating-screenshot-privacy": {
-    query: "is it safe to share dating app screenshots with ai",
-    metaTitle: "Is It Safe to Share Dating Screenshots With AI?",
-    h1: "Is it safe to share dating app screenshots with an AI tool?",
-    description: "Is it safe to share dating screenshots with an AI tool? What to blur or crop first (names, faces, numbers, locations) and what to ask about retention.",
-    intro: "Is it safe to share dating app screenshots with an AI tool? That depends on what is in the screenshot and what the tool does with it. A dating screenshot contains more than your own details, including another person who never agreed to be shared, so take thirty seconds to trim it first, whichever tool you use, ours included."
-  },
   "why-hey-gets-ignored": {
     query: "why does nobody reply to hey on dating apps",
     metaTitle: "Why Nobody Replies to “Hey” on Dating Apps",

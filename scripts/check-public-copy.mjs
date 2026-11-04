@@ -71,7 +71,9 @@ const forbiddenOutcomeClaims = [
 // 4 Nov 2026 (Miko, founder): NoSwipe is positioned as done-for-you AI dating automation (it swipes, chats and
 // books dates on the user's own accounts with permission), so operation promises are allowed copy now.
 // forbiddenOperationPromises is kept for reference only. Outcome claims and harmful advice stay banned.
-const forbidden = [...forbiddenOutcomeClaims];
+// 4 Nov 2026 (Miko): the screenshot concept is gone from the product and from every public surface.
+const forbiddenConcepts = [/screenshots?\b/i, /screen[- ]?grabs?\b/i, /\bblur\b[^.]{0,40}\bchat\b/i];
+const forbidden = [...forbiddenOutcomeClaims, ...forbiddenConcepts];
 function copyViolations(copy) {
   const promises = copy
     .replace(/’/g, "'")
@@ -106,6 +108,8 @@ for (const pattern of copyViolations(publicCopy)) {
 // Mutation fixtures prove each policy category is actually enforced. Legitimate
 // user actions, questions and explicit service boundaries must remain allowed.
 const rejectedCopy = [
+  "Share a screenshot of your profile.",
+  "Upload screenshots of your chats.",
   "We swipe for you.",
   "Our team swipes for you.",
   "We’ll send your messages.",

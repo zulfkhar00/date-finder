@@ -37,7 +37,7 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_from_supabase_api_keys
 ADMIN_EMAILS=founder1@example.com,founder2@example.com
 ```
 
-Keep the secret values (`SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the §8 Telegram/Anthropic keys) in Dokploy's runtime environment settings, not in Git or Docker build arguments. There are no `NEXT_PUBLIC_` secrets. The `STRIPE_WEBHOOK_SECRET` printed by a local `stripe listen` session is for local testing only; create a separate signing secret for the deployed endpoint.
+Keep the secret values (`SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUTOMATION_API_KEY` and `ANTHROPIC_API_KEY`, §8) in Dokploy's runtime environment settings, not in Git or Docker build arguments. There are no `NEXT_PUBLIC_` secrets. The `STRIPE_WEBHOOK_SECRET` printed by a local `stripe listen` session is for local testing only; create a separate signing secret for the deployed endpoint.
 
 ## 4a. Observability (optional)
 
@@ -60,7 +60,7 @@ Notes:
 - `NEXT_PUBLIC_*` values are public by design. A Sentry DSN and a PostHog project key can only send data, not read it. They are still build-time values because Next.js inlines them into the browser bundle.
 - `SENTRY_AUTH_TOKEN` is read from an optional BuildKit secret with id `SENTRY_AUTH_TOKEN` (`docker build --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN`). Never pass it as a build argument. Source maps are uploaded only when the token, `SENTRY_ORG` and `SENTRY_PROJECT` are all present. They are deleted from the image after upload, and a failed upload logs a warning rather than failing the build.
 - **The image must be built with BuildKit.** The `Dockerfile` starts with `# syntax=docker/dockerfile:1` and uses `RUN --mount=type=secret,...,required=false`, which the legacy builder cannot parse. BuildKit is the default `docker build` backend since Docker Engine 23, so a current Dokploy server needs no change. If the build fails with `the --mount option requires BuildKit`, upgrade Docker on the server or enable BuildKit with `"features": { "buildkit": true }` in `/etc/docker/daemon.json`. The secret itself stays optional: with BuildKit but no `SENTRY_AUTH_TOKEN` secret configured, the mount is empty and the build succeeds without uploading source maps.
-- Privacy defaults (in code): Sentry collects no user info, cookies, request or response bodies, or stack-frame variables. It samples 10% of traces and redacts email addresses, Checkout session ids and Telegram bot tokens from events, spans and breadcrumbs. PostHog runs with `person_profiles: identified_only`, no autocapture, all inputs masked, session recording off, and Do Not Track respected, and it never runs on `/admin` pages (which include the concierge console at `/admin/concierge`). In PostHog **Project settings**, also turn on **Discard client IP data**.
+- Privacy defaults (in code): Sentry collects no user info, cookies, request or response bodies, or stack-frame variables. It samples 10% of traces and redacts email addresses, Checkout session ids and Telegram bot tokens from events, spans and breadcrumbs. PostHog runs with `person_profiles: identified_only`, no autocapture, all inputs masked, session recording off, and Do Not Track respected, and it never runs on `/admin` pages. In PostHog **Project settings**, also turn on **Discard client IP data**.
 - Health check: `GET /api/health` returns `{ ok, version, time, checks: { supabase } }`. It returns 200 when Supabase answers within 2 seconds and 503 otherwise (`timeout`, `error` or `unconfigured`). It never includes hosts, keys or error messages.
 
 ## 5. Register the public Stripe webhook
@@ -89,7 +89,7 @@ The app needs a configured support contact and payment receipts in Stripe before
 2. **Env.** In Dokploy, add `SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys → publishable key; the legacy `anon` key works too and can be set as `SUPABASE_ANON_KEY` instead) and `ADMIN_EMAILS`, a comma-separated list of the founders' emails. Both are server-only. Never add a `NEXT_PUBLIC_` copy. `SITE_URL` (§4) is required too: every sign-in link is built from it, never from request headers, so it must be the public HTTPS origin. Redeploy. Until all of them are set, `/admin` shows a setup message naming what's missing.
 3. **Supabase Auth.**
    - **Create the admin users by hand.** The sign-in form never creates accounts (`shouldCreateUser: false`). Under Authentication → Users → **Add user** → **Send invitation** (or **Create new user** with **Auto Confirm User** ticked), add each `ADMIN_EMAILS` address. A founder who isn't added here gets no email.
-   - **Disable public signups.** Under Authentication → Sign In / Providers, turn off **Allow new users to sign up**. Keep the **Email** provider enabled.
+   - **Disable public signups.** Under Authentication → Sign In / Providers, keep **Allow new users to sign up** off (the app creates user accounts on the server, §8). Keep the **Email** provider enabled.
    - **Keep "Confirm email" on** (same page). `/admin` only accepts a user whose email is confirmed *and* on `ADMIN_EMAILS`, so an unconfirmed account that claims a founder's address gets nothing.
    - Under Authentication → URL Configuration, set **Site URL** to `SITE_URL` and add `https://morrow.zulfkhar.dev/admin/auth/callback` (and the noswipe.app equivalent once it's live) to **Redirect URLs**.
    - **Who sends the email.** With `RESEND_API_KEY` and `EMAIL_FROM` set (§9), the app sends the sign-in email itself, from NoSwipe through Resend (`src/lib/admin-login-email.ts`): it looks the user up with the service key, calls `auth.admin.generateLink({ type: "magiclink" })` only for a confirmed, allowlisted user, and emails a `SITE_URL/admin/auth/callback?token_hash=…&type=email` link plus the one-time code. Supabase sends nothing. Only while Resend is unset does the form fall back to Supabase's own mailer, so set the Supabase templates (Authentication → Emails) to NoSwipe-branded ones as a backstop. The Magic Link body should use this link shape so it works in any browser and the code works on any device:
@@ -104,7 +104,7 @@ The app needs a configured support contact and payment receipts in Stripe before
 
 Every admin page, server action and the export check the session, a confirmed email and `ADMIN_EMAILS` on the server (shared helpers in `src/lib/admin-auth.ts`). Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
 
-## 8a. The NoSwipe app (login, onboarding, chats, dates, admin clients)
+## 8. The NoSwipe app (login, onboarding, chats, dates, admin clients)
 
 `/login`, `/onboarding`, `/home`, `/chats`, `/dates`, `/profile` are the signed-in app; `/demo` is a public, labelled showcase; `/admin/clients` is where the team sets app status and adds matches, messages and dates for each client. Nothing in the app invents data: real users see only their own rows, and the automation that creates app accounts and chats is built separately (see [`docs/automation.md`](docs/automation.md)).
 
@@ -130,48 +130,6 @@ ANTHROPIC_API_KEY=sk-ant-...   # used by the automation worker, never by the bro
 **Deleting an account** (Profile → Delete account) removes the user's photos from storage and the auth user; every table row cascades from `auth.users`.
 
 **Legal.** `/privacy` and `/terms` describe this data use. They have not had a lawyer review yet; get one before real users come in volume.
-
-## 8. Concierge pilot (Telegram bot, drafting, console)
-
-Everything below is optional. Each part switches itself off while its variables are missing. The console at `/admin/concierge` uses the admin sign-in from §7 (same `ADMIN_EMAILS`, same users, same callback), so set up §7 first.
-
-**Database.** Run [`supabase/2026-10-23-concierge.sql`](supabase/2026-10-23-concierge.sql) in the Supabase SQL editor, after `schema.sql`. It is idempotent: re-running it on an older install adds the `sending` status, the `send_started_at` column and the retention function. It enables RLS, revokes all browser roles, and grants only `service_role`.
-
-**Retention (30 days).** `public.purge_old_drafts()` deletes drafts (input summary, draft text, operator notes) older than 30 days and returns how many it removed. It is `security definer`, and only `service_role` may execute it. Schedule it daily with pg_cron (Supabase → Integrations → Cron, or Database → Extensions → enable `pg_cron`), then run this once in the SQL editor:
-
-```sql
-select cron.schedule('purge-concierge-drafts', '17 4 * * *', $$select public.purge_old_drafts()$$);
-```
-
-Check it with `select * from cron.job_run_details order by start_time desc limit 5;`. Without pg_cron, run `select public.purge_old_drafts();` by hand at least once a week. The privacy page promises 30 days, so don't skip this.
-
-**Create the bot.** In Telegram, message [@BotFather](https://t.me/BotFather): send `/newbot`, choose a name and a username ending in `bot`, and copy the token. Then send `/setjoingroups` and choose Disable (the bot only handles private chats). Optionally set `/setdescription`.
-
-**Environment** (Dokploy → Environment, runtime only, never `NEXT_PUBLIC_`), in addition to the §7 variables:
-
-```dotenv
-TELEGRAM_BOT_TOKEN=123456:token_from_botfather
-TELEGRAM_WEBHOOK_SECRET=output_of_openssl_rand_hex_32
-TELEGRAM_BOT_USERNAME=your_bot_username
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Generate the webhook secret with `openssl rand -hex 32`. Redeploy after setting the variables.
-
-**Register the webhook** once the HTTPS domain is live. Telegram sends the secret in the `X-Telegram-Bot-Api-Secret-Token` header, and the app rejects any request without it:
-
-```sh
-curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-  -d url="https://noswipe.app/api/telegram/webhook" \
-  -d secret_token="$TELEGRAM_WEBHOOK_SECRET" \
-  -d 'allowed_updates=["message"]' \
-  -d drop_pending_updates=true
-curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
-```
-
-Use the domain the app actually serves (`https://morrow.zulfkhar.dev` until the move), and re-run `setWebhook` with the new URL after a domain change.
-
-**Check it.** Sign in at `/admin/login`, open **Concierge → Clients**, create an invite, open the invite link on your phone, and send a screenshot captioned `opener`. The bot should acknowledge it, a draft should appear in the queue within a minute, and **Approve & send** should deliver it to the chat once. `getWebhookInfo` should show no `last_error_message`.
 
 ## 9. Confirmation email (Resend)
 
@@ -209,17 +167,3 @@ Redeploy after setting them. **Check it** with a Stripe test-mode reservation us
 2. Set `CONTENT_SYNC_TOKEN` (32+ random characters) in the production environment and redeploy.
 
 An external sync job owned by the founders calls `POST /api/content/sync` every 5 minutes with that bearer token. It upserts every video, uploads previews through one-time signed upload URLs, receives the open requests, applies them to the queue, and reports them done on the next call. The page only reads; previews are served as 10-minute signed URLs.
-
-## Free /try tool
-
-`/try` and `/api/try` run as a Vercel serverless function and use `ANTHROPIC_API_KEY` plus the Supabase server key. Apply `supabase/2026-11-02-try-tool.sql` first (idempotent; adds `try_runs`, the claim/release/usage functions and the `try_*` funnel events; run it after any other migration that rewrites `funnel_events_event_check`). Optional env (Vercel project settings, runtime only, never `NEXT_PUBLIC_`), all with safe defaults:
-
-```dotenv
-TRY_DAILY_CAP=300              # global free runs per UTC day, then "come back tomorrow"
-TRY_DAILY_TOKEN_CAP=8000000    # hard daily spend ceiling in input-token equivalents (input + 5 x output); releasing a run never refunds it
-TRY_SESSION_DAILY_LIMIT=3      # per browser per day
-TRY_IP_DAILY_LIMIT=6           # per IP hash per day (IPv6 is hashed by /64)
-TRY_HASH_SALT=...              # salt for IP/session hashes (falls back to the Supabase key)
-```
-
-Limits live in Supabase because serverless instances do not share memory. If the database or the migration is unavailable, `/api/try` fails closed and shows "temporarily unavailable". Request bodies are capped at 4.4 MB (Vercel rejects over 4.5 MB); the browser keeps uploads under about 3.8 MB. Images are never stored or logged.

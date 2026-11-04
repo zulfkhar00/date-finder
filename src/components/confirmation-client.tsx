@@ -61,18 +61,18 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
       <motion.div className="ticket-card" role="status" aria-live="polite" initial={reduce ? false : { opacity: 0, y: 24, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}>
         <span className="label">You’re in</span>
         <h1>You’re in — your spot is reserved.</h1>
-        <p>You’re on the early-access list. We’ll email you if a concierge place opens.</p>
+        <p>You’re on the early-access list. Your profile is saved and we’re setting up your apps.</p>
       </motion.div>
       <div className="panel">
         <p className="kicker">What happens next</p>
         <ol className="next-list">
-          <li><span className="how-step">1</span><span>We review your answers and contact you if a concierge place opens.</span></li>
-          <li><span className="how-step">2</span><span>You choose which photos or screenshots to share. NoSwipe prepares profile copy, message drafts and date plans.</span></li>
-          <li><span className="how-step">3</span><span>You keep control of every dating-app account, choose who to like, send every message and confirm every date.</span></li>
+          <li><span className="how-step">1</span><span>We set up your profiles on the apps you picked.</span></li>
+          <li><span className="how-step">2</span><span>Matches and chats show up in the app. Read along, take over or pause any time.</span></li>
+          <li><span className="how-step">3</span><span>When a date is booked, it shows up under Dates.</span></li>
         </ol>
         <p className="fine" style={{ marginTop: 16 }}>Your $1 is refundable: just reply to your confirmation email or write to support@noswipe.app. We can’t guarantee dates, and nobody honestly can.</p>
         <p style={{ fontWeight: 800, marginTop: 22 }}>Know a guy who’s sick of swiping?</p>
-        <div className="share-row"><ShareButton /><Link href="/" className="btn btn-primary">Back to NoSwipe</Link></div>
+        <div className="share-row"><ShareButton /><Link href="/home" className="btn btn-primary">Go to my home</Link></div>
       </div>
     </div>;
   }
@@ -94,7 +94,7 @@ export function ConfirmationClient({ sessionId }: { sessionId: string | undefine
       <div className="perf">The return from Checkout alone doesn’t confirm payment.</div>
     </div>
     <div className="share-row" style={{ alignSelf: "start" }}>
-      {(data?.status === "expired" || data?.status === "refunded" || message) && <Link href="/reserve" className="btn btn-primary">Get started again</Link>}
+      {(data?.status === "expired" || data?.status === "refunded" || message) && <Link href="/onboarding" className="btn btn-primary">Get started again</Link>}
       <Link href="/" className="btn btn-white">Back to NoSwipe</Link>
     </div>
   </div>;

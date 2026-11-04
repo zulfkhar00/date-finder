@@ -47,10 +47,12 @@ const sourceKindLabels = {
   background: "Background context"
 };
 const sitemapUrls = sitemap().map((entry) => entry.url);
+assert.ok(!sitemapUrls.some((url) => /\/(try|reserve)$/.test(url)), "the removed /try and /reserve pages are not in the sitemap");
+assert.ok(sitemapUrls.includes("https://www.noswipe.app/demo"), "the demo is in the sitemap");
 assert.deepEqual(expandedGuides.map((guide) => guide.slug), expectedSlugs);
 assert.equal(new Set(guideSlugs).size, guides.length, "guide routes must be unique");
-assert.equal(guides.length, 33, "four original guides, nine expansions and twenty SEO guides");
-assert.equal(seoGuides.length, 20);
+assert.equal(guides.length, 32, "four original guides, nine expansions and nineteen SEO guides");
+assert.equal(seoGuides.length, 19);
 assert.equal(getGuide("not-a-guide"), undefined);
 
 for (const guide of guides) {
@@ -105,8 +107,8 @@ for (const guide of seoGuides) {
     if (section.example) assert.equal(section.example.label, "Example", `${guide.slug}: examples are labelled`);
   }
 }
-assert.equal(seoTitles.size, 20);
-assert.equal(seoDescriptions.size, 20);
+assert.equal(seoTitles.size, 19);
+assert.equal(seoDescriptions.size, 19);
 
 const metaTitles = new Set<string>();
 const queries = new Set<string>();
@@ -143,7 +145,7 @@ for (const agent of ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", 
   assert.ok(Array.isArray(robotsAgents) && robotsAgents.some((rule) => rule.userAgent === agent && rule.allow === "/"), `robots: ${agent}`);
 }
 
-console.log("guides: 33 unique routes, nine sourced expansions, sitemap entries and related links passed");
+console.log("guides: 32 unique routes, nine sourced expansions, sitemap entries and related links passed");
 
 async function checkRenderedGuides(baseUrl: string) {
   const indexResponse = await fetch(`${baseUrl}/guides`);
@@ -167,14 +169,13 @@ async function checkRenderedGuides(baseUrl: string) {
     assert.ok(html.includes('<meta name="description" content="'), `${path}: description`);
     assert.ok(html.includes('<meta property="og:type" content="article"'), `${path}: article metadata`);
     const links = [...html.matchAll(/<a\b[^>]*href="([^\"]+)"/g)].map((match) => match[1].replace(/&amp;/g, "&"));
-    const reserveLinks = links.filter((href) => href.startsWith("/reserve"));
-    const tryLinks = links.filter((href) => href.startsWith("/try"));
-    assert.equal(reserveLinks.length, 1, `${path}: header CTA`);
-    assert.equal(tryLinks.length, 2, `${path}: inline and closing CTAs go to the free tool`);
+    const startLinks = links.filter((href) => href.startsWith("/onboarding"));
+    assert.equal(links.filter((href) => href.startsWith("/try") || href.startsWith("/reserve")).length, 0, `${path}: no links to the removed /try or /reserve`);
+    assert.equal(startLinks.length, 3, `${path}: header, inline and closing CTAs go to onboarding`);
     // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.
-    assert.equal(reserveLinks[0], `/reserve?ref=${guide.slug}`, `${path}: header CTA href carries only ref`);
-    for (const link of tryLinks) {
-      assert.equal(link, `/try?ref=${guide.slug}`, `${path}: CTA href carries only ref`);
+    for (const link of startLinks) {
+      // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.
+      assert.equal(link, `/onboarding?ref=${guide.slug}`, `${path}: CTA href carries only ref`);
       refs.add(link);
     }
     assert.ok(html.includes("You see the exact price before you pay anything."));
@@ -208,7 +209,7 @@ async function checkRenderedGuides(baseUrl: string) {
   }
   assert.equal(refs.size, guides.length);
   assert.equal((await fetch(`${baseUrl}/guides/not-a-guide`)).status, 404);
-  console.log("guides HTTP: all 33 pages, metadata, JSON-LD, attributed CTAs, citations, index, sitemap and 404 passed");
+  console.log("guides HTTP: all 32 pages, metadata, JSON-LD, attributed CTAs, citations, index, sitemap and 404 passed");
 }
 
 if (process.env.GUIDE_TEST_BASE_URL) {

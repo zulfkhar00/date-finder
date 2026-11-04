@@ -28,8 +28,8 @@ export function LandingPage() {
             <h1 id="hero-title"><span className="line">Stop swiping.</span><span className="line">Start <span className="mark">dating.</span></span></h1>
             <p className="hero-sub">NoSwipe is AI that runs your Tinder, Hinge and Bumble. It swipes on people who actually fit, chats in your voice and books the date. <strong>You just show up.</strong></p>
             <div className="hero-cta" id="hero-cta">
-              <CtaLink href="/try" location="hero">Try it free</CtaLink>
-              <a href="#get" className="hero-alt">See what you get <ArrowDown size={16} strokeWidth={2.5} /></a>
+              <CtaLink location="hero">Get started</CtaLink>
+              <a href="/demo" className="hero-alt">See a demo <ArrowDown size={16} strokeWidth={2.5} /></a>
             </div>
           </div>
           <div className="hero-art">
@@ -47,8 +47,8 @@ export function LandingPage() {
 
         <section id="get" className="section shell" aria-labelledby="get-title">
           <p className="kicker">What you get</p>
-          <h2 id="get-title" className="h2">A practical dating copilot. <span className="mark">That’s it.</span></h2>
-          <p className="lede">Useful drafts built from your real profile and conversations—not copied lines, fake photos or access to your dating-app accounts.</p>
+          <h2 id="get-title" className="h2">Your profile. Your chats. <span className="mark">Your dates.</span></h2>
+          <p className="lede">We set up your profiles, keep your chats going as you, and book the dates. You stay in control: pause an app or take over any chat in one tap.</p>
           <MatchCards />
         </section>
 
@@ -56,7 +56,7 @@ export function LandingPage() {
 
         <section id="how" className="section shell" aria-labelledby="how-title" style={{ paddingTop: 0 }}>
           <p className="kicker">How it works</p>
-          <h2 id="how-title" className="h2">Share the context. <span className="mark">Keep control.</span></h2>
+          <h2 id="how-title" className="h2">Set it up once. <span className="mark">Keep control.</span></h2>
           <ol className="how-grid" style={{ listStyle: "none", padding: 0 }}>
             {steps.map((step, i) => (
               <li className="how-card" key={step.title}>
@@ -70,7 +70,7 @@ export function LandingPage() {
             <ShieldCheck size={30} strokeWidth={2.2} aria-hidden="true" />
             <div>
               <strong>Your real photos. Your real voice.</strong>
-              <p>We can rank photos and suggest edits, but never create a fake version of you. Every profile change, like, message and date confirmation stays yours.</p>
+              <p>We use your real photos and never create a fake version of you. You can pause any app or take over any chat at any time.</p>
             </div>
           </div>
         </section>

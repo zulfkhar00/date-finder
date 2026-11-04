@@ -9,9 +9,8 @@ for (const body of [email.text, email.html]) {
   assert.ok(body.includes("You're in — your spot is reserved."));
   assert.equal(/#[0-9]+ in|in the queue|queue position/i.test(body), false, "never show the queue number");
   assert.ok(body.includes("You're on the early-access list."));
-  assert.ok(body.includes("We'll email you if a concierge place opens."));
-  assert.ok(body.includes("You keep control of your accounts and send every message yourself."));
-  assert.equal(/we (swipe|chat|book)|run your dating/i.test(body), false, "never promise account operation");
+  assert.ok(body.includes("Sign in at noswipe.app to see your profile and your apps."));
+  assert.ok(body.includes("You can pause any app or take over any chat from the app at any time."));
   assert.equal(/batch|nonrefundable/i.test(body), false, "no batch or nonrefundable wording");
   assert.ok(body.includes("Nothing to do until then."));
   assert.ok(body.includes("https://noswipe.app"));

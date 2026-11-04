@@ -77,8 +77,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
     }
   ];
 
-  const reserveHref = `/reserve?ref=${guide.slug}`;
-  const tryHref = `/try?ref=${guide.slug}`;
+  const reserveHref = `/onboarding?ref=${guide.slug}`;
   const reserveUtm = isSeoGuide
     ? `utm_source=seo&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=${guide.slug}`
     : `utm_source=organic&utm_medium=guide&utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve`;
@@ -122,8 +121,8 @@ export default async function GuidePage({ params }: GuidePageProps) {
                 ) : null}
                 {index === 0 ? (
                   <div className="guide-inline-cta">
-                    <p>{isSeoGuide ? "Want feedback on your own profile? Share a screenshot." : "Want this done for your own profile?"}</p>
-                    <CtaLink href={tryHref} utm={reserveUtm} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Try it free</CtaLink>
+                    <p>Want this done for your own profile?</p>
+                    <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
                   </div>
                 ) : null}
               </section>
@@ -171,13 +170,13 @@ export default async function GuidePage({ params }: GuidePageProps) {
             </section>
 
             <aside className="guide-cta" aria-labelledby="guide-cta-title">
-              <p className="kicker">Want a second pair of eyes?</p>
+              <p className="kicker">Done for you</p>
               <h2 id="guide-cta-title">Rather skip the swiping?</h2>
               <p>
                 NoSwipe is AI dating automation for Tinder, Hinge and Bumble. It fixes your profile, swipes on people who fit, chats in your voice and books the date. You just show up.
               </p>
-              <CtaLink href={tryHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
-                Try it free
+              <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
+                Get started
               </CtaLink>
               <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>

@@ -102,7 +102,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe tell me which of these apply to me?",
         answer:
-          "Yes. Share screenshots of your profile and NoSwipe lists what to change. You make the edits yourself."
+          "Yes. NoSwipe reviews your profile, fixes what applies and sets up the new version. You can change anything yourself."
       }
     ],
     sources: [{ label: "Hinge: profile refresh guide", url: HINGE_PROFILE_REFRESH, kind: "platform-context" }],
@@ -197,7 +197,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Does NoSwipe work with all three?",
         answer:
-          "NoSwipe works from screenshots of any of them. It never logs into an app, and you send everything yourself."
+          "Yes. NoSwipe works with Tinder, Hinge and Bumble. You pick the apps, and you can pause any of them at any time."
       }
     ],
     sources: [
@@ -309,7 +309,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe save me time?",
         answer:
-          "It can draft message options from screenshots so you spend less time staring at a blank box. You still read, edit and send."
+          "Yes. It swipes, opens chats and keeps them going as you, so you spend your time on the dates. You can read every chat and take over any time."
       }
     ],
     relatedSlugs: ["first-date-planning", "when-to-ask-her-out", "she-cancelled-first-date"]
@@ -423,7 +423,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe draft the confirmation?",
         answer:
-          "It can suggest wording from the chat you share. You edit and send it yourself."
+          "Yes. NoSwipe confirms plans as you in the chat, and you can take over to say it yourself."
       }
     ],
     relatedSlugs: ["first-date-planning", "when-to-ask-her-out", "she-cancelled-first-date"]
@@ -528,7 +528,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe draft a reply to a cancellation?",
         answer:
-          "Yes, from a screenshot you share. You edit and send it yourself."
+          "Yes. NoSwipe replies as you, graciously, and offers a new time. You can take over the chat."
       }
     ],
     relatedSlugs: ["first-date-planning", "when-to-ask-her-out", "text-before-first-date"]
@@ -638,7 +638,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe write a bio for an introvert?",
         answer:
-          "It can draft options from what you tell it about your interests. You choose and paste your own version."
+          "Yes. It writes options from what you tell it about your interests, and you can edit the bio any time."
       }
     ],
     relatedSlugs: ["tinder-bio-for-men", "hinge-prompts-for-men", "bumble-bio-for-men"]
@@ -754,127 +754,10 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe plan the date?",
         answer:
-          "It can draft options and an invitation from the context you give. You choose and confirm the real details yourself."
+          "Yes. It suggests a plan from the chat, and when a date is booked it appears in your Dates tab."
       }
     ],
     relatedSlugs: ["first-date-planning", "when-to-ask-her-out", "text-before-first-date"]
-  },
-  {
-    slug: "dating-screenshot-privacy",
-    title: "What to blur before sharing dating screenshots with any tool",
-    eyebrow: "Screenshot privacy",
-    description:
-      "What to blur or crop before sharing dating screenshots with any tool: names, faces, phone numbers and locations, plus questions to ask about retention.",
-    intro:
-      "A dating screenshot contains more than your own details. It includes another person who never agreed to be shared. Before you give one to any tool, including ours, take thirty seconds to trim it.",
-    readingTime: "5 min read",
-    publishedIso: "2026-10-30",
-    sections: [
-      {
-        title: "Why this matters",
-        paragraphs: [
-          "Your matches have names, faces and sometimes workplaces in their profiles. They trusted a dating app with that, not a third party. Sharing less is respectful to them and safer for you.",
-          "It's also practical. A tool can usually draft a good reply from the message text alone."
-        ]
-      },
-      {
-        title: "What to blur or crop",
-        paragraphs: [
-          "Go through the screenshot as if someone else were reading it, and cover anything that identifies a real person you don't need to show."
-        ],
-        bullets: [
-          "Full names and usernames, including social handles in bios",
-          "Faces, if the draft doesn't depend on the photo",
-          "Phone numbers and email addresses",
-          "Workplaces, schools and street names",
-          "Exact locations and distances",
-          "Anything that contains a payment, ticket or booking reference"
-        ]
-      },
-      {
-        title: "How to do it",
-        paragraphs: [
-          "On most phones the built-in photo editor has a markup tool that lets you draw a solid block over details. A solid fill is safer than a blur, which can sometimes be partially reversed. Cropping to just the messages also works. Save the edited copy and share that, not the original."
-        ],
-        example: {
-          label: "Example",
-          text: "Keep the last six messages and her bio line about hiking. Crop out the name, the photo and the location line."
-        }
-      },
-      {
-        title: "Questions to ask any tool",
-        paragraphs: [
-          "Before you upload, find answers to these in the tool's privacy page. If you can't find them, that's an answer too."
-        ],
-        bullets: [
-          "Who can see the screenshot, and which other companies process it?",
-          "How long is it kept, and is it deleted after the draft?",
-          "Is it used to train models?",
-          "Does the tool ever ask for your dating-app login? (It shouldn't.)",
-          "How do you ask for something to be removed?"
-        ]
-      },
-      {
-        title: "What NoSwipe says",
-        paragraphs: [
-          "NoSwipe's privacy page says screenshots are used only to draft, shared only with the AI provider that processes them, deleted after drafting, and never used to train AI models. Read it yourself at /privacy, and apply the same questions to us as to anyone else."
-        ]
-      },
-      {
-        title: "Special cases",
-        paragraphs: [
-          "Screenshots from video chats or voice messages can include faces and background details such as a street sign or a house number. Treat those more carefully than a text chat. If the draft only depends on what was said, copy the message text into a note and share that instead of the image.",
-          "Screenshots of your own profile are less sensitive but may include your full name or social handle. Cover those too."
-        ]
-      },
-      {
-        title: "When to skip sharing altogether",
-        paragraphs: [
-          "Some conversations are too personal for any tool: a match sharing something about their health, family or a difficult time. If it isn't yours to share, don't. Write that reply yourself.",
-          "A good rule is to share only what you'd be comfortable with the other person knowing you shared. If you'd have to explain it, leave it out."
-        ]
-      },
-      {
-        title: "A quick routine you can repeat",
-        paragraphs: [
-          "Make it a habit rather than a decision each time. Open the screenshot, crop to the messages, cover names and anything that identifies a place, save a copy, share that copy, then delete the edited file when you've finished.",
-          "The whole thing takes about thirty seconds once you've done it a few times. It also means you never have to wonder what you shared three weeks ago."
-        ]
-      },
-      {
-        title: "Your own details count too",
-        paragraphs: [
-          "It's easy to remember the other person and forget yourself. Check for your surname in a username, your workplace in a bio, your street in a map pin, and your number in an old message. If the draft doesn't need it, cover it.",
-          "Treat a screenshot as a copy that could outlive the conversation, and share as little as the job needs."
-        ]
-      }
-    ],
-    checklist: [
-      "I covered names, usernames and handles",
-      "I covered phone numbers and addresses",
-      "I cropped to only the messages I need",
-      "I used a solid fill, not just a light blur",
-      "I shared the edited copy, not the original",
-      "I read the tool's privacy page first"
-    ],
-    faqs: [
-      {
-        question: "Is it safe to share dating screenshots with an AI tool?",
-        answer:
-          "It depends on the tool. Remove identifying details, and check its privacy page for retention, sharing and training policies before uploading."
-      },
-      {
-        question: "Is blurring enough?",
-        answer:
-          "A solid block is safer than a light blur, which can sometimes be partially recovered. Cropping out the detail entirely is safest."
-      },
-      {
-        question: "Does NoSwipe need my login?",
-        answer:
-          "No. NoSwipe works from screenshots you choose to share and never logs into your dating app."
-      }
-    ],
-    relatedSlugs: ["dating-message-help", "tinder-profile-review", "do-ai-dating-assistants-work"]
   },
   {
     slug: "why-hey-gets-ignored",
@@ -987,7 +870,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe suggest openers?",
         answer:
-          "Yes, from a screenshot of her profile. You edit and send the message yourself."
+          "Yes. It opens chats as you, from their profile. You can read and take over."
       }
     ],
     relatedSlugs: ["first-message-after-match", "dating-message-help", "opener-examples-by-photo"]
@@ -1101,7 +984,7 @@ export const seoGuidesBatch2: Guide[] = [
       {
         question: "Can NoSwipe draft a follow-up?",
         answer:
-          "Yes, from the chat screenshot you share. You decide whether to send it."
+          "Yes. NoSwipe follows up as you, in your voice, and you can read the chat and take over any time."
       }
     ],
     relatedSlugs: ["first-message-after-match", "when-to-ask-her-out", "match-stopped-replying"]

@@ -38,7 +38,7 @@ export function HeroPhone() {
             {s >= 1 && <motion.div layout key="context" className="bubble bubble-her" {...pop}>My dog Biscuit has never met a camera he didn’t like.</motion.div>}
             {s >= 2 && (
               <motion.div layout key="suggest" className="suggest" {...pop}>
-                <div className="suggest-label"><PenLine size={14} strokeWidth={2.5} /> NoSwipe sent</div>
+                <div className="suggest-label"><PenLine size={14} strokeWidth={2.5} /> Sent as you</div>
                 <p>{OPENER}</p>
               </motion.div>
             )}
