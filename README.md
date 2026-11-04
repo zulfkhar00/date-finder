@@ -60,6 +60,16 @@ Sentry (errors), PostHog (product analytics) and `GET /api/health` are built in 
 
 `/admin` (founders only) shows the funnel and leads; set-up is in [DEPLOYMENT.md §7](DEPLOYMENT.md#7-admin-dashboard). Apply [`supabase/2026-10-23-admin.sql`](supabase/2026-10-23-admin.sql) after the funnel SQL, set `SITE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `ADMIN_EMAILS`, create the admin users by hand in Supabase Auth (public signups off, "Confirm email" on), and sign in with an emailed link or code. To check it: an allowlisted email can sign in and sees KPI tiles matching `supabase/funnel.sql`; any other signed-in email gets a 404 on `/admin`, `/admin/leads/<id>` and `/admin/leads/export`; signed out, `/admin/leads/export` returns 404.
 
+## The app
+
+Signed-in product, mobile-first: `/login` (email code or link), `/onboarding` (name, birthday 18+ gate, gender and who you want to meet, 3–6 photos in a private bucket, about you, your type, apps, explicit consent, then the existing $1 early-access checkout), and the shell `/home`, `/chats`, `/chats/[id]`, `/dates`, `/dates/[id]`, `/profile` with a bottom nav (Home · Chats · Dates · Profile). `/demo` is a public, labelled showcase with sample chats.
+
+- **Chats** show the match's messages and the messages sent as the user (human or AI, shown the same way: no "written by AI" labels in the thread). **Take over** switches the chat to manual compose, **Hand back to AI** reverts; the AI side is refused while a chat is taken over or an app is paused.
+- **Data** lives in Supabase with RLS (`supabase/2026-11-04-app.sql`): users read only their own rows, all writes go through the server. Tests: `scripts/check-app.ts` (in `npm test`) and `supabase/tests/app-rls.sql` (`scripts/run-app-rls-test.mjs`, rolled back).
+- **Admin**: `/admin/clients` lets the team set each client's app status and add matches, messages and dates. Real users see only real rows.
+- **Automation seam**: the code that actually creates app accounts, swipes and chats is a separate worker. It talks to `/api/automation/v1` with a service key; the contract is in [`docs/automation.md`](docs/automation.md).
+- **Setup**: [DEPLOYMENT.md §8](DEPLOYMENT.md#8a-the-noswipe-app-login-onboarding-chats-dates-admin-clients).
+
 ## Concierge pilot
 
 Stage 1 runs by hand for a small group of clients. A client sends screenshots to our Telegram bot, Claude drafts, an operator approves or edits every draft in `/admin/concierge`, and only then does the bot deliver the text. **The client sends every message himself.** Nothing here logs in to, swipes on, sends from, or scrapes any dating app.

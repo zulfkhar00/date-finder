@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-scrub.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-email.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-checkout.mjs && node scripts/check-public-copy.mjs && node --import tsx scripts/check-guides.ts && node --conditions=react-server --import tsx scripts/check-admin-analytics.ts && node --conditions=react-server --import tsx scripts/check-try.mts",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-scrub.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-email.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-checkout.mjs && node scripts/check-public-copy.mjs && node --import tsx scripts/check-guides.ts && node --conditions=react-server --import tsx scripts/check-admin-analytics.ts && node --conditions=react-server --import tsx scripts/check-try.mts && node --import tsx scripts/check-app.ts",
     "concierge:smoke": "node --conditions=react-server --import tsx scripts/concierge-smoke.ts"
   },
   "dependencies": {

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 const siteUrl = "https://www.noswipe.app";
 
-const privatePaths = ["/admin/", "/api/", "/confirmation"];
+const privatePaths = ["/admin/", "/api/", "/confirmation", "/login", "/onboarding", "/home", "/chats", "/dates", "/profile", "/auth/"];
 
 export default function robots(): MetadataRoute.Robots {
   return {

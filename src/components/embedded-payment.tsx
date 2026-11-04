@@ -17,7 +17,7 @@ function stripeClient(key: string) {
   return client;
 }
 
-export function EmbeddedPayment({ payment, onBack }: { payment: Payment; onBack: () => void }) {
+export function EmbeddedPayment({ payment, onBack, completeHref }: { payment: Payment; onBack: () => void; completeHref?: string }) {
   const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
@@ -34,7 +34,7 @@ export function EmbeddedPayment({ payment, onBack }: { payment: Payment; onBack:
         checkout = await stripe.createEmbeddedCheckoutPage({
           clientSecret: payment.clientSecret,
           onComplete: () => {
-            if (!cancelled) router.replace(`/confirmation?session_id=${encodeURIComponent(payment.sessionId)}`);
+            if (!cancelled) router.replace(completeHref ?? `/confirmation?session_id=${encodeURIComponent(payment.sessionId)}`);
           },
           onAnalyticsEvent: (event) => {
             if (cancelled) return;
@@ -51,7 +51,7 @@ export function EmbeddedPayment({ payment, onBack }: { payment: Payment; onBack:
     }
     void mount();
     return () => { cancelled = true; checkout?.destroy(); };
-  }, [payment, attempt, router]);
+  }, [payment, attempt, router, completeHref]);
 
   return <section className="embedded-payment" aria-labelledby="payment-heading">
     <h2 id="payment-heading">Reserve your spot.</h2>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource/bagel-fat-one/latin-400.css";
 import "@fontsource-variable/figtree/index.css";
 import "./globals.css";
+import "./app.css";
 
 const title = "NoSwipe — AI that swipes, chats and books your dates";
 const description = "Stop swiping. NoSwipe is AI dating automation for Tinder, Hinge and Bumble: it swipes on people who fit, chats in your voice and books the date. You just show up.";

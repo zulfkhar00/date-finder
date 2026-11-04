@@ -104,6 +104,33 @@ The app needs a configured support contact and payment receipts in Stripe before
 
 Every admin page, server action and the export check the session, a confirmed email and `ADMIN_EMAILS` on the server (shared helpers in `src/lib/admin-auth.ts`). Data is read with the server's `SUPABASE_SECRET_KEY`; the publishable key is used only to manage the sign-in session, whose cookies are `httpOnly` and scoped to `/admin`. Logs carry error codes only, never emails or notes.
 
+## 8a. The NoSwipe app (login, onboarding, chats, dates, admin clients)
+
+`/login`, `/onboarding`, `/home`, `/chats`, `/dates`, `/profile` are the signed-in app; `/demo` is a public, labelled showcase; `/admin/clients` is where the team sets app status and adds matches, messages and dates for each client. Nothing in the app invents data: real users see only their own rows, and the automation that creates app accounts and chats is built separately (see [`docs/automation.md`](docs/automation.md)).
+
+**Database.** Run [`supabase/2026-11-04-app.sql`](supabase/2026-11-04-app.sql) in the Supabase SQL editor (or through the Management API), after `schema.sql`. It is idempotent: tables `profiles`, `profile_photos`, `preferences`, `consents`, `app_accounts`, `matches`, `messages`, `takeovers`, `dates`, RLS on everywhere, browser roles revoked (signed-in users get SELECT on their own rows only; every write goes through the server with the service key), a trigger that stops AI messages in a taken-over chat, the private `profile-photos` bucket (owner + service role only) and the Realtime publication. Then run the RLS checks, which always roll back:
+
+```sh
+SUPABASE_PAT=... SUPABASE_PROJECT_REF=... node scripts/run-app-rls-test.mjs   # prints "RLS tests passed (rolled back)"
+```
+
+**Auth.** Keep **Allow new users to sign up** switched off in Supabase: the app creates accounts itself on the server (`auth.admin.createUser`, email pre-confirmed) when someone asks for a sign-in code, and sends the email through Resend (§9: `RESEND_API_KEY` and `EMAIL_FROM` are required for sign-in). The user session lives in its own `ns-session` cookie (path `/`), separate from the founders' `/admin` cookie. Add `https://www.noswipe.app/auth/callback` and `https://noswipe.app/auth/callback` to **Redirect URLs** only if you also use Supabase's own mailer; our links are verified server-side by token hash and do not need it.
+
+**Environment** (Vercel project settings, runtime only, never `NEXT_PUBLIC_`): everything in §4 and §9, plus
+
+```dotenv
+AUTOMATION_API_KEY=...   # 32+ random characters (openssl rand -hex 32). Bearer key for /api/automation/v1. Unset = the API answers 503.
+ANTHROPIC_API_KEY=sk-ant-...   # used by the automation worker, never by the browser
+```
+
+`SUPABASE_PUBLISHABLE_KEY` is handed to a signed-in browser at runtime by `/api/app/realtime` (it is public by design); the browser never sees the secret key.
+
+**Realtime.** Chats and the home page update live through Supabase Realtime using the user's own token, so RLS decides what streams. If Realtime is unreachable the app falls back to refreshing every 20 seconds.
+
+**Deleting an account** (Profile → Delete account) removes the user's photos from storage and the auth user; every table row cascades from `auth.users`.
+
+**Legal.** `/privacy` and `/terms` describe this data use. They have not had a lawyer review yet; get one before real users come in volume.
+
 ## 8. Concierge pilot (Telegram bot, drafting, console)
 
 Everything below is optional. Each part switches itself off while its variables are missing. The console at `/admin/concierge` uses the admin sign-in from §7 (same `ADMIN_EMAILS`, same users, same callback), so set up §7 first.
