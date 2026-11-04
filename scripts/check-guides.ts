@@ -179,7 +179,7 @@ async function checkRenderedGuides(baseUrl: string) {
     }
     assert.ok(html.includes("You see the exact price before you pay anything."));
     assert.doesNotMatch(html.replace(/<script[\s\S]*?<\/script>/g, ""), /\$\s?1\b|wait-?list|reserve a (?:place|spot)|holds? your spot/i, `${path}: no pre-checkout price or waitlist copy`);
-    assert.ok(html.includes("You make profile changes, swipe, send messages and confirm dates yourself."));
+    assert.ok(html.includes("It fixes your profile, swipes on people who fit, chats in your voice and books the date."));
     const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
     assert.ok(jsonLd, `${path}: structured data`);
     const data = JSON.parse(jsonLd[1]);
