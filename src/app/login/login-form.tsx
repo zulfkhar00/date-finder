@@ -1,0 +1,44 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { requestCode, verifyCode, type LoginState } from "./actions";
+
+export function LoginForm({ initialError }: { initialError?: string }) {
+  const [attempt, setAttempt] = useState(0);
+  return <Steps key={attempt} initialError={attempt === 0 ? initialError : undefined} restart={() => setAttempt((n) => n + 1)} />;
+}
+
+function Steps({ initialError, restart }: { initialError?: string; restart: () => void }) {
+  const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestCode, { step: "email", error: initialError });
+  const [verified, verifyAction, verifying] = useActionState<LoginState, FormData>(verifyCode, { step: "code" });
+
+  if (sent.step !== "code" || !sent.email) {
+    return (
+      <form action={sendAction} className="app-form">
+        <label className="app-field">
+          <span>Email</span>
+          <input type="email" name="email" autoComplete="email" inputMode="email" required defaultValue={sent.email ?? ""} readOnly={sending} placeholder="you@example.com" />
+        </label>
+        {sent.error ? <p className="app-error" role="alert">{sent.error}</p> : null}
+        <button type="submit" className="app-btn" disabled={sending} aria-busy={sending}>
+          {sending ? <><span className="app-spinner" aria-hidden /> Sending…</> : "Email me a code"}
+        </button>
+      </form>
+    );
+  }
+  return (
+    <form action={verifyAction} className="app-form">
+      <p className="app-ok" role="status">We sent a link and a code to <strong>{sent.email}</strong>. Open the link, or type the code here.</p>
+      <input type="hidden" name="email" value={sent.email} />
+      <label className="app-field">
+        <span>Code</span>
+        <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required readOnly={verifying} autoFocus />
+      </label>
+      {verified.error ? <p className="app-error" role="alert">{verified.error}</p> : null}
+      <button type="submit" className="app-btn" disabled={verifying} aria-busy={verifying}>
+        {verifying ? <><span className="app-spinner" aria-hidden /> Checking…</> : "Sign in"}
+      </button>
+      <button type="button" className="app-link" onClick={restart} disabled={verifying}>Use a different email</button>
+    </form>
+  );
+}

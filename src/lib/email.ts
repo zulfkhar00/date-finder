@@ -51,6 +51,13 @@ export function canSendEmail(): boolean {
   return emailConfig() !== null;
 }
 
+/** Sends one transactional email (sign-in code, notifications). Returns true on success. Logs no addresses or content. */
+export async function sendAppEmail(to: string, email: { subject: string; text: string; html: string }, label: string): Promise<boolean> {
+  const config = emailConfig();
+  if (!config) return false;
+  return sendViaResend(config, { to, ...email }, label);
+}
+
 /**
  * The founder sign-in email for /admin/login, sent from NoSwipe through Resend. `link` must be
  * built from SITE_URL. Returns true on success. Never logs the address, link or code.
