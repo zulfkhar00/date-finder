@@ -26,7 +26,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         title: "Three kinds of tool wearing the same label",
         paragraphs: [
-          "The first kind is a coach: you describe your situation, it gives advice. Think of a chatbot you ask about your bio or about what a reply meant. The second is a drafting tool: you hand it a screenshot or some text, it hands back options, and you decide what to use. The third is an auto-swipe bot, which connects to your account and taps for you.",
+          "The first kind is a coach: you describe your situation, it gives advice. Think of a chatbot you ask about your bio or about what a reply meant. The second is a drafting tool: you hand it some text, it hands back options, and you decide what to use. The third is an auto-swipe bot, which connects to your account and taps for you.",
           "People lump these together because all three say “AI” on the landing page. They are not the same thing, and the risks are not close to the same. A coach can give you a bad suggestion. A bot can cost you the account."
         ],
         bullets: [
@@ -39,7 +39,7 @@ export const seoGuidesBatch1: Guide[] = [
         title: "What a coach or drafting tool can actually do",
         paragraphs: [
           "They are good at the unglamorous stuff. A second opinion on photo order. Three ways to reword a bio that reads like a CV. A reply that sounds friendlier than the one you were about to send at midnight. They save the time you would spend staring at a blank message box, and they are useful when you're too close to your own profile to see it.",
-          "They are bad at knowing the person on the other end. A tool sees the words in a screenshot, not the tone of voice, the history or the way she laughed when you met. That part stays yours, and it's the reason every draft needs your edit before it goes anywhere."
+          "They are bad at knowing the person on the other end. A tool sees the words in the chat, not the tone of voice, the history or the way she laughed when you met. That part stays yours, and it's the reason every draft needs your edit before it goes anywhere."
         ],
         example: {
           label: "Example",
@@ -63,8 +63,8 @@ export const seoGuidesBatch1: Guide[] = [
       {
         title: "The one question that sorts them out",
         paragraphs: [
-          "Ask: does this tool need my login? If a product wants your username and password, an access token or a browser session, it is acting as you, and that is what the terms above are written against. If it only needs a screenshot you chose to share, nothing in the app ever sees it.",
-          "NoSwipe sits in the second group. You send screenshots, NoSwipe sends back drafts, and you open the app and send them yourself. No logins, no swiping, no sending. Whatever tool you pick, that single question will tell you more than its marketing page."
+          "Ask: does this tool need my login? If a product wants your username and password, an access token or a browser session, it is acting as you, and that is what the terms above are written against. A tool that only drafts text for you to paste never touches the app.",
+          "NoSwipe is in the third group by design: with your permission it runs your accounts and chats as you, so the risk above applies to it too, and an app may limit or suspend a profile. You can pause any app or take over any chat at any time. Whatever tool you pick, that single question will tell you more than its marketing page."
         ]
       },
       {
@@ -92,12 +92,12 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Is it safe to give a dating tool my login?",
         answer:
-          "Tinder, Hinge and Bumble all restrict automated tools and account sharing in their terms, so handing over a login puts your account at risk. A tool that only needs a screenshot you share avoids that."
+          "Tinder, Hinge and Bumble all restrict automated tools and account sharing in their terms, so handing over a login puts your account at risk. Tools that only draft text avoid that; tools that run your account, NoSwipe included, carry it."
       },
       {
         question: "Does NoSwipe use my dating-app account?",
         answer:
-          "No. NoSwipe never logs in, swipes or sends. You share screenshots, receive drafts and send anything yourself."
+          "Yes. With your permission, NoSwipe runs your profile on the apps you pick: it swipes, chats as you and books dates. You can pause any app or take over any chat at any time. The apps' terms restrict automated tools, so an account can be limited or suspended."
       }
     ],
     sources: termsSources,
@@ -200,7 +200,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Does NoSwipe send messages for me?",
         answer:
-          "No. NoSwipe drafts options from screenshots you share. You edit them and send them yourself."
+          "Yes. NoSwipe chats as you, in your voice, and you can read every chat and take over any time."
       }
     ],
     relatedSlugs: ["dating-message-help", "first-message-after-match", "do-ai-dating-assistants-work"]
@@ -252,7 +252,7 @@ export const seoGuidesBatch1: Guide[] = [
         title: "Safer ways to spend less time swiping",
         paragraphs: [
           "Most of the time swiping eats is a profile problem. If your first photo is unclear, you'll swipe more because fewer people stay. Fix the profile and the same effort lands better. Then set a time box: ten minutes, twice a day, and stop.",
-          "For messages, use a drafting tool that only needs a screenshot. You open the app, you send it, nothing logs in as you. That's how NoSwipe works, which is why it never touches your account."
+          "For messages, a drafting tool that only gives you text means nothing logs in as you: you open the app and send it yourself. NoSwipe works the other way. It runs your account with your permission, so the account risk described above applies to it."
         ]
       },
       {
@@ -275,7 +275,7 @@ export const seoGuidesBatch1: Guide[] = [
       "I've read the bot and third-party sections of my app's terms",
       "My first photo and bio are clear before I swipe more",
       "I set a swipe time box instead of chasing volume",
-      "I use drafting tools that only need screenshots",
+      "I use drafting tools that only give me text to paste",
       "I've checked a browser extension isn't clicking for me"
     ],
     faqs: [
@@ -292,7 +292,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "What's a safer alternative?",
         answer:
-          "Improve photos and bio, set swipe time limits, and use drafting tools that work from screenshots you choose to share, so nothing logs in as you."
+          "Improve photos and bio, set swipe time limits, and use drafting tools that only give you text to paste, so nothing logs in as you."
       }
     ],
     sources: termsSources,
@@ -395,7 +395,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe write my reply?",
         answer:
-          "NoSwipe can draft options from a screenshot of the chat you share. You choose, edit and send, so the final message is yours."
+          "Yes. NoSwipe replies as you, in your voice, from the conversation. Read along and take over any time."
       }
     ],
     relatedSlugs: ["first-message-after-match", "when-to-ask-her-out", "match-stopped-replying"]
@@ -502,7 +502,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe draft the follow-up?",
         answer:
-          "Yes, from a screenshot you share. NoSwipe gives you options and you decide whether to send one."
+          "Yes. NoSwipe follows up as you, in your voice, and you can read the chat and take over any time."
       }
     ],
     relatedSlugs: ["first-message-after-match", "dating-message-help", "she-replied-haha"]
@@ -623,7 +623,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe suggest openers for a specific profile?",
         answer:
-          "Yes. Share a screenshot of the profile and NoSwipe drafts options. You edit and send them yourself."
+          "Yes. NoSwipe opens with something specific from their profile, as you. You can read and take over the chat."
       }
     ],
     relatedSlugs: ["first-message-after-match", "dating-message-help", "why-hey-gets-ignored"]
@@ -718,7 +718,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe review my Hinge photos?",
         answer:
-          "Yes. Share screenshots of your profile and NoSwipe suggests an order and which to cut. You make the changes yourself."
+          "Yes. NoSwipe orders your real photos for your Hinge profile and drops the ones that don't help. You can change the order any time."
       }
     ],
     sources: [{ label: "Hinge: profile refresh guide", url: HINGE_PROFILE_REFRESH, kind: "platform-context" }],
@@ -824,7 +824,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe write my Bumble bio?",
         answer:
-          "NoSwipe drafts options from what you share. You choose, edit and paste the final version into the app yourself."
+          "Yes. NoSwipe writes your Bumble bio from what you tell it and puts it on your profile. You can edit it any time."
       }
     ],
     relatedSlugs: ["tinder-bio-for-men", "how-to-get-more-bumble-matches", "dating-profile-audit-checklist"]
@@ -938,7 +938,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe help me word the ask?",
         answer:
-          "Yes. NoSwipe drafts options from a screenshot you share, and you send the final message yourself."
+          "Yes. NoSwipe words the invitation as you from the conversation, and when a date is booked it appears in your Dates tab."
       }
     ],
     relatedSlugs: ["when-to-ask-her-out", "first-date-planning", "text-before-first-date"]
@@ -1008,7 +1008,7 @@ export const seoGuidesBatch1: Guide[] = [
         title: "When to ask someone else",
         paragraphs: [
           "A timer helps you find obvious problems, but you can't see yourself the way a stranger does. Show the profile to one friend who'll be honest, and ask a specific question: what's the first thing you'd guess about me? If the answer doesn't match how you'd describe yourself, you've found the gap.",
-          "A screenshot review from someone outside your circle can also catch things friends are too polite to mention. Whoever you ask, make the changes yourself and keep what feels true."
+          "A review from someone outside your circle can also catch things friends are too polite to mention. Whoever you ask, make the changes yourself and keep what feels true."
         ]
       },
       {
@@ -1041,7 +1041,7 @@ export const seoGuidesBatch1: Guide[] = [
       {
         question: "Can NoSwipe audit my profile for me?",
         answer:
-          "NoSwipe can review screenshots of your profile and suggest changes. You make the edits in the app yourself."
+          "Yes. NoSwipe reviews your real photos and bio, fixes what hurts and sets the profile up for you. You can change anything yourself."
       }
     ],
     relatedSlugs: ["tinder-profile-review", "dating-app-photo-order-men", "dating-profile-mistakes-men"]

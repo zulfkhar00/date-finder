@@ -51,7 +51,7 @@ const originalGuides: Guide[] = [
           "One person in frame",
           "Face visible at thumbnail size",
           "Recent enough to be an honest representation",
-          "No text, screenshots or dating-app UI baked into the image"
+          "No text, overlays or dating-app interface graphics baked into the image"
         ]
       },
       {
@@ -109,7 +109,7 @@ const originalGuides: Guide[] = [
       {
         question: "Can NoSwipe change my Tinder profile for me?",
         answer:
-          "NoSwipe works from the photos and screenshots you provide. We can rank photos and draft profile copy, but you control your dating-app account and make every change yourself."
+          "Yes, with your permission. NoSwipe works on your own Tinder account to rank your real photos and write and update your profile. You can change anything yourself and pause Tinder at any time."
       }
     ]
   },
@@ -187,7 +187,7 @@ const originalGuides: Guide[] = [
       {
         question: "Does NoSwipe log in and edit my Hinge profile?",
         answer:
-          "No. You share the prompts or screenshots you want help with, NoSwipe drafts options, and you choose and enter the final wording yourself."
+          "Yes, with your permission. NoSwipe works on your own Hinge account to set up and edit your profile. You can pause Hinge or change anything yourself at any time. Hinge's terms restrict automated tools, so an account can be limited or suspended."
       }
     ]
   },
@@ -240,7 +240,7 @@ const originalGuides: Guide[] = [
         title: "Keep the final message yours",
         paragraphs: [
           "A draft is useful only if it represents what you mean. Edit anything you would not say in person, and never claim an experience or intention that is not true.",
-          "NoSwipe does not log in to dating apps or send messages. You provide the context you choose, receive draft options and decide what—if anything—to send."
+          "NoSwipe sends messages as you, in your voice. You can read every chat and take over any time to say something in your own words."
         ]
       }
     ],
@@ -266,7 +266,7 @@ const originalGuides: Guide[] = [
       {
         question: "Will NoSwipe send replies for me?",
         answer:
-          "No. NoSwipe drafts replies from the screenshots or context you choose to share. You review, edit and send every message yourself."
+          "Yes. NoSwipe replies as you, in your voice, and you can read every chat and take over at any time."
       }
     ]
   },
@@ -346,7 +346,7 @@ const originalGuides: Guide[] = [
       {
         question: "Can NoSwipe book the date for me?",
         answer:
-          "No. NoSwipe can draft a plan and invitation from the context you provide. You confirm the real venue details, send the invitation and agree the date yourself."
+          "Yes. When a chat turns into a plan, NoSwipe books the date and it appears in your Dates tab with who, where and when, plus a calendar file. Check the real details before you go."
       }
     ]
   }

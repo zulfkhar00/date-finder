@@ -1,6 +1,6 @@
-# NoSwipe — early-access waitlist
+# NoSwipe
 
-Stop swiping, start dating. NoSwipe is a dating concierge for guys on Tinder, Hinge and Bumble: we rebuild the profile and draft openers and replies from screenshots; he sends every message himself. This repo is the landing page plus a $1 paid early-access waitlist. Live at https://noswipe.app.
+Stop swiping, start dating. NoSwipe creates and runs dating profiles on Tinder, Hinge and Bumble for you, chats as you and books the dates; you can pause any app or take over any chat. This repo is the landing page, the signed-in app, the admin console and the $1 early-access checkout. Live at https://noswipe.app.
 
 ## Design
 
@@ -68,31 +68,4 @@ Signed-in product, mobile-first: `/login` (email code or link), `/onboarding` (n
 - **Data** lives in Supabase with RLS (`supabase/2026-11-04-app.sql`): users read only their own rows, all writes go through the server. Tests: `scripts/check-app.ts` (in `npm test`) and `supabase/tests/app-rls.sql` (`scripts/run-app-rls-test.mjs`, rolled back).
 - **Admin**: `/admin/clients` lets the team set each client's app status and add matches, messages and dates. Real users see only real rows.
 - **Automation seam**: the code that actually creates app accounts, swipes and chats is a separate worker. It talks to `/api/automation/v1` with a service key; the contract is in [`docs/automation.md`](docs/automation.md).
-- **Setup**: [DEPLOYMENT.md §8](DEPLOYMENT.md#8a-the-noswipe-app-login-onboarding-chats-dates-admin-clients).
-
-## Concierge pilot
-
-Stage 1 runs by hand for a small group of clients. A client sends screenshots to our Telegram bot, Claude drafts, an operator approves or edits every draft in `/admin/concierge`, and only then does the bot deliver the text. **The client sends every message himself.** Nothing here logs in to, swipes on, sends from, or scrapes any dating app.
-
-**Flow**
-
-1. In `/admin/concierge/clients`, create an invite (first name, apps, his voice notes, optional paid reservation email). You get an 8-character, single-use code that expires in 14 days, plus a `t.me/<bot>?start=CODE` link if `TELEGRAM_BOT_USERNAME` is set.
-2. The client opens the link (or sends `/start CODE`). His Telegram chat is now linked to his client row.
-3. He sends a screenshot with a one-word caption: `profile`, `opener`, `reply` or `date`. Anything after the word is passed on as his note. Albums are grouped into one job. A text-only message such as `date we're both near downtown` also works. Each client can start up to **20 draft jobs per rolling 24 hours** (counted in `drafts`); past that, the bot replies politely and nothing is drafted.
-4. The bot replies "Got it. Your … draft is coming soon." The image is downloaded into memory, sent to `claude-sonnet-5-5` with the per-kind rules in `src/lib/concierge/draft.ts`, and dropped. **Images are never written to disk, a bucket or the database, and never logged.** Only a short text summary (`drafts.input_summary`) and the structured draft (`drafts.output`) are stored, and both pass through a scrub first (`src/lib/concierge/scrub.ts`) that removes phone numbers, @handles, emails and links. Operator notes and tracker notes are scrubbed the same way.
-5. The operator reviews it at `/admin/concierge`: a structured view, "check before approving" flags, and an editable message. **Approve & send** works only on a `pending` draft. It records `approved`/`edited`, claims the draft with a conditional update to `sending`, calls Telegram `sendMessage`, then marks it `sent_to_client`, so a double click or a second tab can't deliver it twice. If Telegram fails, the draft goes back to `approved`/`edited` with an operator note, and shows under "Approved, not delivered" with **Resend**. Resend works only from that state. A draft stuck in `sending` after a crash can be released after 2 minutes, with a warning to check the chat first. **Reject** keeps a note.
-6. Tracker: on each client, save snapshots of matches per week, active convos and dates scheduled. The client table shows the first ("before") and latest snapshot.
-
-**Retention**: drafts are deleted 30 days after creation by `public.purge_old_drafts()` (in the concierge SQL). Schedule it daily with pg_cron or run it by hand (DEPLOYMENT.md §8). The privacy page has a concierge section that covers what's stored, the 30 days and the AI processing.
-
-**Drafting rules** (in the system prompts): his voice from his voice notes; never invent facts about him or her (missing facts become `[ask client: …]` placeholders and are flagged); 3 openers that reference something specific on her profile; a reply plus one alternative, with an "ask her out now" flag and a date ask when the chat is warm; a date plan with 2 places, a time and the message to send; nothing manipulative, and respect a no or a slow reply. Text inside screenshots is treated as data, not instructions.
-
-**Code**: `src/app/api/telegram/webhook` (intake), `src/lib/concierge/*` (Telegram client, drafting, scrub, operator logic), `src/app/admin/concierge/**` (console), `supabase/2026-10-23-concierge.sql` (schema).
-
-**Sign-in** is the admin dashboard's: one login (`/admin/login`), one callback (`/admin/auth/callback`), one session cookie scoped to `/admin`. The shared helpers in `src/lib/admin-auth.ts` require a confirmed email on `ADMIN_EMAILS`, and every console page and server action calls them itself.
-
-**Missing configuration** never breaks the site: without the Telegram variables the webhook returns 404, without `ANTHROPIC_API_KEY` jobs are recorded as `failed` with a note, and the console lists what is not configured. Run `npm run concierge:smoke` to try the prompts on a text-only fixture; it skips when `ANTHROPIC_API_KEY` is unset.
-
-**Known limits**: album grouping is held in memory, so it assumes a single app container (the Dokploy setup). Drafting runs after the webhook responds (`after()`), so a container restart mid-draft drops that job; the client is asked to resend when drafting fails. The rate limit is a count-then-insert, so a burst of simultaneous uploads can go one or two over 20.
-
-Deployment steps (BotFather, webhook, environment variables, retention job) are in [DEPLOYMENT.md §8](DEPLOYMENT.md#8-concierge-pilot-telegram-bot-drafting-console).
+- **Setup**: [DEPLOYMENT.md §8](DEPLOYMENT.md#8-the-noswipe-app-login-onboarding-chats-dates-admin-clients).

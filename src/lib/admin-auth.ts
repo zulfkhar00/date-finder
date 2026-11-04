@@ -7,7 +7,7 @@ import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { ADMIN_COOKIE_OPTIONS, isAdminEmail, readAdminConfig, type AdminConfig } from "@/lib/admin-config";
 
-// Shared founder auth for everything under /admin (dashboard, leads, concierge console).
+// Shared founder auth for everything under /admin (dashboard, leads, clients, videos).
 // One Supabase Auth session, one login page (/admin/login), one callback (/admin/auth/callback),
 // one cookie path (/admin). Every page, route handler and server action calls one of the
 // helpers below itself; layouts and src/proxy.ts are never relied on for access control.

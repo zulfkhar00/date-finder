@@ -3,7 +3,7 @@ import { scrubDeep } from "@/lib/scrub";
 
 // Product analytics (PostHog). Every export is a no-op unless NEXT_PUBLIC_POSTHOG_KEY was set at
 // build time, the code runs in a browser, and the visitor has not enabled Do Not Track.
-// Staff surfaces (/admin, including /admin/concierge) are never tracked: PostHog is not initialised when the first
+// Staff surfaces (/admin) are never tracked: PostHog is not initialised when the first
 // page is one of them, and any event whose URL is one of them is dropped before it is sent.
 // Event names match the server-side funnel (PR #1) so both sources line up.
 export type FunnelEvent = "page_view" | "get_started" | "reserve_start" | "checkout_created" | "checkout_canceled" | "paid" | "onboarding_started" | "onboarding_completed" | "reserve_step" | "checkout_submit";

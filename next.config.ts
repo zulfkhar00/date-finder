@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: { root: process.cwd() },
   // Ahrefs checks its verification file without the .html extension.
+  // The early-access form and the free tool were replaced by the app: /onboarding creates the account.
+  async redirects() {
+    return [
+      { source: "/try", destination: "/onboarding", permanent: true },
+      { source: "/guides/dating-screenshot-privacy", destination: "/guides", permanent: true },
+      { source: "/reserve", destination: "/onboarding", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       {

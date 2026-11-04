@@ -14,8 +14,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: siteUrl, changeFrequency: "weekly", priority: 1 },
-    { url: `${siteUrl}/try`, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${siteUrl}/reserve`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteUrl}/demo`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/guides`, changeFrequency: "monthly", priority: 0.8 },
     ...aiPages.map((page) => ({ url: `${siteUrl}${page.path}`, lastModified: `${page.publishedIso}T12:00:00Z`, changeFrequency: "monthly" as const, priority: 0.8 })),
