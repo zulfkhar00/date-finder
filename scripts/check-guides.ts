@@ -124,17 +124,17 @@ for (const guide of guides) {
 assert.equal(metaTitles.size, guides.length, "title tags must be unique");
 assert.equal(queries.size, guides.length, "target queries must be unique");
 
-assert.equal(aiPages.length, 3);
+assert.equal(aiPages.length, 7);
 for (const page of aiPages) {
   assert.equal(page.answer.split(/(?<=[.!?])\s+/).length, 2, `${page.path}: direct answer must be exactly two sentences`);
   assert.ok(page.faqs.length >= 4, `${page.path}: FAQ block`);
   assert.ok(`${page.metaTitle} — NoSwipe`.length <= 60 && page.description.length <= 155, `${page.path}: title/description length`);
   assert.ok(sitemapUrls.includes(`https://www.noswipe.app${page.path}`), `${page.path}: in sitemap`);
-  assert.doesNotMatch([page.answer, ...page.sections.flatMap((x) => x.paragraphs)].join(" "), /\d+\s?%|\bautomates?\b/i, `${page.path}: no stats or automation claims`);
+  assert.doesNotMatch([page.answer, ...page.sections.flatMap((x) => x.paragraphs)].join(" "), /\d+\s?%/i, `${page.path}: no stats`); // automation positioning allowed (Miko, 4 Nov 2026)
 }
 for (const text of [llmsTxt(), llmsFullTxt()]) {
-  assert.match(text, /does not log in/i);
-  assert.match(text, /sends every message/i);
+  assert.match(text, /swipes on people who match/i);
+  assert.match(text, /books the first date/i);
   assert.match(text, /USD 1/);
   for (const page of aiPages) assert.ok(text.includes(page.path), `llms: ${page.path}`);
 }
@@ -179,7 +179,7 @@ async function checkRenderedGuides(baseUrl: string) {
     }
     assert.ok(html.includes("You see the exact price before you pay anything."));
     assert.doesNotMatch(html.replace(/<script[\s\S]*?<\/script>/g, ""), /\$\s?1\b|wait-?list|reserve a (?:place|spot)|holds? your spot/i, `${path}: no pre-checkout price or waitlist copy`);
-    assert.ok(html.includes("You make profile changes, swipe, send messages and confirm dates yourself."));
+    assert.ok(html.includes("It fixes your profile, swipes on people who fit, chats in your voice and books the date."));
     const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
     assert.ok(jsonLd, `${path}: structured data`);
     const data = JSON.parse(jsonLd[1]);

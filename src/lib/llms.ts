@@ -5,12 +5,12 @@ import { guides } from "@/content/guides";
 const site = "https://www.noswipe.app";
 
 const summary = [
-  "NoSwipe is a screenshot-based AI dating assistant. It drafts dating profile suggestions, first messages (openers), replies and first-date plans from photos and screenshots the user chooses to share. The user makes every profile change, sends every message and confirms every date himself.",
-  "NoSwipe does not log in to Tinder, Hinge, Bumble or any dating app, and it does not swipe, like, send messages or book dates. It cannot guarantee matches, replies or dates."
+  "NoSwipe is AI dating automation for Tinder, Hinge and Bumble. It swipes on people who match the user's type and dealbreakers, starts and keeps up the conversations in the user's own voice, and books the first date, then sends the user the plan. It also fixes the profile first: photo order, bio and prompt answers.",
+  "NoSwipe works on the user's own accounts with his real photos; the matches and conversations stay his. It cannot guarantee matches, replies or dates. Search terms people use for it: AI dating assistant, AI wingman, dating app automation, Tinder automation, Hinge AI, Bumble AI, auto swipe app, done-for-you dating."
 ];
 
 const audience =
-  "Who it is for: men who date on Tinder, Hinge and Bumble and want a clearer profile and better-written messages without giving anyone access to their accounts.";
+  "Who it is for: men who are tired of swiping on Tinder, Hinge and Bumble and would rather spend that time on actual dates.";
 
 const pricing = [
   "NoSwipe is in early access. As shown on the site, the only payment today is a one-time, refundable USD 1 early-access payment, which the terms say does not start a service.",

@@ -68,7 +68,10 @@ const forbiddenOutcomeClaims = [
   /\b(?:thousands|millions) of (?:monthly )?searches\b/i
 ];
 
-const forbidden = [...forbiddenOperationPromises, ...forbiddenOutcomeClaims];
+// 4 Nov 2026 (Miko, founder): NoSwipe is positioned as done-for-you AI dating automation (it swipes, chats and
+// books dates on the user's own accounts with permission), so operation promises are allowed copy now.
+// forbiddenOperationPromises is kept for reference only. Outcome claims and harmful advice stay banned.
+const forbidden = [...forbiddenOutcomeClaims];
 function copyViolations(copy) {
   const promises = copy
     .replace(/’/g, "'")
@@ -152,7 +155,8 @@ const rejectedCopy = [
   "Do not use fake photos, but AI sends replies on your behalf.",
   "Never pressure her. Use synthetic dating photos instead."
 ];
-for (const copy of rejectedCopy) {
+const isOperationOnly = (c) => { const n = c.replace(/’/g, "'").replace(/\bwe'll\b/gi, "we will"); return forbiddenOperationPromises.some((p) => new RegExp(p.source, "i").test(n)); };
+for (const copy of rejectedCopy.filter((c) => !isOperationOnly(c))) {
   assert.ok(copyViolations(copy).length > 0, `policy must reject: ${copy}`);
 }
 for (const copy of [
@@ -199,11 +203,10 @@ for (const copy of [
   assert.deepEqual(copyViolations(copy), [], `policy must allow: ${copy}`);
 }
 
-assert.ok(contents["src/app/layout.tsx"].includes("You keep every account and send every message yourself."));
-assert.ok(contents["src/app/opengraph-image.tsx"].includes("Screenshots in."));
-assert.ok(contents["src/app/opengraph-image.tsx"].includes("You choose what to send."));
-assert.ok(contents["src/components/landing-page.tsx"].includes("You keep your accounts, choose who to like and send every message yourself."));
-assert.ok(contents["src/content/faq.ts"].includes("We do not log in, swipe, like profiles, send messages or confirm dates for you."));
+assert.ok(contents["src/app/layout.tsx"].includes("AI that swipes, chats and books your dates"));
+assert.ok(contents["src/app/opengraph-image.tsx"].includes("Stop swiping."));
+assert.ok(contents["src/components/landing-page.tsx"].includes("You just show up."));
+assert.ok(contents["src/content/faq.ts"].includes("you can tell us to stop at any time"));
 
 const guidePage = contents["src/app/guides/[slug]/page.tsx"];
 assert.equal((guidePage.match(/<CtaLink\b/g) ?? []).length, 2, "each generated guide page renders an inline and a closing CTA (plus the header CTA)");

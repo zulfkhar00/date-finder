@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ogImages } from "@/lib/og";
 
-const description = "Terms for the refundable $1 NoSwipe early-access reservation and screenshot-based dating concierge drafts.";
+const description = "Terms for the refundable $1 NoSwipe early-access reservation and the NoSwipe AI dating concierge.";
 
 export const metadata: Metadata = {
   title: "Terms",
@@ -22,7 +22,7 @@ export default function TermsPage() {
         <p className="kicker">The details</p>
         <h1>Terms.</h1>
       </div>
-      <p>NoSwipe is a screenshot-based dating concierge. If access opens for you, we can review the context you choose to share and prepare profile copy, message drafts and date plans. You keep control of your dating-app accounts and decide what to use.</p>
+      <p>NoSwipe is an AI dating concierge. If access opens for you, NoSwipe can improve your profile and, with your permission, swipe, message and schedule dates in your own dating-app accounts. The accounts stay yours, and you can withdraw permission at any time.</p>
       <h2>Your $1 payment</h2>
       <p>The one-time USD $1 charge is a refundable early-access waitlist fee. It reserves a spot on the list; it does not start concierge service, buy any number of matches or dates, or authorize NoSwipe to access a dating-app account. Your spot is confirmed after our Stripe webhook verifies payment. We show you the price and separate terms for any future paid service before you decide whether to join it.</p>
       <h2>Your accounts and messages</h2>

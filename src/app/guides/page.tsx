@@ -73,9 +73,9 @@ export default function GuidesPage() {
 
         <section className="shell guide-principle" aria-labelledby="guide-principle-title">
           <p className="kicker">How NoSwipe works</p>
-          <h2 id="guide-principle-title">Screenshots in. Drafts out. You stay in control.</h2>
+          <h2 id="guide-principle-title">We swipe. You date.</h2>
           <p>
-            NoSwipe can rank photos, draft profile copy and messages, and help plan a date from the context you choose to share. We do not log in, swipe or send for you.
+            NoSwipe fixes your profile, swipes on people who fit, keeps the chats going in your voice and books the first date on Tinder, Hinge and Bumble.
           </p>
         </section>
       </main>
