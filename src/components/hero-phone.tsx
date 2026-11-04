@@ -24,25 +24,25 @@ export function HeroPhone() {
   const s = reduce ? LAST : step;
 
   return (
-    <div className="phone" role="img" aria-label="An example profile screenshot becomes an opener draft. Nothing is sent automatically; the user chooses what to send.">
+    <div className="phone" role="img" aria-label="An example Hinge match: NoSwipe opens the chat from her profile and books the date.">
       <div className="phone-screen" aria-hidden="true">
         <div className="phone-notch" />
         <div className="chat-head">
           <span className="avatar av-1">M</span>
-          <span className="who"><strong>Example context</strong><span>Profile screenshot · Hinge</span></span>
+          <span className="who"><strong>Example context</strong><span>New match · Hinge</span></span>
           <span className="example-tag">Example</span>
         </div>
         <div className="chat-body">
-          <motion.div layout className="chat-divider">Context you shared</motion.div>
+          <motion.div layout className="chat-divider">From her profile</motion.div>
           <AnimatePresence mode="popLayout">
             {s >= 1 && <motion.div layout key="context" className="bubble bubble-her" {...pop}>My dog Biscuit has never met a camera he didn’t like.</motion.div>}
             {s >= 2 && (
               <motion.div layout key="suggest" className="suggest" {...pop}>
-                <div className="suggest-label"><PenLine size={14} strokeWidth={2.5} /> NoSwipe draft</div>
+                <div className="suggest-label"><PenLine size={14} strokeWidth={2.5} /> NoSwipe sent</div>
                 <p>{OPENER}</p>
               </motion.div>
             )}
-            {s >= 3 && <motion.div layout key="ready" className="date-pill" {...pop}><span className="check-dot"><Check size={14} strokeWidth={3} /></span> Draft ready · you choose what to send</motion.div>}
+            {s >= 3 && <motion.div layout key="ready" className="date-pill" {...pop}><span className="check-dot"><Check size={14} strokeWidth={3} /></span> Date booked · Thu 8 pm</motion.div>}
           </AnimatePresence>
         </div>
       </div>
