@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "@fontsource/bagel-fat-one/latin-400.css";
 import "@fontsource-variable/figtree/index.css";
 import "./globals.css";
@@ -30,5 +31,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#FFF8F0" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><body>{children}<Analytics /></body></html>;
 }
