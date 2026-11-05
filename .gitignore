@@ -22,3 +22,5 @@ deploy/*.zip
 
 # Claude Code agent worktrees
 .claude/worktrees/
+.vercel
+supabase/.temp/
