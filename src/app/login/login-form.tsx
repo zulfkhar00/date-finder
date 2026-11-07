@@ -38,6 +38,9 @@ function Steps({ initialError, restart }: { initialError?: string; restart: () =
       <button type="submit" className="app-btn" disabled={verifying} aria-busy={verifying}>
         {verifying ? <><span className="app-spinner" aria-hidden /> Checking…</> : "Sign in"}
       </button>
+      <p className="app-fine" style={{ marginTop: 0 }}>Nothing yet? Check spam or promotions.</p>
+      <button type="submit" className="app-link" formAction={sendAction} formNoValidate disabled={verifying || sending} aria-busy={sending}>{sending ? "Sending…" : "Send a new code"}</button>
+      {sent.notice && !sending ? <p className="app-ok" role="status">{sent.notice}</p> : null}
       <button type="button" className="app-link" onClick={restart} disabled={verifying}>Use a different email</button>
     </form>
   );

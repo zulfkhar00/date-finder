@@ -8,7 +8,7 @@ import { createAppClient } from "@/lib/app/session";
 import { canSendEmail, sendAppEmail } from "@/lib/email";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-export type LoginState = { step: "email" | "code"; email?: string; error?: string };
+export type LoginState = { step: "email" | "code"; email?: string; error?: string; notice?: string };
 
 const emailSchema = z.email().max(254).transform((v) => v.trim().toLowerCase());
 const codeSchema = z.string().trim().regex(/^\d{6,10}$/);
@@ -31,7 +31,7 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
   if (!canSendEmail()) return { step: "email", email, error: SEND_FAILED };
 
   const now = Date.now();
-  if (now - (lastSent.get(email) ?? 0) < 45_000) return { step: "code", email };
+  if (now - (lastSent.get(email) ?? 0) < 45_000) return { step: "code", email, notice: "A code was just sent. Give it a minute, then try again." };
   lastSent.set(email, now);
   if (lastSent.size > 5000) lastSent.clear();
 
@@ -56,7 +56,7 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
     console.error("Sign-in email failed", error instanceof Error ? error.name : "unknown error");
     return { step: "email", email, error: SEND_FAILED };
   }
-  return { step: "code", email };
+  return { step: "code", email, notice: "New code sent. Older codes no longer work." };
 }
 
 /** Step 2 (instead of clicking the link): verify the emailed code. */

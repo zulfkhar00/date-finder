@@ -4,8 +4,8 @@ import { Check } from "lucide-react";
 import { APPS, APP_LABELS, GENDERS, GOALS, GOAL_LABELS, INTERESTED_IN, type App, type StepName } from "@/lib/app/domain";
 import type { Draft } from "@/lib/app/draft";
 
-const GENDER_LABELS: Record<string, string> = { man: "Man", woman: "Woman", nonbinary: "Non-binary" };
-const INTEREST_LABELS: Record<string, string> = { men: "Men", women: "Women", nonbinary: "Non-binary people" };
+export const GENDER_LABELS: Record<string, string> = { man: "Man", woman: "Woman", nonbinary: "Non-binary" };
+export const INTEREST_LABELS: Record<string, string> = { men: "Men", women: "Women", nonbinary: "Non-binary people" };
 const APP_NOTES: Record<App, string> = { tinder: "Swipe-first", hinge: "Prompts and conversation", bumble: "Her move, or yours" };
 
 export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
