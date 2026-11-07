@@ -3,24 +3,48 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, 
 import { AppBadge, Avatar, Empty, ModePill, RowLink, StatusPill } from "@/components/app/ui";
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
-import type { ChatSummary } from "@/lib/app/data";
+import type { ChatSummary, SetupItem } from "@/lib/app/data";
 import { APP_LABELS, APPS, splitDates, type AppAccountRow, type DateRow } from "@/lib/app/domain";
 
 // Presentational screens. The real pages (server components, real data) and /demo (sample data) both render
 // these, so the two are the same pixels. `base` is "" for the app and "/demo" for the demo.
 
-export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, base = "" }: {
-  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; base?: string;
+/** Shown while there is nothing to read yet: says what is happening and what the user can do now. */
+export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps: SetupItem[]; compact?: boolean }) {
+  const names = APPS.filter((a) => apps.some((x) => x.app === a)).map((a) => APP_LABELS[a]).join(", ");
+  return (
+    <section className="app-card app-next" aria-label="What happens next">
+      {compact ? null : <h2 style={{ fontSize: 17, fontWeight: 800 }}>What happens next</h2>}
+      <ol className="app-steps">
+        <li><span aria-hidden>1</span><div><strong>We set up your profile</strong><p>{names ? `On ${names}, from your photos and answers.` : "On the apps you pick, from your photos and answers."}</p></div></li>
+        <li><span aria-hidden>2</span><div><strong>Matches and chats appear here</strong><p>NoSwipe chats as you. Read along any time, or take over.</p></div></li>
+        <li><span aria-hidden>3</span><div><strong>Dates land in Dates</strong><p>With the place and the time, plus an email if you have those on.</p></div></li>
+      </ol>
+      {gaps.length ? (
+        <div className="app-next-gaps">
+          <strong>Speed it up</strong>
+          <ul>{gaps.map((g) => <li key={g.label}><Link href={g.href} className="app-link">{g.label}<ChevronRight size={16} aria-hidden /></Link></li>)}</ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "" }: {
+  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string;
 }) {
+  const quiet = chats.length === 0 && upcoming.length === 0;
   const accounts = APPS.flatMap((app) => apps.filter((a) => a.app === app));
   return (
     <>
       <h1 className="app-h1">Hi {name || "there"}.</h1>
       <p className="app-sub">Here&rsquo;s your week.</p>
 
+      {quiet && !base ? <div style={{ marginTop: 18 }}><NextSteps apps={apps} gaps={gaps} /></div> : null}
+
       <h2 className="app-h2">Your apps</h2>
       {accounts.length === 0 ? (
-        <Empty title="No apps yet">Pick the apps you want us to run in your profile.</Empty>
+        <Empty title="No apps yet">Pick the apps you want us to run in your profile. <Link href={`${base}/profile`} className="app-link">Add an app</Link></Empty>
       ) : (
         <ul className="app-list">
           {accounts.map((a) => (
@@ -107,14 +131,17 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
   );
 }
 
-export function ChatsView({ chats, base = "" }: { chats: ChatSummary[]; base?: string }) {
+export function ChatsView({ chats, apps = [], gaps = [], base = "" }: { chats: ChatSummary[]; apps?: AppAccountRow[]; gaps?: SetupItem[]; base?: string }) {
   return (
     <>
       <h1 className="app-h1">Chats</h1>
       <p className="app-sub">Your conversations, as they happen. Open one to read along or take over.</p>
       <div style={{ marginTop: 18 }}>
         {chats.length === 0 ? (
-          <Empty title="No chats yet" icon={<MessageCircle size={24} />}>When you match with someone, the conversation shows up here. You can read along and jump in any time.</Empty>
+          <>
+            <Empty title="No chats yet" icon={<MessageCircle size={24} />}>When you match with someone, the conversation shows up here. You can read along and jump in any time.</Empty>
+            {base ? null : <div style={{ marginTop: 14 }}><NextSteps apps={apps} gaps={gaps} /></div>}
+          </>
         ) : (
           <ul className="app-list">
             {chats.map((c) => (
@@ -137,7 +164,7 @@ export function ChatsView({ chats, base = "" }: { chats: ChatSummary[]; base?: s
   );
 }
 
-export function DatesView({ dates, base = "" }: { dates: DateRow[]; base?: string }) {
+export function DatesView({ dates, apps = [], gaps = [], base = "" }: { dates: DateRow[]; apps?: AppAccountRow[]; gaps?: SetupItem[]; base?: string }) {
   const { upcoming, past } = splitDates(dates);
   const row = (d: DateRow) => (
     <li key={d.id}>
@@ -158,7 +185,10 @@ export function DatesView({ dates, base = "" }: { dates: DateRow[]; base?: strin
       <p className="app-sub">Who, where and when.</p>
       <div style={{ marginTop: 18 }}>
         {dates.length === 0 ? (
-          <Empty title="No dates booked yet" icon={<CalendarDays size={24} />}>When a date is booked, it shows up here with the place, the time and what you two talked about.</Empty>
+          <>
+            <Empty title="No dates booked yet" icon={<CalendarDays size={24} />}>When a date is booked, it shows up here with the place, the time and what you two talked about.</Empty>
+            {base ? null : <div style={{ marginTop: 14 }}><NextSteps apps={apps} gaps={gaps} /></div>}
+          </>
         ) : (
           <>
             {upcoming.length ? <ul className="app-list">{upcoming.map(row)}</ul> : <Empty title="Nothing coming up">Your past dates are below.</Empty>}

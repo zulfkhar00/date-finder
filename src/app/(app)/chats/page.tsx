@@ -1,10 +1,13 @@
 import { ChatsView } from "@/components/app/views";
-import { listChats } from "@/lib/app/data";
+import { getApps, getSetupGaps, listChats } from "@/lib/app/data";
 import { createAppClient, requireUser } from "@/lib/app/session";
 
 export const metadata = { title: "Chats" };
 
 export default async function ChatsPage() {
-  await requireUser();
-  return <ChatsView chats={await listChats(await createAppClient())} />;
+  const user = await requireUser();
+  const sb = await createAppClient();
+  const chats = await listChats(sb);
+  const [apps, gaps] = chats.length ? [[], []] : await Promise.all([getApps(sb), getSetupGaps(sb, user.id)]);
+  return <ChatsView chats={chats} apps={apps} gaps={gaps} />;
 }

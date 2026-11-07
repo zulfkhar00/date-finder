@@ -27,7 +27,7 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .app-pill i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
 .app-stats{display:grid;gap:10px}
 .app-stat{border-radius:var(--r-xl);padding:14px 18px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.app-stat strong{font-family:var(--font-display),sans-serif;font-weight:400;font-size:40px;line-height:1}
+.app-stat strong{font-family:var(--font-sans),sans-serif;font-weight:800;font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
 .app-stat span{font-weight:800;font-size:15px}
 .app-stat[data-c=coral]{background:var(--coral);color:#fff}.app-stat[data-c=lilac]{background:var(--lilac)}.app-stat[data-c=lime]{background:var(--lime)}
 .app-empty{border:2px dashed var(--line);border-radius:var(--r-xl);padding:26px 20px;text-align:center;color:var(--grape-2);background:rgba(255,255,255,.5)}
@@ -145,3 +145,13 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 /* A clear route out of the sample app and into the real signup flow. */
 .app-demo-banner{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 16px}
 .app-demo-start{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 18px;border-radius:var(--r-pill);background:var(--grape);color:var(--paper);font-size:14px;letter-spacing:0;text-transform:none}
+
+.app-next{margin-top:0}
+.app-steps{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:14px}
+.app-steps li{display:flex;gap:12px;align-items:flex-start}
+.app-steps li>span{flex:none;width:28px;height:28px;border-radius:50%;background:var(--lime);color:var(--grape);display:grid;place-items:center;font-weight:800;font-size:14px}
+.app-steps strong{display:block;font-size:16px}
+.app-steps p{margin:2px 0 0;color:var(--grape-2);font-size:15px;line-height:1.4}
+.app-next-gaps{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.app-next-gaps ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.app-next-gaps .app-link{display:inline-flex;align-items:center;gap:2px}
