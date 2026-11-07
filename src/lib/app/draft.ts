@@ -20,7 +20,7 @@ export function draftFrom(profile: ProfileRow | null, prefs: PrefRow | null, app
   };
 }
 
-const num = (v: string) => (v.trim() === "" ? NaN : Number(v));
+const num = (v: string) => (v.trim() === "" ? null : Number(v));
 const clean = (list: string[]) => list.map((s) => s.trim()).filter(Boolean);
 
 /** What the server action validates for each step. */

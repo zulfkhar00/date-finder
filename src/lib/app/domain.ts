@@ -104,23 +104,27 @@ export const GOAL_LABELS: Record<(typeof GOALS)[number], string> = {
 export const VOICES = ["warm", "playful", "direct"] as const;
 export const VOICE_LABELS: Record<(typeof VOICES)[number], string> = { warm: "Warm", playful: "Playful", direct: "Direct" };
 
+// Every answer is optional. Blank means "not given" and is stored as null or an empty list. The one rule that
+// stays is 18+: a birthday that is given must be 18 to 99 (the consent step also has an explicit 18+ box).
+const blank = z.literal("");
+const optInt = (min: number, max: number) => z.number().int().min(min).max(max).nullable();
 export const stepSchemas = {
-  name: z.object({ firstName: text(60).min(1, "Tell us your first name.") }),
-  birthday: z.object({ birthday: z.string().refine((v) => { const a = ageFromBirthday(v); return a !== null && a >= 18 && a <= 99; }, "You need to be 18 or older.") }),
-  who: z.object({ gender: z.enum(GENDERS), interestedIn: z.array(z.enum(INTERESTED_IN)).min(1, "Pick who you want to meet.").max(3) }),
+  name: z.object({ firstName: text(60) }),
+  birthday: z.object({ birthday: z.union([blank, z.string().refine((v) => { const a = ageFromBirthday(v); return a !== null && a >= 18 && a <= 99; }, "You need to be 18 or older.")]) }),
+  who: z.object({ gender: z.union([blank, z.enum(GENDERS)]), interestedIn: z.array(z.enum(INTERESTED_IN)).max(3) }),
   about: z.object({
-    job: text(120).min(1, "What do you do?"),
-    heightCm: z.number().int().min(120).max(250).nullable(),
-    interests: z.array(text(40).min(1)).length(3, "Add three interests.")
+    job: text(120),
+    heightCm: optInt(120, 250),
+    interests: z.array(text(40).min(1)).max(3)
   }),
   type: z.object({
-    city: text(120).min(2, "Where are you based?"),
-    ageMin: z.number().int().min(18).max(99), ageMax: z.number().int().min(18).max(99),
-    distanceKm: z.number().int().min(1).max(20000),
-    lookingFor: z.enum(GOALS),
-    dealbreakers: z.array(text(60).min(1)).length(3, "Add three dealbreakers.")
-  }).refine((v) => v.ageMin <= v.ageMax, { path: ["ageMax"], message: "Youngest age first." }),
-  apps: z.object({ apps: z.array(z.enum(APPS)).min(1, "Pick at least one app.").max(3).transform((a) => [...new Set(a)]) })
+    city: text(120),
+    ageMin: optInt(18, 99), ageMax: optInt(18, 99),
+    distanceKm: optInt(1, 20000),
+    lookingFor: z.union([blank, z.enum(GOALS)]),
+    dealbreakers: z.array(text(60).min(1)).max(3)
+  }).refine((v) => v.ageMin === null || v.ageMax === null || v.ageMin <= v.ageMax, { path: ["ageMax"], message: "Youngest age first." }),
+  apps: z.object({ apps: z.array(z.enum(APPS)).max(3).transform((a) => [...new Set(a)]) })
 };
 export type StepName = keyof typeof stepSchemas;
 

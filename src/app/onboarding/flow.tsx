@@ -8,7 +8,7 @@ import { PhotoManager } from "@/components/app/photo-manager";
 import { StepFields } from "@/components/app/step-fields";
 import { payloadFor, type Draft } from "@/lib/app/draft";
 import { advanceStep, giveConsent, saveStep } from "@/lib/app/actions";
-import { CONSENT_STATEMENT, PHOTO_MIN, type StepName } from "@/lib/app/domain";
+import { CONSENT_STATEMENT, type StepName } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
@@ -18,19 +18,19 @@ const EmbeddedPayment = dynamic(() => import("@/components/embedded-payment").th
 
 type StepDef = { key: StepName | "photos" | "consent" | "pay"; title: string; sub?: string };
 const STEPS: StepDef[] = [
-  { key: "name", title: "What's your first name?", sub: "This is how you'll show up on your profiles." },
-  { key: "birthday", title: "When's your birthday?", sub: "You must be 18 or older. Only your age is shown." },
-  { key: "who", title: "A bit about you", sub: "So we show you to the right people." },
-  { key: "photos", title: "Add your photos", sub: "3 to 6 real photos of you. Put your best one first." },
-  { key: "about", title: "What do you do?", sub: "Your profile bio comes from this." },
-  { key: "type", title: "What's your type?", sub: "Who you want to meet, and what's a no." },
-  { key: "apps", title: "Which apps?", sub: "We create and run your profile on each one you pick." },
+  { key: "name", title: "What's your first name?", sub: "Optional. This is how you'll show up on your profiles." },
+  { key: "birthday", title: "When's your birthday?", sub: "Optional. If you add it, you must be 18 or older. Only your age is shown." },
+  { key: "who", title: "A bit about you", sub: "Optional. So we show you to the right people." },
+  { key: "photos", title: "Add your photos", sub: "Optional, but profiles do better with 3 to 6 real photos of you. Best one first." },
+  { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this." },
+  { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no." },
+  { key: "apps", title: "Which apps?", sub: "Optional. We create and run your profile on each one you pick." },
   { key: "consent", title: "One last thing", sub: "Please read this before we start." },
   { key: "pay", title: "Reserve early access" }
 ];
 const LAST_FORM = 7;
 
-const toAge = (iso: string) => { const y = Number(iso.slice(0, 4)); return Number.isFinite(y) ? new Date().getFullYear() - y : 30; };
+const toAge = (iso: string) => { if (!iso) return 30; const y = Number(iso.slice(0, 4)); return Number.isFinite(y) ? new Date().getFullYear() - y : 30; };
 
 export function OnboardingFlow({ email, draft: initial, photos: initialPhotos, startStep, paid }: { email: string; draft: Draft; photos: Photo[]; startStep: number; paid: boolean }) {
   const router = useRouter();
@@ -60,11 +60,10 @@ export function OnboardingFlow({ email, draft: initial, photos: initialPhotos, s
     setBusy(true); setError("");
     try {
       if (def.key === "photos") {
-        if (photoCount < PHOTO_MIN) { setError(`Add at least ${PHOTO_MIN} photos.`); return; }
         const r = await advanceStep(step + 1);
         if (!r.ok) { setError(r.error); return; }
       } else if (def.key === "consent") {
-        const r = await giveConsent();
+        const r = await giveConsent(agreed);
         if (!r.ok) { setError(r.error); return; }
         trackEvent("onboarding_complete", { oncePerSession: true });
         if (paid) { router.replace("/home"); return; }
@@ -104,13 +103,18 @@ export function OnboardingFlow({ email, draft: initial, photos: initialPhotos, s
   }
 
   const canBack = step > 0 && step <= LAST_FORM && !busy;
-  const canContinue =
-    def.key === "name" ? d.firstName.trim().length > 0 :
-    def.key === "birthday" ? d.birthday !== "" :
-    def.key === "who" ? Boolean(d.gender) && d.interestedIn.length > 0 :
-    def.key === "photos" ? photoCount >= PHOTO_MIN :
-    def.key === "apps" ? d.apps.length > 0 :
-    def.key === "consent" ? agreed : true;
+  // Only the consent box is required. Every other step can be skipped.
+  const canContinue = def.key === "consent" ? agreed : true;
+  const isBlank =
+    def.key === "name" ? d.firstName.trim() === "" :
+    def.key === "birthday" ? d.birthday === "" :
+    def.key === "who" ? !d.gender && d.interestedIn.length === 0 :
+    def.key === "photos" ? photoCount === 0 :
+    def.key === "about" ? !d.job.trim() && !d.heightCm && d.interests.every((x) => !x.trim()) :
+    def.key === "type" ? !d.city.trim() && !d.ageMin && !d.ageMax && !d.lookingFor && d.dealbreakers.every((x) => !x.trim()) :
+    def.key === "apps" ? d.apps.length === 0 : false;
+  // Early access (the $1 step, unchanged) still needs these to open checkout.
+  const checkoutReady = d.firstName.trim() !== "" && d.city.trim().length >= 2 && d.birthday !== "" && d.apps.length > 0;
 
   if (payment) return (
     <div className="ob"><div className="ob-body"><div className="panel reserve-form"><EmbeddedPayment payment={payment} onBack={() => setPayment(null)} completeHref="/home" /></div></div></div>
@@ -130,12 +134,12 @@ export function OnboardingFlow({ email, draft: initial, photos: initialPhotos, s
            def.key === "consent" ? (
             <>
               <div className="ob-consent"><ShieldCheck size={26} aria-hidden style={{ marginBottom: 8 }} /><p>{CONSENT_STATEMENT}</p></div>
-              <label className="ob-check"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I understand and agree. I&rsquo;m 18 or older, and the photos are of me.</span></label>
+              <label className="ob-check"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I understand and agree. I&rsquo;m 18 or older, and any photos I add are of me.</span></label>
               <p className="app-fine">See the <a href="/terms" target="_blank" rel="noreferrer">terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">privacy note</a>. You can delete everything from your profile any time.</p>
             </>
            ) : def.key === "pay" ? (
             <>
-              <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">Early access is a one-time, refundable $1.00 payment. You see the exact price and what it covers on the next screen, before you pay anything.</p></div>
+              <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">Early access is a one-time, refundable $1.00 payment. You see the exact price and what it covers on the next screen, before you pay anything.</p>{checkoutReady ? null : <p className="app-fine" style={{ marginTop: 8 }}>Early access needs your name, birthday, city and at least one app. Add them in Profile, or skip it.</p>}</div>
             </>
            ) : <StepFields step={def.key} d={d} set={set} />}
         </div>
@@ -143,12 +147,12 @@ export function OnboardingFlow({ email, draft: initial, photos: initialPhotos, s
         <div className="ob-foot" style={{ marginTop: 26 }}>
           {def.key === "pay" ? (
             <>
-              <button type="submit" className="app-btn" disabled={busy} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Opening checkout…</> : <><Lock size={18} aria-hidden /> Continue to checkout</>}</button>
+              <button type="submit" className="app-btn" disabled={busy || !checkoutReady} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Opening checkout…</> : <><Lock size={18} aria-hidden /> Continue to checkout</>}</button>
               <button type="button" className="app-link" onClick={() => router.replace("/home")} disabled={busy}>Not now, take me to my home</button>
             </>
           ) : (
             <button type="submit" className="app-btn" disabled={busy || !canContinue} aria-busy={busy}>
-              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : def.key === "consent" ? "Create my profiles" : "Continue"}
+              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : def.key === "consent" ? "Create my profiles" : isBlank ? "Skip for now" : "Continue"}
             </button>
           )}
         </div>

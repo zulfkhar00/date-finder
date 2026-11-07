@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addSystemEvent } from "@/lib/automation/core";
-import { CONSENT_STATEMENT, CONSENT_VERSION, APPS, PHOTO_MIN, SEND_REFUSALS, VOICES, canUserSend, chatMode, stepSchemas, type StepName } from "@/lib/app/domain";
+import { CONSENT_STATEMENT, CONSENT_VERSION, APPS, SEND_REFUSALS, VOICES, canUserSend, chatMode, stepSchemas, type StepName } from "@/lib/app/domain";
 import { createAppClient, userOrNull } from "@/lib/app/session";
 import { ensureProfile } from "@/lib/app/actions-core";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -32,13 +32,13 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
   const v = parsed.data as never as Record<string, unknown>;
   const now = new Date().toISOString();
   let error: unknown = null;
-  if (step === "name") ({ error } = await sb.from("profiles").update({ first_name: v.firstName, updated_at: now }).eq("user_id", user.id));
-  if (step === "birthday") ({ error } = await sb.from("profiles").update({ birthday: v.birthday, updated_at: now }).eq("user_id", user.id));
-  if (step === "who") ({ error } = await sb.from("profiles").update({ gender: v.gender, interested_in: v.interestedIn, updated_at: now }).eq("user_id", user.id));
-  if (step === "about") ({ error } = await sb.from("profiles").update({ job: v.job, height_cm: v.heightCm, interests: v.interests, updated_at: now }).eq("user_id", user.id));
+  if (step === "name") ({ error } = await sb.from("profiles").update({ first_name: v.firstName || null, updated_at: now }).eq("user_id", user.id));
+  if (step === "birthday") ({ error } = await sb.from("profiles").update({ birthday: v.birthday || null, updated_at: now }).eq("user_id", user.id));
+  if (step === "who") ({ error } = await sb.from("profiles").update({ gender: v.gender || null, interested_in: v.interestedIn, updated_at: now }).eq("user_id", user.id));
+  if (step === "about") ({ error } = await sb.from("profiles").update({ job: v.job || null, height_cm: v.heightCm, interests: v.interests, updated_at: now }).eq("user_id", user.id));
   if (step === "type") {
-    const r1 = await sb.from("profiles").update({ city: v.city, updated_at: now }).eq("user_id", user.id);
-    const r2 = await sb.from("preferences").upsert({ user_id: user.id, age_min: v.ageMin, age_max: v.ageMax, distance_km: v.distanceKm, looking_for: v.lookingFor, dealbreakers: v.dealbreakers, updated_at: now }, { onConflict: "user_id" });
+    const r1 = await sb.from("profiles").update({ city: v.city || null, updated_at: now }).eq("user_id", user.id);
+    const r2 = await sb.from("preferences").upsert({ user_id: user.id, age_min: v.ageMin, age_max: v.ageMax, distance_km: v.distanceKm, looking_for: v.lookingFor || null, dealbreakers: v.dealbreakers, updated_at: now }, { onConflict: "user_id" });
     error = r1.error ?? r2.error;
   }
   if (step === "apps") {
@@ -65,16 +65,12 @@ export async function advanceStep(stepIndex: number): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function giveConsent(): Promise<ActionResult> {
+/** The 18+ gate: the explicit confirmation is required (birthday is optional), and the server checks it. */
+export async function giveConsent(confirmAdult: boolean): Promise<ActionResult> {
   const c = await ctx();
   if (!c) return UNAUTH;
+  if (confirmAdult !== true) return { ok: false, error: "Please confirm you are 18 or older." };
   const { sb, user } = c;
-  const [{ count: photos }, { data: profile }, { count: apps }] = await Promise.all([
-    sb.from("profile_photos").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    sb.from("profiles").select("first_name, birthday").eq("user_id", user.id).maybeSingle(),
-    sb.from("app_accounts").select("id", { count: "exact", head: true }).eq("user_id", user.id)
-  ]);
-  if (!profile?.first_name || !profile.birthday || (photos ?? 0) < PHOTO_MIN || !apps) return { ok: false, error: "Finish the earlier steps first." };
   const { error } = await sb.from("consents").insert({ user_id: user.id, version: CONSENT_VERSION, statement: CONSENT_STATEMENT });
   if (error) return DB_ERR;
   await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
