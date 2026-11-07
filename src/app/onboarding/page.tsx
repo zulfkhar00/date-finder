@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { draftFrom } from "@/lib/app/draft";
 import { ensureProfile } from "@/lib/app/actions-core";
 import { getApps, getPhotos, getPrefs, getProfile } from "@/lib/app/data";
-import { createAppClient, requireUser } from "@/lib/app/session";
+import { createAppClient, getAppUser } from "@/lib/app/session";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { OnboardingFlow } from "./flow";
 
@@ -11,7 +11,9 @@ export const metadata: Metadata = { title: "Set up your profile", robots: { inde
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
-  const user = await requireUser();
+  const user = await getAppUser();
+  // Not signed in yet: the first questions run without an account, and the email code comes after them.
+  if (!user) return <OnboardingFlow key="guest" guest email="" draft={draftFrom(null, null, [])} photos={[]} startStep={0} paid={false} />;
   const admin = getSupabaseAdmin();
   await ensureProfile(admin, user.id, user.email);
   const sb = await createAppClient();
@@ -26,6 +28,8 @@ export default async function OnboardingPage() {
   if (done && paid) redirect("/home");
   return (
     <OnboardingFlow
+      key="member"
+      guest={false}
       email={user.email ?? ""}
       draft={draftFrom(profile, prefs, apps.map((a) => a.app))}
       photos={photos}
