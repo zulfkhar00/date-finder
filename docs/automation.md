@@ -39,7 +39,7 @@ App accounts to act on. `status` is optional (`setting_up | live | paused`).
 ```
 
 ### `GET /clients/{userId}`
-Everything needed to build the profile.
+Everything needed to build the profile. Every profile and preference field is optional for the user, so any of them can be `null` (or an empty list) and the worker must handle that; only the sign-in email and the consent (which includes the explicit 18+ confirmation) are guaranteed.
 ```json
 {"ok":true,"client":{"id":"…",
   "profile":{"first_name":"Alex","birthday":"1996-05-14","gender":"man","interested_in":["women"],"city":"Austin","job":"Product designer","height_cm":180,"interests":["Hiking","Cooking","Live music"],"voice":"warm","onboarding_done_at":"…","internal":false},

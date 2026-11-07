@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ImagePlus, Trash2 } from "lucide-react";
 import { removePhoto, reorderPhotos } from "@/lib/app/actions";
-import { PHOTO_MAX, PHOTO_MIN } from "@/lib/app/domain";
+import { PHOTO_MAX } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 
 /** Shrinks a photo in the browser (max 1600 px, JPEG) so uploads stay small and fast. */
@@ -108,7 +108,7 @@ export function PhotoManager({ initial, onChange, api = realPhotoApi }: { initia
         ) : null}
       </div>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(e) => void add(e.target.files)} aria-label="Choose photos" />
-      <p className="app-fine">{photos.length} of {PHOTO_MAX} · at least {PHOTO_MIN}. Your first photo is your main one. Real photos of you only.</p>
+      <p className="app-fine">{photos.length} of {PHOTO_MAX} · 3 or more works best. Your first photo is your main one. Real photos of you only.</p>
       {error ? <p className="app-error" role="alert">{error}</p> : null}
     </div>
   );
