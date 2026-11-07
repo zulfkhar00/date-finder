@@ -56,6 +56,28 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
   return { ok: true };
 }
 
+/**
+ * Onboarding lets a visitor answer the first questions before signing in. Right after the email code
+ * those answers are saved here, once, and only onto a brand-new profile: an existing account's
+ * answers are never overwritten.
+ */
+export async function adoptGuestAnswers(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }): Promise<ActionResult> {
+  const c = await ctx();
+  if (!c) return UNAUTH;
+  const { sb, user } = c;
+  const { data: row } = await sb.from("profiles").select("first_name, birthday, gender, onboarding_step, onboarding_done_at").eq("user_id", user.id).maybeSingle();
+  if (!row || row.onboarding_done_at || row.first_name || row.birthday || row.gender || (row.onboarding_step ?? 0) > 0) return { ok: true };
+  const name = stepSchemas.name.safeParse({ firstName: input.firstName });
+  const birthday = stepSchemas.birthday.safeParse({ birthday: input.birthday });
+  const who = stepSchemas.who.safeParse({ gender: input.gender, interestedIn: input.interestedIn });
+  const patch: Record<string, unknown> = { onboarding_step: 3, updated_at: new Date().toISOString() };
+  if (name.success && name.data.firstName) patch.first_name = name.data.firstName;
+  if (birthday.success && birthday.data.birthday) patch.birthday = birthday.data.birthday;
+  if (who.success) { if (who.data.gender) patch.gender = who.data.gender; patch.interested_in = who.data.interestedIn; }
+  const { error } = await sb.from("profiles").update(patch).eq("user_id", user.id);
+  return error ? DB_ERR : { ok: true };
+}
+
 /** Remembers how far through onboarding the user is (steps without their own save, like photos). */
 export async function advanceStep(stepIndex: number): Promise<ActionResult> {
   const c = await ctx();

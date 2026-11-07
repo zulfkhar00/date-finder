@@ -8,7 +8,7 @@ import { createAppClient } from "@/lib/app/session";
 import { canSendEmail, sendAppEmail } from "@/lib/email";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-export type LoginState = { step: "email" | "code"; email?: string; error?: string; notice?: string };
+export type LoginState = { step: "email" | "code" | "done"; email?: string; error?: string; notice?: string };
 
 const emailSchema = z.email().max(254).transform((v) => v.trim().toLowerCase());
 const codeSchema = z.string().trim().regex(/^\d{6,10}$/);
@@ -59,8 +59,7 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
   return { step: "code", email, notice: "New code sent. Older codes no longer work." };
 }
 
-/** Step 2 (instead of clicking the link): verify the emailed code. */
-export async function verifyCode(prev: LoginState, formData: FormData): Promise<LoginState> {
+async function checkCode(formData: FormData): Promise<LoginState> {
   const email = emailSchema.safeParse(formData.get("email"));
   const code = codeSchema.safeParse(formData.get("code"));
   if (!email.success) return { step: "email", error: "Enter a valid email address." };
@@ -76,5 +75,17 @@ export async function verifyCode(prev: LoginState, formData: FormData): Promise<
     console.error("Code verification failed", error instanceof Error ? error.name : "unknown error");
     return { step: "code", email: email.data, error: "That code is invalid or has expired." };
   }
-  redirect("/home");
+  return { step: "done", email: email.data };
+}
+
+/** Step 2 (instead of clicking the link): verify the emailed code. */
+export async function verifyCode(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const result = await checkCode(formData);
+  if (result.step === "done") redirect("/home");
+  return result;
+}
+
+/** Same check, but stays on the page: the onboarding flow signs the visitor in mid-way and keeps going. */
+export async function verifyCodeInline(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  return checkCode(formData);
 }
