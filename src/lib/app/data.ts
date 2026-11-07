@@ -97,3 +97,19 @@ export async function getHome(sb: SupabaseClient) {
     needsYou: chats.filter((c) => c.needs_user && c.mode === "ai")
   };
 }
+
+export type SetupItem = { label: string; href: string };
+
+/** What a user skipped in onboarding that helps most. Links go to the matching Profile card. */
+export async function getSetupGaps(sb: SupabaseClient, userId: string): Promise<SetupItem[]> {
+  const [profile, prefs, apps, { count: photos }] = await Promise.all([
+    getProfile(sb, userId), getPrefs(sb, userId), getApps(sb),
+    sb.from("profile_photos").select("id", { count: "exact", head: true })
+  ]);
+  const gaps: SetupItem[] = [];
+  if ((photos ?? 0) < 3) gaps.push({ label: (photos ?? 0) === 0 ? "Add your photos" : "Add a few more photos", href: "/profile" });
+  if (!apps.length) gaps.push({ label: "Pick the apps to run", href: "/profile" });
+  if (!profile?.first_name) gaps.push({ label: "Add your first name", href: "/profile" });
+  if (!profile?.city || !prefs?.age_min) gaps.push({ label: "Tell us your type", href: "/profile" });
+  return gaps;
+}
