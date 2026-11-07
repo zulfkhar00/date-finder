@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Pencil } from "lucide-react";
 import { AppBadge, StatusPill } from "@/components/app/ui";
 import { PhotoManager, realPhotoApi, type PhotoApi } from "@/components/app/photo-manager";
-import { StepFields } from "@/components/app/step-fields";
+import { GENDER_LABELS, INTEREST_LABELS, StepFields } from "@/components/app/step-fields";
 import { payloadFor, type Draft } from "@/lib/app/draft";
 import { deleteAccount, saveSettings, saveStep, setAppPaused, signOutUser } from "@/lib/app/actions";
 import { APP_LABELS, GOAL_LABELS, VOICES, VOICE_LABELS, effectiveStatus, type AppAccountRow, type StepName } from "@/lib/app/domain";
@@ -22,7 +22,7 @@ export type ProfileApi = {
 };
 export const realProfileApi: ProfileApi = { saveStep, setAppPaused, saveSettings, deleteAccount, signOut: signOutUser, photos: realPhotoApi };
 
-function EditCard({ title, step, draft, summary, api }: { title: string; step: StepName; draft: Draft; summary: React.ReactNode; api: ProfileApi }) {
+function EditCard({ title, steps, draft, summary, api, note }: { title: string; steps: StepName[]; draft: Draft; summary: React.ReactNode; api: ProfileApi; note?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [d, setD] = useState(draft);
@@ -30,9 +30,11 @@ function EditCard({ title, step, draft, summary, api }: { title: string; step: S
   const [error, setError] = useState("");
   async function save() {
     setBusy(true); setError("");
-    const r = await api.saveStep(step, payloadFor(step, d));
+    for (const step of steps) {
+      const r = await api.saveStep(step, payloadFor(step, d));
+      if (!r.ok) { setBusy(false); setError(r.error); return; }
+    }
     setBusy(false);
-    if (!r.ok) { setError(r.error); return; }
     setOpen(false); router.refresh();
   }
   return (
@@ -43,7 +45,8 @@ function EditCard({ title, step, draft, summary, api }: { title: string; step: S
       </div>
       {open ? (
         <div style={{ marginTop: 14 }}>
-          <StepFields step={step} d={d} set={(p) => setD((x) => ({ ...x, ...p }))} compact />
+          <div style={{ display: "grid", gap: 18 }}>{steps.map((step) => <StepFields key={step} step={step} d={d} set={(p) => setD((x) => ({ ...x, ...p }))} compact />)}</div>
+          {note ? <p className="app-fine" style={{ marginTop: 10 }}>{note}</p> : null}
           {error ? <p className="app-error" role="alert" style={{ marginTop: 10 }}>{error}</p> : null}
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
             <button type="button" className="app-btn small" onClick={save} disabled={busy} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : "Save"}</button>
@@ -117,11 +120,16 @@ export function ProfileClient({ email, age, draft, photos, apps, voice, notifyEm
           <PhotoManager initial={photos} api={api.photos} />
         </section>
 
-        <EditCard api={api} title="About you" step="about" draft={draft} summary={
+        <EditCard api={api} title="Basics" steps={["name", "birthday", "who"]} draft={draft} summary={
+          <dl className="app-kv"><dt>Name</dt><dd>{draft.firstName || "—"}</dd><dt>Birthday</dt><dd>{draft.birthday || "—"}</dd><dt>I am</dt><dd>{GENDER_LABELS[draft.gender] ?? "—"}</dd><dt>Meeting</dt><dd>{draft.interestedIn.map((g) => INTEREST_LABELS[g] ?? g).join(", ") || "—"}</dd></dl>} />
+        <EditCard api={api} title="About you" steps={["about"]} draft={draft} summary={
           <dl className="app-kv"><dt>Job</dt><dd>{draft.job || "—"}</dd><dt>Height</dt><dd>{draft.heightCm ? `${draft.heightCm} cm` : "—"}</dd><dt>Interests</dt><dd>{draft.interests.filter(Boolean).join(", ") || "—"}</dd></dl>} />
-        <EditCard api={api} title="Your type" step="type" draft={draft} summary={
+        <EditCard api={api} title="Your type" steps={["type"]} draft={draft} summary={
           <dl className="app-kv"><dt>City</dt><dd>{draft.city || "—"}</dd><dt>Ages</dt><dd>{draft.ageMin && draft.ageMax ? `${draft.ageMin}–${draft.ageMax}` : "—"}</dd><dt>Distance</dt><dd>{draft.distanceKm ? `${draft.distanceKm} km` : "—"}</dd>
             <dt>Looking for</dt><dd>{GOAL_LABELS[draft.lookingFor as keyof typeof GOAL_LABELS] ?? "—"}</dd><dt>Dealbreakers</dt><dd>{draft.dealbreakers.filter(Boolean).join(", ") || "—"}</dd></dl>} />
+
+        <EditCard api={api} title="Add an app" steps={["apps"]} draft={draft} note="New apps start in setting up. Apps already running stay on; use the switch below to pause one." summary={
+          <p className="app-fine" style={{ margin: 0 }}>{draft.apps.length ? `On ${draft.apps.map((a) => APP_LABELS[a]).join(", ")}. Want Hinge, Bumble or Tinder too? Add it here.` : "Pick the apps you want us to run."}</p>} />
 
         <section aria-label="Connected apps">
           <h2 className="app-h2" style={{ marginTop: 10 }}>Connected apps</h2>
