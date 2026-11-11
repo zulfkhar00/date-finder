@@ -44,6 +44,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const [photoCount, setPhotoCount] = useState(initialPhotos.length);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const opening = useRef(false);
   const [error, setError] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -121,7 +122,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   }
 
   async function openCheckout() {
-    if (busy) return;
+    if (opening.current) return;
+    opening.current = true;
     setBusy(true); setError("");
     const pref = d.interestedIn.length === 1 && d.interestedIn[0] !== "nonbinary" ? d.interestedIn[0] : "all_genders";
     try {
@@ -130,7 +132,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         body: JSON.stringify({
           checkoutMode: "embedded", ageConfirmed: true, termsAccepted: true, email, city: d.city.trim(),
           datingPreference: pref, relationshipGoal: d.lookingFor || "meaningful", dateFrequency: "twice_monthly",
-          onboarding: { name: d.firstName.trim(), age: Math.min(99, Math.max(18, toAge(d.birthday))), apps: d.apps, ageMin: Number(d.ageMin) || 18, ageMax: Number(d.ageMax) || 99, interests: d.interests.filter(Boolean).join(", ").slice(0, 300) },
+          onboarding: { name: d.firstName.trim(), age: d.birthday ? Math.min(99, Math.max(18, toAge(d.birthday))) : undefined, apps: d.apps, ageMin: Number(d.ageMin) || 18, ageMax: Number(d.ageMax) || 99, interests: d.interests.filter(Boolean).join(", ").slice(0, 300) },
           attribution: captureAttribution(), funnelSessionId: getFunnelSessionId()
         })
       });
@@ -141,6 +143,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout could not open. Please try again.");
     } finally {
+      opening.current = false;
       setBusy(false);
     }
   }
@@ -154,11 +157,9 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     def.key === "about" ? !d.job.trim() && !d.heightCm && d.interests.every((x) => !x.trim()) :
     def.key === "type" ? !d.city.trim() && !d.ageMin && !d.ageMax && !d.lookingFor && d.dealbreakers.every((x) => !x.trim()) :
     def.key === "apps" ? d.apps.length === 0 : false;
-  // Early access (the $1 step, unchanged) still needs these to open checkout.
-  const checkoutReady = d.firstName.trim() !== "" && d.city.trim().length >= 2 && d.birthday !== "" && d.apps.length > 0;
 
   if (payment) return (
-    <div className="ob"><div className="ob-body"><div className="panel reserve-form"><EmbeddedPayment payment={payment} onBack={() => setPayment(null)} completeHref="/home" /></div></div></div>
+    <div className="ob"><div className="ob-body"><div className="panel reserve-form"><EmbeddedPayment payment={payment} onBack={() => setPayment(null)} /></div></div></div>
   );
 
   const accountStep = guest && step === GUEST_ACCOUNT_STEP;
@@ -188,7 +189,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
             </>
            ) : def.key === "pay" ? (
             <>
-              <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">Early access is a one-time, refundable $1.00 payment. You see the exact price and what it covers on the next screen, before you pay anything.</p>{checkoutReady ? null : <p className="app-fine" style={{ marginTop: 8 }}>Early access needs your name, birthday, city and at least one app. Add them in Profile, or skip it.</p>}</div>
+              <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">Early access is a one-time, refundable $1.00 payment. You see the exact price and what it covers on the next screen, before you pay anything.</p></div>
             </>
            ) : def.key === "basics" ? (
             <div style={{ display: "grid", gap: 22 }}>
@@ -202,7 +203,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         <div className="ob-foot" style={{ marginTop: 26 }}>
           {def.key === "pay" ? (
             <>
-              <button type="submit" className="app-btn" disabled={busy || !checkoutReady} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Opening checkout…</> : <><Lock size={18} aria-hidden /> Continue to checkout</>}</button>
+              <button type="submit" className="app-btn" disabled={busy} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Opening checkout…</> : <><Lock size={18} aria-hidden /> Continue to checkout</>}</button>
               <button type="button" className="app-link" onClick={() => router.replace("/home")} disabled={busy}>Not now, take me to my home</button>
             </>
           ) : (
