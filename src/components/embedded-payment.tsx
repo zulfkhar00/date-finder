@@ -17,7 +17,7 @@ function stripeClient(key: string) {
   return client;
 }
 
-export function EmbeddedPayment({ payment, onBack, completeHref }: { payment: Payment; onBack: () => void; completeHref?: string }) {
+export function EmbeddedPayment({ payment, onBack, completeHref, onComplete, neutral }: { payment: Payment; onBack: () => void; completeHref?: string; onComplete?: () => void; neutral?: boolean }) {
   const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
@@ -34,7 +34,9 @@ export function EmbeddedPayment({ payment, onBack, completeHref }: { payment: Pa
         checkout = await stripe.createEmbeddedCheckoutPage({
           clientSecret: payment.clientSecret,
           onComplete: () => {
-            if (!cancelled) router.replace(completeHref ?? `/confirmation?session_id=${encodeURIComponent(payment.sessionId)}`);
+            if (cancelled) return;
+            if (onComplete) { onComplete(); return; }
+            router.replace(completeHref ?? `/confirmation?session_id=${encodeURIComponent(payment.sessionId)}`);
           },
           onAnalyticsEvent: (event) => {
             if (cancelled) return;
@@ -51,12 +53,17 @@ export function EmbeddedPayment({ payment, onBack, completeHref }: { payment: Pa
     }
     void mount();
     return () => { cancelled = true; checkout?.destroy(); };
-  }, [payment, attempt, router, completeHref]);
+  }, [payment, attempt, router, completeHref, onComplete]);
 
   return <section className="embedded-payment" aria-labelledby="payment-heading">
-    <h2 id="payment-heading">Reserve your spot.</h2>
-    <p className="payment-note"><Lock size={16} aria-hidden="true" /> Secure payment · $1.00 once</p>
-    <p className="review-details">Refundable early-access waitlist fee. Payment reserves a spot; it does not start a service.</p>
+    {neutral ? <>
+      <h2 id="payment-heading">Activate NoSwipe</h2>
+      <p className="payment-note"><Lock size={16} aria-hidden="true" /> Secure payment by Stripe</p>
+    </> : <>
+      <h2 id="payment-heading">Reserve your spot.</h2>
+      <p className="payment-note"><Lock size={16} aria-hidden="true" /> Secure payment · $1.00 once</p>
+      <p className="review-details">Refundable early-access waitlist fee. Payment reserves a spot; it does not start a service.</p>
+    </>}
     {state === "loading" && <p role="status" className="payment-loading"><span className="spinner" aria-hidden="true" /> Loading secure payment…</p>}
     <div ref={container} className="payment-frame" />
     {state === "error" && <div className="form-error" role="alert">
@@ -64,8 +71,8 @@ export function EmbeddedPayment({ payment, onBack, completeHref }: { payment: Pa
       <button type="button" className="form-back" onClick={() => { setState("loading"); setAttempt((value) => value + 1); }}>Retry payment</button>
     </div>}
     <div className="form-actions">
-      <button type="button" className="form-back" disabled={state === "loading" || state === "paying"} onClick={onBack}>Back to your answers</button>
-      <Link className="form-back" href={`/confirmation?session_id=${encodeURIComponent(payment.sessionId)}`}>Check payment status</Link>
+      <button type="button" className="form-back" disabled={state === "loading" || state === "paying"} onClick={onBack}>{neutral ? "Not now" : "Back to your answers"}</button>
+      {neutral ? null : <Link className="form-back" href={`/confirmation?session_id=${encodeURIComponent(payment.sessionId)}`}>Check payment status</Link>}
     </div>
   </section>;
 }

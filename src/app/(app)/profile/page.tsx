@@ -1,3 +1,4 @@
+import { ResumeSlot } from "@/components/app/resume-slot";
 import { getApps, getPhotos, getPrefs, getProfile } from "@/lib/app/data";
 import { APPS, ageFromBirthday } from "@/lib/app/domain";
 import { createAppClient, requireUser } from "@/lib/app/session";
@@ -12,6 +13,8 @@ export default async function ProfilePage() {
   const [profile, prefs, apps, photos] = await Promise.all([getProfile(sb, user.id), getPrefs(sb, user.id), getApps(sb), getPhotos(sb)]);
   const ordered = APPS.flatMap((a) => apps.filter((x) => x.app === a));
   return (
+    <>
+    <ResumeSlot />
     <ProfileClient
       email={user.email ?? ""}
       age={profile?.birthday ? ageFromBirthday(profile.birthday) : null}
@@ -21,5 +24,6 @@ export default async function ProfilePage() {
       voice={profile?.voice ?? "warm"}
       notifyEmail={profile?.notify_email ?? true}
     />
+    </>
   );
 }
