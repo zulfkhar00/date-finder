@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const reservationSchema = z.object({
   ageConfirmed: z.literal(true),
-  city: z.string().trim().min(2).max(120),
+  // City is optional in the app flow; the column needs 2+ characters, so a blank one is stored as "Not given".
+  city: z.string().trim().max(120).transform((value) => (value.length >= 2 ? value : "Not given")),
   email: z.email().max(254).transform((value) => value.trim().toLowerCase()),
   datingPreference: z.enum(["women", "men", "all_genders", "discuss"]),
   relationshipGoal: z.enum(["committed", "meaningful", "exploring"]),
@@ -30,9 +31,9 @@ export type DatingApp = (typeof DATING_APPS)[number];
 export const datingAppLabels: Record<DatingApp, string> = { tinder: "Tinder", bumble: "Bumble", hinge: "Hinge" };
 
 export const onboardingSchema = z.object({
-  name: z.string().trim().min(1).max(60),
-  age: z.number().int().min(18).max(99),
-  apps: z.array(z.enum(DATING_APPS)).min(1).max(3).transform((apps) => [...new Set(apps)]),
+  name: z.string().trim().max(60),
+  age: z.number().int().min(18).max(99).optional(),
+  apps: z.array(z.enum(DATING_APPS)).max(3).transform((apps) => [...new Set(apps)]),
   ageMin: z.number().int().min(18).max(99),
   ageMax: z.number().int().min(18).max(99),
   interests: z.string().trim().max(300),

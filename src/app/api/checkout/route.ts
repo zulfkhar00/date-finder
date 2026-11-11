@@ -5,6 +5,7 @@ import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { reuseOpenCheckout } from "@/lib/checkout-reuse";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
 export const runtime = "nodejs";
@@ -47,6 +48,21 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
+
+  // Back-button, double-tap or a return visit: hand back the same open session instead of a second reservation.
+  const reuse = await reuseOpenCheckout({
+    findPending: async (email, since) => {
+      const { data, error } = await supabase.from("reservations").select("id, stripe_checkout_session_id, created_at").eq("email", email).eq("status", "pending").not("stripe_checkout_session_id", "is", null).gte("created_at", since).order("created_at", { ascending: false }).limit(5);
+      if (error) throw error;
+      return data ?? [];
+    },
+    retrieve: (sessionId) => stripe.checkout.sessions.retrieve(sessionId),
+    markExpired: async (id) => { await supabase.from("reservations").update({ status: "expired" }).eq("id", id).eq("status", "pending"); },
+    respond: (session) => checkoutResponse(session, presentation)
+  }, input.email);
+  if (reuse.kind === "reuse") return NextResponse.json(reuse.response, { headers: { "Cache-Control": "no-store" } });
+  if (reuse.kind === "paid") return NextResponse.json({ error: "Your payment already went through. Refresh the page to see it." }, { status: 409 });
+
   const baseRow = {
     email: input.email,
     city: input.city,
@@ -119,10 +135,10 @@ export async function POST(request: Request) {
 
 // Signup alert for the founders' group: first name, city, apps, age range, full email.
 function signupText(city: string, email: string, onboarding: Onboarding | null): string {
-  const lines = [`📝 New signup: ${onboarding?.name.split(/\s+/)[0] ?? "(no name)"}, ${city}`];
+  const lines = [`📝 New signup: ${(onboarding?.name.split(/\s+/)[0] || "(no name)")}, ${city}`];
   if (onboarding) {
-    lines.push(`Apps: ${onboarding.apps.map((app) => datingAppLabels[app]).join(", ")}`);
-    lines.push(`Age ${onboarding.age}, looking for ${onboarding.ageMin}–${onboarding.ageMax}`);
+    lines.push(`Apps: ${onboarding.apps.map((app) => datingAppLabels[app]).join(", ") || "none yet"}`);
+    lines.push(`Age ${onboarding.age ?? "not given"}, looking for ${onboarding.ageMin}–${onboarding.ageMax}`);
   }
   lines.push(email);
   return lines.join("\n");
