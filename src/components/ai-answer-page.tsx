@@ -13,7 +13,7 @@ export function aiPageMetadata(page: AiPage) {
     title: page.metaTitle,
     description: page.description,
     alternates: { canonical: page.path },
-    openGraph: { images: ogImages, type: "article" as const, siteName: "NoSwipe", title: page.metaTitle, description: page.description, url: page.path, publishedTime: page.publishedIso, authors: ["NoSwipe"] },
+    openGraph: { images: ogImages, type: "article" as const, siteName: "NoSwipe", title: page.metaTitle, description: page.description, url: page.path, publishedTime: page.publishedIso, modifiedTime: page.updatedIso ?? page.publishedIso, authors: ["NoSwipe"] },
     twitter: { images: ogImages, card: "summary_large_image" as const, title: page.metaTitle, description: page.description }
   };
 }
@@ -27,10 +27,18 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
       headline: page.h1,
       description: page.description,
       datePublished: page.publishedIso,
-      dateModified: page.publishedIso,
+      dateModified: page.updatedIso ?? page.publishedIso,
       mainEntityOfPage: url,
       author: { "@type": "Organization", name: "NoSwipe", url: site },
       publisher: { "@type": "Organization", name: "NoSwipe", url: site }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "NoSwipe", item: site },
+        { "@type": "ListItem", position: 2, name: page.eyebrow, item: url }
+      ]
     },
     {
       "@context": "https://schema.org",
@@ -43,6 +51,8 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
   const reserveUtm = `utm_source=seo&utm_medium=answer&utm_campaign=${slug}`;
   const publishedLabel = new Date(`${page.publishedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
+  const updatedLabel = page.updatedIso && page.updatedIso !== page.publishedIso ? new Date(`${page.updatedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : null;
+
   return (
     <div className="interior">
       <FunnelTracker event="page_view" />
@@ -54,7 +64,7 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
             <p className="kicker">{page.eyebrow}</p>
             <h1>{page.h1}</h1>
             <p className="guide-intro">{page.answer}</p>
-            <p className="guide-meta">Published {publishedLabel}</p>
+            <p className="guide-meta">Published {publishedLabel}{updatedLabel ? ` · Updated ${updatedLabel}` : ""}</p>
           </header>
 
           <div className="guide-body shell">

@@ -3,6 +3,8 @@ import { aiPages } from "@/content/ai-pages";
 import { getGuide, guideSlugs } from "@/content/guides";
 
 const siteUrl = "https://www.noswipe.app";
+// Bump when the home page, demo, guides index or legal pages change in substance.
+const siteUpdated = "2026-11-11T12:00:00Z";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const guideEntries: MetadataRoute.Sitemap = guideSlugs.map((slug) => ({
@@ -13,12 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   return [
-    { url: siteUrl, changeFrequency: "weekly", priority: 1 },
-    { url: `${siteUrl}/demo`, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${siteUrl}/guides`, changeFrequency: "monthly", priority: 0.8 },
-    ...aiPages.map((page) => ({ url: `${siteUrl}${page.path}`, lastModified: `${page.publishedIso}T12:00:00Z`, changeFrequency: "monthly" as const, priority: 0.8 })),
+    { url: siteUrl, lastModified: siteUpdated, changeFrequency: "weekly", priority: 1 },
+    { url: `${siteUrl}/demo`, lastModified: siteUpdated, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${siteUrl}/guides`, lastModified: siteUpdated, changeFrequency: "monthly", priority: 0.8 },
+    ...aiPages.map((page) => ({ url: `${siteUrl}${page.path}`, lastModified: `${page.updatedIso ?? page.publishedIso}T12:00:00Z`, changeFrequency: "monthly" as const, priority: 0.8 })),
     ...guideEntries,
-    { url: `${siteUrl}/privacy`, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${siteUrl}/terms`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${siteUrl}/privacy`, lastModified: "2026-11-04T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
+    { url: `${siteUrl}/terms`, lastModified: "2026-11-04T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
   ];
 }
