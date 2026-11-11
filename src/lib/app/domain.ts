@@ -168,3 +168,8 @@ export function splitDates<T extends { starts_at: string }>(dates: readonly T[],
   const cutoff = nowMs - 3 * 3600000;
   return { upcoming: dates.filter((d) => Date.parse(d.starts_at) >= cutoff), past: dates.filter((d) => Date.parse(d.starts_at) < cutoff).reverse() };
 }
+
+// Onboarding screens, in order: 0 basics (name, birthday, who), 1 apps (guests see the email code here first),
+// 2 about, 3 type, 4 photos, 5 consent, 6 early access.
+export const CONSENT_STEP = 5;
+export const PAY_STEP = 6;

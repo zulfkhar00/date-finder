@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { trackEvent } from "@/lib/attribution-client";
 import { requestCode, verifyCodeInline, type LoginState } from "@/app/login/actions";
 
 /**
@@ -20,6 +21,9 @@ function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () =>
   useEffect(() => {
     if (verified.step === "done" && !fired.current) { fired.current = true; setFinishing(true); onSignedIn(); }
   }, [verified.step, onSignedIn]);
+
+  const codeSent = sent.step === "code" && Boolean(sent.email);
+  useEffect(() => { if (codeSent) trackEvent("ob_code_sent", { oncePerSession: true }); }, [codeSent]);
 
   if (sent.step !== "code" || !sent.email) {
     return (

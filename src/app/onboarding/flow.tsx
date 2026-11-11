@@ -7,8 +7,8 @@ import dynamic from "next/dynamic";
 import { PhotoManager } from "@/components/app/photo-manager";
 import { StepFields } from "@/components/app/step-fields";
 import { payloadFor, type Draft } from "@/lib/app/draft";
-import { adoptGuestAnswers, advanceStep, giveConsent, saveStep } from "@/lib/app/actions";
-import { CONSENT_STATEMENT, stepSchemas, type StepName } from "@/lib/app/domain";
+import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } from "@/lib/app/actions";
+import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
 import { AccountStep } from "./account-step";
@@ -17,21 +17,22 @@ import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/che
 // Stripe.js only loads when the payment step opens.
 const EmbeddedPayment = dynamic(() => import("@/components/embedded-payment").then((m) => m.EmbeddedPayment), { ssr: false });
 
-type StepDef = { key: StepName | "photos" | "consent" | "pay"; title: string; sub?: string };
+type StepKey = "basics" | "apps" | "about" | "type" | "photos" | "consent" | "pay";
+type StepDef = { key: StepKey; title: string; sub?: string; event?: "ob_apps" | "ob_about" | "ob_type" | "ob_photos" | "ob_consent" | "ob_pay" };
+// Everything but the consent box is optional. The questions that matter most come first; the photo upload is last
+// so nobody has to find photos before they have an account and a profile.
 const STEPS: StepDef[] = [
-  { key: "name", title: "What's your first name?", sub: "Optional. This is how you'll show up on your profiles." },
-  { key: "birthday", title: "When's your birthday?", sub: "Optional. If you add it, you must be 18 or older. Only your age is shown." },
-  { key: "who", title: "A bit about you", sub: "Optional. So we show you to the right people." },
-  { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile." },
-  { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this." },
-  { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no." },
-  { key: "apps", title: "Which apps?", sub: "Optional. We create and run your profile on each one you pick." },
-  { key: "consent", title: "One last thing", sub: "Please read this before we start." },
-  { key: "pay", title: "Reserve early access" }
+  { key: "basics", title: "A bit about you", sub: "All optional. If you add a birthday, you must be 18 or older. Only your age is shown." },
+  { key: "apps", title: "Which apps?", sub: "Optional. We create and run your profile on each one you pick.", event: "ob_apps" },
+  { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this.", event: "ob_about" },
+  { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },
+  { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile.", event: "ob_photos" },
+  { key: "consent", title: "One last thing", sub: "Please read this before we start.", event: "ob_consent" },
+  { key: "pay", title: "Reserve early access", event: "ob_pay" }
 ];
-const LAST_FORM = 7;
-// Visitors who are not signed in answer steps 0 to 2 first; the email code comes at this step (the photos step once signed in).
-const GUEST_ACCOUNT_STEP = 3;
+const LAST_FORM = CONSENT_STEP;
+// Visitors who are not signed in answer the basics first; the email code comes at this step (the apps step once signed in).
+const GUEST_ACCOUNT_STEP = 1;
 const GUEST_KEY = "ns_ob_guest";
 
 const toAge = (iso: string) => { if (!iso) return 30; const y = Number(iso.slice(0, 4)); return Number.isFinite(y) ? new Date().getFullYear() - y : 30; };
@@ -54,6 +55,9 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     trackEvent("reserve_start", { oncePerSession: true });
   }, []);
   useEffect(() => { heading.current?.focus(); }, [step]);
+  // One funnel event per screen shown (once per tab session), so the next report shows where each step loses people.
+  const viewed = STEPS[step]?.event;
+  useEffect(() => { if (viewed && !guest) trackEvent(viewed, { oncePerSession: true }); }, [viewed, guest]);
   // A guest who reloads (or comes back from their mail app) keeps their answers for this tab session.
   const [ready, setReady] = useState(false);
   /* Reads sessionStorage, which only exists in the browser, so it has to run after hydration. */
@@ -81,10 +85,15 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     if (busy) return;
     setBusy(true); setError("");
     try {
-      if (guest && def.key !== "photos" && def.key !== "consent" && def.key !== "pay") {
+      if (guest && def.key === "basics") {
         // Not signed in yet: check the answers here, keep them in the page, save them after the email code.
-        const parsed = stepSchemas[def.key].safeParse(payloadFor(def.key, d));
-        if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
+        for (const k of ["name", "birthday", "who"] as const) {
+          const parsed = stepSchemas[k].safeParse(payloadFor(k, d));
+          if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
+        }
+      } else if (def.key === "basics") {
+        const r = await saveBasics({ firstName: d.firstName, birthday: d.birthday, gender: d.gender, interestedIn: d.interestedIn }, step + 1);
+        if (!r.ok) { setError(r.error); return; }
       } else if (def.key === "photos") {
         const r = await advanceStep(step + 1);
         if (!r.ok) { setError(r.error); return; }
@@ -140,9 +149,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   // Only the consent box is required. Every other step can be skipped.
   const canContinue = def.key === "consent" ? agreed : true;
   const isBlank =
-    def.key === "name" ? d.firstName.trim() === "" :
-    def.key === "birthday" ? d.birthday === "" :
-    def.key === "who" ? !d.gender && d.interestedIn.length === 0 :
+    def.key === "basics" ? d.firstName.trim() === "" && d.birthday === "" && !d.gender && d.interestedIn.length === 0 :
     def.key === "photos" ? photoCount === 0 :
     def.key === "about" ? !d.job.trim() && !d.heightCm && d.interests.every((x) => !x.trim()) :
     def.key === "type" ? !d.city.trim() && !d.ageMin && !d.ageMax && !d.lookingFor && d.dealbreakers.every((x) => !x.trim()) :
@@ -183,6 +190,12 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
             <>
               <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">Early access is a one-time, refundable $1.00 payment. You see the exact price and what it covers on the next screen, before you pay anything.</p>{checkoutReady ? null : <p className="app-fine" style={{ marginTop: 8 }}>Early access needs your name, birthday, city and at least one app. Add them in Profile, or skip it.</p>}</div>
             </>
+           ) : def.key === "basics" ? (
+            <div style={{ display: "grid", gap: 22 }}>
+              <StepFields step="name" d={d} set={set} compact />
+              <StepFields step="birthday" d={d} set={set} compact />
+              <StepFields step="who" d={d} set={set} />
+            </div>
            ) : <StepFields step={def.key} d={d} set={set} />}
         </div>
         {error ? <p className="app-error" role="alert" style={{ marginTop: 14 }}>{error}</p> : null}
