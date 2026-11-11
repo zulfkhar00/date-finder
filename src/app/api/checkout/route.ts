@@ -5,6 +5,7 @@ import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding } from "@/lib/reservation";
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { internalEmailReason } from "@/lib/internal-traffic";
 import { reuseOpenCheckout } from "@/lib/checkout-reuse";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
@@ -97,7 +98,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "We couldn't save your reservation. Please try again." }, { status: 500 });
   }
 
-  notifyOps("signups", signupText(input.city, input.email, onboarding));
+  // Test addresses (example.test, *test*@) never ping the founders' group.
+  if (!internalEmailReason(input.email)) notifyOps("signups", signupText(input.city, input.email, onboarding));
 
   try {
     const session = await stripe.checkout.sessions.create({

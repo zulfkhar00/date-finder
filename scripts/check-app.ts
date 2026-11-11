@@ -120,3 +120,37 @@ assert.match(sql, /AI sends are blocked/, "AI send during takeover raises");
 assert.doesNotMatch(sql, /\bdrop table\b|\btruncate\b/i, "migration never destroys data");
 
 console.log("app: all checks passed");
+
+// --- finish-setting-up card (unpaid, onboarded users) ------------------------------------------
+import { CONFIRM_MAX_MS, RESUME_COPY, RESUME_FORBIDDEN, buildResumePayload, pollUntilPaid } from "../src/lib/app/resume";
+import { reservationSchema, onboardingSchema } from "../src/lib/reservation";
+import { CLIENT_EVENTS } from "../src/lib/attribution";
+
+for (const [k, v] of Object.entries(RESUME_COPY)) assert.equal(RESUME_FORBIDDEN.test(v), false, `resume copy "${k}" uses a banned word`);
+assert.ok(RESUME_COPY.title.startsWith("One step left: activate NoSwipe so it starts swiping and chatting for you"));
+assert.ok((CLIENT_EVENTS as readonly string[]).includes("resume_card_view") && (CLIENT_EVENTS as readonly string[]).includes("resume_card_click"));
+assert.match(readFileSync("supabase/2026-11-11-resume-card-events.sql", "utf8"), /resume_card_click[\s\S]*enable row level security[\s\S]*revoke all on public\.funnel_events from public, anon, authenticated/);
+
+// Partial onboarding (everything skipped) still produces a payload /api/checkout accepts.
+const blank = { email: "A@Example.test", city: "", interestedIn: [], lookingFor: null, name: "", age: null, apps: [], ageMin: null, ageMax: null, interests: [] };
+const payload = buildResumePayload(blank, { attribution: {}, funnelSessionId: "x" });
+assert.equal(reservationSchema.safeParse(payload).success, true, "blank answers still check out");
+assert.equal(onboardingSchema.safeParse(payload.onboarding).success, true);
+assert.equal(payload.datingPreference, "all_genders");
+const full = buildResumePayload({ ...blank, city: " Austin ", interestedIn: ["women"], lookingFor: "committed", name: "Sam", age: 27, apps: ["hinge", "grindr"], ageMin: 25, ageMax: 20, interests: ["a", "", "b"] }, { attribution: {}, funnelSessionId: "x" });
+assert.equal(full.datingPreference, "women"); assert.equal(full.relationshipGoal, "committed"); assert.equal(full.city, "Austin");
+assert.deepEqual(full.onboarding.apps, ["hinge"]); assert.ok(full.onboarding.ageMax >= full.onboarding.ageMin);
+assert.equal(reservationSchema.safeParse(full).success, true);
+assert.equal(onboardingSchema.safeParse(full.onboarding).success, true);
+
+// Confirming: webhook late -> poll stops by 10 s and resolves "unconfirmed" (success state, never a second pay button).
+void (async () => {
+  let t = 0; let calls = 0;
+  const r = await pollUntilPaid(async () => { calls++; return "pending"; }, { sleep: async (ms) => { t += ms; }, now: () => t });
+  assert.equal(r, "unconfirmed"); assert.ok(t <= CONFIRM_MAX_MS, `polled ${t} ms`); assert.ok(calls >= 5);
+  let n = 0; t = 0;
+  assert.equal(await pollUntilPaid(async () => (++n === 3 ? "paid" : "pending"), { sleep: async (ms) => { t += ms; }, now: () => t }), "paid");
+  t = 0;
+  assert.equal(await pollUntilPaid(async () => { throw new Error("net"); }, { sleep: async (ms) => { t += ms; }, now: () => t }), "unconfirmed", "network errors never throw");
+})();
+console.log("resume card checks ok");
