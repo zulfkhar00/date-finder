@@ -70,7 +70,7 @@ export async function adoptGuestAnswers(input: { firstName: string; birthday: st
   const name = stepSchemas.name.safeParse({ firstName: input.firstName });
   const birthday = stepSchemas.birthday.safeParse({ birthday: input.birthday });
   const who = stepSchemas.who.safeParse({ gender: input.gender, interestedIn: input.interestedIn });
-  const patch: Record<string, unknown> = { onboarding_step: 3, updated_at: new Date().toISOString() };
+  const patch: Record<string, unknown> = { onboarding_step: 1, updated_at: new Date().toISOString() };
   if (name.success && name.data.firstName) patch.first_name = name.data.firstName;
   if (birthday.success && birthday.data.birthday) patch.birthday = birthday.data.birthday;
   if (who.success) { if (who.data.gender) patch.gender = who.data.gender; patch.interested_in = who.data.interestedIn; }
@@ -78,11 +78,29 @@ export async function adoptGuestAnswers(input: { firstName: string; birthday: st
   return error ? DB_ERR : { ok: true };
 }
 
+/** The one-screen basics (name, birthday, who): one check, one write, then on to the next step. */
+export async function saveBasics(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, stepIndex: number): Promise<ActionResult> {
+  const c = await ctx();
+  if (!c) return UNAUTH;
+  const name = stepSchemas.name.safeParse({ firstName: input.firstName });
+  const birthday = stepSchemas.birthday.safeParse({ birthday: input.birthday });
+  const who = stepSchemas.who.safeParse({ gender: input.gender, interestedIn: input.interestedIn });
+  if (!name.success) return { ok: false, error: name.error.issues[0]?.message ?? "Check your answers." };
+  if (!birthday.success) return { ok: false, error: birthday.error.issues[0]?.message ?? "Check your answers." };
+  if (!who.success) return { ok: false, error: who.error.issues[0]?.message ?? "Check your answers." };
+  const { sb, user } = c;
+  const { error } = await sb.from("profiles").update({ first_name: name.data.firstName || null, birthday: birthday.data.birthday || null, gender: who.data.gender || null, interested_in: who.data.interestedIn, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  if (error) return DB_ERR;
+  if (Number.isInteger(stepIndex) && stepIndex >= 0 && stepIndex <= 6) await sb.from("profiles").update({ onboarding_step: stepIndex }).eq("user_id", user.id).lt("onboarding_step", stepIndex);
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
 /** Remembers how far through onboarding the user is (steps without their own save, like photos). */
 export async function advanceStep(stepIndex: number): Promise<ActionResult> {
   const c = await ctx();
   if (!c) return UNAUTH;
-  if (!Number.isInteger(stepIndex) || stepIndex < 0 || stepIndex > 8) return DB_ERR;
+  if (!Number.isInteger(stepIndex) || stepIndex < 0 || stepIndex > 6) return DB_ERR;
   await c.sb.from("profiles").update({ onboarding_step: stepIndex }).eq("user_id", c.user.id).lt("onboarding_step", stepIndex);
   return { ok: true };
 }

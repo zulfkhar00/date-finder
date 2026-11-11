@@ -5,6 +5,7 @@ import { ensureProfile } from "@/lib/app/actions-core";
 import { getApps, getPhotos, getPrefs, getProfile } from "@/lib/app/data";
 import { createAppClient, getAppUser } from "@/lib/app/session";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { CONSENT_STEP, PAY_STEP } from "@/lib/app/domain";
 import { OnboardingFlow } from "./flow";
 
 export const metadata: Metadata = { title: "Set up your profile", robots: { index: false, follow: false } };
@@ -33,7 +34,7 @@ export default async function OnboardingPage() {
       email={user.email ?? ""}
       draft={draftFrom(profile, prefs, apps.map((a) => a.app))}
       photos={photos}
-      startStep={done ? 8 : Math.min(profile?.onboarding_step ?? 0, 7)}
+      startStep={done ? PAY_STEP : Math.min(profile?.onboarding_step ?? 0, CONSENT_STEP)}
       paid={paid}
     />
   );
