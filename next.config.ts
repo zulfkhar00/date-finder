@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      // Search Console HTML-file verification: /google<token>.html is served by the route handler,
+      // which answers only for the file name in GOOGLE_VERIFICATION_FILE.
+      { source: "/:file(google[A-Za-z0-9]+\\.html)", destination: "/api/gsc-verify/:file" },
       {
         source: "/ahrefs_1ba1e93fe7268cfeaa70ac916e7eafffe0ada83b0ff4280c85ad8a9538c31523",
         destination: "/ahrefs_1ba1e93fe7268cfeaa70ac916e7eafffe0ada83b0ff4280c85ad8a9538c31523.html",

@@ -1,5 +1,7 @@
 export type AiPageSection = { title: string; paragraphs: string[]; bullets?: string[] };
 
+import { geoAiPages } from "@/content/ai-pages-geo";
+
 export type AiPage = {
   path: string;
   metaTitle: string;
@@ -9,12 +11,14 @@ export type AiPage = {
   /** Direct answer. Exactly two sentences; it is also the first thing on the page. */
   answer: string;
   publishedIso: string;
+  /** ISO date of the last substantive edit; defaults to publishedIso. */
+  updatedIso?: string;
   sections: AiPageSection[];
   faqs: { question: string; answer: string }[];
   related: { href: string; label: string }[];
 };
 
-export const aiPages: AiPage[] = [
+const corePages: AiPage[] = [
   {
     path: "/ai-dating-assistant",
     metaTitle: "AI Dating Assistant: Swipes, Chats, Books Dates",
@@ -244,29 +248,69 @@ export const aiPages: AiPage[] = [
     metaTitle: "Best AI Dating Assistant 2026: What to Look For",
     h1: "Best AI dating assistant 2026: what to look for",
     eyebrow: "Buyer's checklist",
-    description: "The best AI dating assistant in 2026 does the work, not just the writing: it swipes, chats and books dates. Five things to check before you pay.",
-    answer: "The best AI dating assistant in 2026 doesn't just suggest messages; it swipes, chats and books the date for you. Check five things: does it do the whole job, does it sound like you, does it keep your real photos, is it honest about results, and is the price clear.",
+    description: "The best AI dating assistant depends on what you want handed over. Three types compared, six checks before you pay and who each one suits.",
+    answer: "The best AI dating assistant is the one that matches how much you want handed over: a suggestion tool if you want to keep swiping and sending, or a done-for-you service like NoSwipe if you want the swiping, chatting and scheduling taken off you. Whichever you pick, check six things: scope, voice, photos, account risk, honesty about results and a clear price.",
     publishedIso: "2026-11-04",
+    updatedIso: "2026-11-11",
     sections: [
-      { title: "1. It does the whole job", paragraphs: ["Many “AI dating” tools only write a pickup line and leave the swiping, the follow-up and the scheduling to you. The useful ones run the apps end to end and hand you a date."] },
-      { title: "2. It sounds like you", paragraphs: ["If the messages sound like a bot, the date is awkward before it starts. Read three of its messages out loud. If you'd wince, keep looking."] },
-      { title: "3. Your real photos and your own account", paragraphs: ["No fake photos, no new profiles. The person who shows up to the date should be the one in the pictures."] },
-      { title: "4. No fake promises", paragraphs: ["Be wary of promised multiples of dates and reviews that read like ads. Nobody controls another person's yes."] },
-      { title: "5. The price is clear before you pay", paragraphs: ["You should see the exact price and what it covers before you enter a card. NoSwipe shows the price at checkout."] }
+      {
+        title: "Three types of AI dating assistant",
+        paragraphs: ["Almost every product falls into one of these, and they are not interchangeable."],
+        bullets: [
+          "Writers and coaches: you paste a profile or chat, they give you openers, replies or a bio. You do the swiping and the sending. Examples include YourMove AI and the many Rizz-style apps.",
+          "Keyboards: the same suggestions, inside the keyboard as you type.",
+          "Done-for-you services: they act on your accounts, swiping, chatting and booking dates. NoSwipe is in this group."
+        ]
+      },
+      {
+        title: "1. Scope: does it do the job you actually hate?",
+        paragraphs: ["If your problem is staring at a blank message, a writer is enough. If it is the hours of swiping and the chats that die, a writer leaves that exactly where it was."]
+      },
+      {
+        title: "2. Voice: does it sound like you?",
+        paragraphs: ["Read three of its messages out loud. If you would wince, the date starts awkward. Good tools learn from how you write and let you edit or take over."]
+      },
+      {
+        title: "3. Photos: your real ones, on your own account",
+        paragraphs: ["No invented pictures, no new profile in your name. The person who walks in should be the one in the photos."]
+      },
+      {
+        title: "4. Account risk: is the tool straight with you?",
+        paragraphs: [
+          "Tinder, Hinge and Bumble restrict bots and third-party tools that act on your account, and can suspend accounts that break their terms. A tool that only suggests text avoids that. A tool that acts for you cannot, and it should tell you so before you sign up."
+        ]
+      },
+      {
+        title: "5. Honesty about results",
+        paragraphs: ["Nobody controls another person's yes. Be wary of promised numbers of matches or dates, and of reviews that read like ads."]
+      },
+      {
+        title: "6. A price you can see",
+        paragraphs: ["You should see the exact price and what it covers before you enter a card, and know how to get out. NoSwipe shows the price at checkout, before you pay."]
+      },
+      {
+        title: "Where NoSwipe fits",
+        paragraphs: [
+          "NoSwipe is for people who want it done for them: it fixes your profile, swipes on people who fit your type, chats in your voice and books the first date, with every chat readable and a take-over button. The trade-off is the account risk above, and it is in early access. If you would rather keep your hands on the account, pick a writer."
+        ]
+      }
     ],
     faqs: [
-      { question: "What should I look for in an AI dating assistant?", answer: "One that does the whole job (swiping, chatting and scheduling), sounds like you, keeps your real photos, avoids fake promises and shows the price up front." },
-      { question: "Is there an AI that does dating apps for you?", answer: "Yes. NoSwipe swipes, chats and books first dates for you on Tinder, Hinge and Bumble." },
-      { question: "Is NoSwipe the best AI dating assistant?", answer: "Judge it on the five points above. It's built to pass all of them." },
-      { question: "Can an AI dating assistant promise more matches?", answer: "No. Matches depend on other people. Treat any promised number as a warning sign." }
+      { question: "What is the best AI dating assistant?", answer: "It depends on what you want handed over. A writer or keyboard tool suits people who want to keep swiping and sending; a done-for-you service like NoSwipe suits people who want that work taken off them." },
+      { question: "Is there an AI that does dating apps for you?", answer: "Yes. NoSwipe swipes, chats and books first dates for you on Tinder, Hinge and Bumble, on your own accounts. Those apps restrict automated tools, so an account can be limited." },
+      { question: "What should I look for in an AI dating assistant?", answer: "Whether it covers the part you dislike, sounds like you, uses your real photos, is open about account risk, avoids promised results and shows the price up front." },
+      { question: "Can an AI dating assistant promise more matches?", answer: "No. Matches depend on other people, so treat any promised number as a warning sign." },
+      { question: "How does NoSwipe compare with Rizz and YourMove AI?", answer: "Those mostly suggest what to say while you swipe and send. NoSwipe acts on your accounts. See the full comparison for who each one fits." }
     ],
     related: [
+      { href: "/noswipe-vs-rizz-yourmove-keys-ai", label: "NoSwipe vs Rizz, YourMove AI and Keys AI" },
       { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" },
-      { href: "/dating-app-automation", label: "AI dating app automation" },
-      { href: "/ai-dating-apps-vs-dating-coaches", label: "AI dating assistant vs dating coach" }
+      { href: "/is-using-ai-on-dating-apps-allowed", label: "Is using AI on dating apps allowed?" }
     ]
   }
 ];
+
+export const aiPages: AiPage[] = [...corePages, ...geoAiPages];
 
 export function getAiPage(path: string): AiPage {
   const page = aiPages.find((item) => item.path === path);

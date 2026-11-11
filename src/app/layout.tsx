@@ -18,7 +18,8 @@ const keywords = [
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.noswipe.app"),
-  verification: { google: "FG463sEde4bFDRvBj8evdXtbiQOj2-dRzlC8_f4CW50" },
+  // GOOGLE_SITE_VERIFICATION overrides the token below when Search Console issues a new meta tag.
+  verification: { google: process.env.GOOGLE_SITE_VERIFICATION || "FG463sEde4bFDRvBj8evdXtbiQOj2-dRzlC8_f4CW50" },
   title: { default: title, template: "%s — NoSwipe" },
   description,
   keywords,
