@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, ImagePlus, Trash2 } from "lucide-react";
 import { removePhoto, reorderPhotos } from "@/lib/app/actions";
 import { PHOTO_MAX } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
+import { PHOTO_NETWORK_ERROR as NETWORK_ERROR, uploadErrorMessage, withTimeout } from "@/lib/app/photo-errors";
 
 /** Shrinks a photo in the browser (max 1600 px, JPEG) so uploads stay small and fast. */
 async function shrink(file: File): Promise<Blob> {
@@ -33,19 +34,21 @@ export const realPhotoApi: PhotoApi = {
   async upload(blob) {
     const form = new FormData();
     form.append("file", blob, "photo.jpg");
-    const res = await fetch("/api/app/photos", { method: "POST", body: form });
+    const res = await fetch("/api/app/photos", { method: "POST", body: form, signal: AbortSignal.timeout(60_000) });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json.error || "Upload failed.");
     return json.photo as Photo;
   }
 };
 
-export function PhotoManager({ initial, onChange, api = realPhotoApi }: { initial: Photo[]; onChange?: (photos: Photo[]) => void; api?: PhotoApi }) {
+export function PhotoManager({ initial, onChange, onBusyChange, api = realPhotoApi }: { initial: Photo[]; onChange?: (photos: Photo[]) => void; onBusyChange?: (busy: boolean) => void; api?: PhotoApi }) {
   const [photos, setPhotos] = useState(initial);
   const [busy, setBusy] = useState<string>("");
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
 
+  // Tell the parent while something is in flight so "Continue" waits for it instead of leaving mid-upload.
+  const lock = (value: string) => { setBusy(value); onBusyChange?.(value !== ""); };
   const apply = (next: Photo[]) => { setPhotos(next); onChange?.(next); };
 
   async function add(files: FileList | null) {
@@ -53,26 +56,28 @@ export function PhotoManager({ initial, onChange, api = realPhotoApi }: { initia
     setError("");
     let current = photos;
     for (const file of Array.from(files).slice(0, PHOTO_MAX - photos.length)) {
-      setBusy("upload");
+      lock("upload");
       try {
         const blob = await shrink(file);
         current = [...current, await api.upload(blob)];
         apply(current);
       } catch (cause) {
-        setError(cause instanceof Error && cause.message !== "encode" ? cause.message : "We couldn't read that photo. Try a JPG or PNG.");
+        setError(uploadErrorMessage(cause));
         break;
       }
     }
-    setBusy("");
+    lock("");
     if (input.current) input.current.value = "";
   }
 
   async function remove(id: string) {
     if (busy) return;
-    setBusy(id); setError("");
-    const r = await api.remove(id);
-    if (r.ok) apply(photos.filter((p) => p.id !== id)); else setError(r.error);
-    setBusy("");
+    lock(id); setError("");
+    try {
+      const r = await withTimeout(api.remove(id));
+      if (r.ok) apply(photos.filter((p) => p.id !== id)); else setError(r.error);
+    } catch { setError(NETWORK_ERROR); }
+    lock("");
   }
 
   async function move(index: number, dir: -1 | 1) {
@@ -81,10 +86,12 @@ export function PhotoManager({ initial, onChange, api = realPhotoApi }: { initia
     const j = index + dir;
     if (j < 0 || j >= next.length) return;
     [next[index], next[j]] = [next[j], next[index]];
-    setBusy("move"); setError("");
-    const r = await api.reorder(next.map((p) => p.id));
-    if (r.ok) apply(next); else setError(r.error);
-    setBusy("");
+    lock("move"); setError("");
+    try {
+      const r = await withTimeout(api.reorder(next.map((p) => p.id)));
+      if (r.ok) apply(next); else setError(r.error);
+    } catch { setError(NETWORK_ERROR); }
+    lock("");
   }
 
   return (
