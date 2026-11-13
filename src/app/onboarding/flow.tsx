@@ -11,6 +11,7 @@ import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } fro
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
+import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
 import { AccountStep } from "./account-step";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
 
@@ -33,9 +34,6 @@ const STEPS: StepDef[] = [
 const LAST_FORM = CONSENT_STEP;
 // Visitors who are not signed in answer the basics first; the email code comes at this step (the apps step once signed in).
 const GUEST_ACCOUNT_STEP = 1;
-const GUEST_KEY = "ns_ob_guest";
-
-const toAge = (iso: string) => { if (!iso) return 30; const y = Number(iso.slice(0, 4)); return Number.isFinite(y) ? new Date().getFullYear() - y : 30; };
 
 export function OnboardingFlow({ guest, email, draft: initial, photos: initialPhotos, startStep, paid }: { guest: boolean; email: string; draft: Draft; photos: Photo[]; startStep: number; paid: boolean }) {
   const router = useRouter();
@@ -45,6 +43,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const opening = useRef(false);
+  const saving = useRef(false);
   const [error, setError] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -64,10 +63,14 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   /* Reads sessionStorage, which only exists in the browser, so it has to run after hydration. */
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!guest) return;
     try {
-      const saved = JSON.parse(window.sessionStorage.getItem(GUEST_KEY) ?? "null") as { d?: Draft; step?: number } | null;
-      if (saved?.d) { setD(saved.d); setStep(Math.min(Math.max(saved.step ?? 0, 0), GUEST_ACCOUNT_STEP)); }
+      const saved = parseGuestSaved(window.sessionStorage.getItem(GUEST_KEY));
+      if (guest) {
+        if (saved) { setD(saved.d); setStep(Math.min(Math.max(saved.step, 0), GUEST_ACCOUNT_STEP)); }
+      } else if (saved) {
+        // Signed in, but saving the first answers failed: put them back on screen instead of asking again.
+        setD((x) => mergeGuestBasics(x, saved));
+      }
     } catch { /* storage unavailable */ }
     setReady(true);
   }, [guest]);
@@ -83,7 +86,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const progress = Math.round(((step + 1) / STEPS.length) * 100);
 
   async function next() {
-    if (busy) return;
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true); setError("");
     try {
       if (guest && def.key === "basics") {
@@ -93,30 +97,39 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
           if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
         }
       } else if (def.key === "basics") {
-        const r = await saveBasics({ firstName: d.firstName, birthday: d.birthday, gender: d.gender, interestedIn: d.interestedIn }, step + 1);
+        const r = await withTimeout(saveBasics(basicsOf(d), step + 1));
         if (!r.ok) { setError(r.error); return; }
+        try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
       } else if (def.key === "photos") {
-        const r = await advanceStep(step + 1);
+        const r = await withTimeout(advanceStep(step + 1));
         if (!r.ok) { setError(r.error); return; }
       } else if (def.key === "consent") {
-        const r = await giveConsent(agreed);
+        const r = await withTimeout(giveConsent(agreed));
         if (!r.ok) { setError(r.error); return; }
         trackEvent("onboarding_complete", { oncePerSession: true });
         if (paid) { router.replace("/home"); return; }
       } else if (def.key !== "pay") {
-        const r = await saveStep(def.key, payloadFor(def.key, d), step + 1);
+        const r = await withTimeout(saveStep(def.key, payloadFor(def.key, d), step + 1));
         if (!r.ok) { setError(r.error); return; }
       }
       setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    } catch {
+      // Dropped connection or a save that never answered: say so and keep the answers on screen.
+      setError(NETWORK_ERROR);
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
 
   // The email code checked out: save the first answers onto the new account, then reload as a member.
   async function signedIn() {
-    await adoptGuestAnswers({ firstName: d.firstName, birthday: d.birthday, gender: d.gender, interestedIn: d.interestedIn }).catch(() => undefined);
-    try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
+    // Two tries. If both fail the answers stay in this tab and are shown again on the first member screen.
+    let saved = false;
+    for (let attempt = 0; attempt < 2 && !saved; attempt++) {
+      saved = await withTimeout(adoptGuestAnswers(basicsOf(d))).then((r) => r.ok, () => false);
+    }
+    if (saved) { try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ } }
     trackEvent("reserve_step_3", { oncePerSession: true });
     router.refresh();
   }
@@ -132,7 +145,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         body: JSON.stringify({
           checkoutMode: "embedded", ageConfirmed: true, termsAccepted: true, email, city: d.city.trim(),
           datingPreference: pref, relationshipGoal: d.lookingFor || "meaningful", dateFrequency: "twice_monthly",
-          onboarding: { name: d.firstName.trim(), age: d.birthday ? Math.min(99, Math.max(18, toAge(d.birthday))) : undefined, apps: d.apps, ageMin: Number(d.ageMin) || 18, ageMax: Number(d.ageMax) || 99, interests: d.interests.filter(Boolean).join(", ").slice(0, 300) },
+          onboarding: { name: d.firstName.trim(), age: ageForCheckout(d.birthday), apps: d.apps, ageMin: Number(d.ageMin) || 18, ageMax: Number(d.ageMax) || 99, interests: d.interests.filter(Boolean).join(", ").slice(0, 300) },
           attribution: captureAttribution(), funnelSessionId: getFunnelSessionId()
         })
       });
