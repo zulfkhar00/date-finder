@@ -111,8 +111,13 @@ export async function giveConsent(confirmAdult: boolean): Promise<ActionResult> 
   if (!c) return UNAUTH;
   if (confirmAdult !== true) return { ok: false, error: "Please confirm you are 18 or older." };
   const { sb, user } = c;
-  const { error } = await sb.from("consents").insert({ user_id: user.id, version: CONSENT_VERSION, statement: CONSENT_STATEMENT });
-  if (error) return DB_ERR;
+  // A double tap or a retry after a dropped connection must not record the same consent twice.
+  const { data: given, error: readError } = await sb.from("consents").select("id").eq("user_id", user.id).eq("version", CONSENT_VERSION).limit(1);
+  if (readError) return DB_ERR;
+  if (!given?.length) {
+    const { error } = await sb.from("consents").insert({ user_id: user.id, version: CONSENT_VERSION, statement: CONSENT_STATEMENT });
+    if (error) return DB_ERR;
+  }
   await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
   return { ok: true };
 }
