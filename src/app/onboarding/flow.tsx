@@ -40,6 +40,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const [step, setStep] = useState(startStep);
   const [d, setD] = useState(initial);
   const [photoCount, setPhotoCount] = useState(initialPhotos.length);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const opening = useRef(false);
@@ -161,9 +162,9 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     }
   }
 
-  const canBack = step > 0 && step <= LAST_FORM && !busy;
+  const canBack = step > 0 && step <= LAST_FORM && !busy && !photoBusy;
   // Only the consent box is required. Every other step can be skipped.
-  const canContinue = def.key === "consent" ? agreed : true;
+  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : true;
   const isBlank =
     def.key === "basics" ? d.firstName.trim() === "" && d.birthday === "" && !d.gender && d.interestedIn.length === 0 :
     def.key === "photos" ? photoCount === 0 :
@@ -193,7 +194,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{def.title}</h1>
         {def.sub ? <p className="app-sub">{def.sub}</p> : null}
         <div style={{ marginTop: 22 }}>
-          {def.key === "photos" ? <PhotoManager initial={initialPhotos} onChange={(p) => setPhotoCount(p.length)} /> :
+          {def.key === "photos" ? <PhotoManager initial={initialPhotos} onChange={(p) => setPhotoCount(p.length)} onBusyChange={setPhotoBusy} /> :
            def.key === "consent" ? (
             <>
               <div className="ob-consent"><ShieldCheck size={26} aria-hidden style={{ marginBottom: 8 }} /><p>{CONSENT_STATEMENT}</p></div>
