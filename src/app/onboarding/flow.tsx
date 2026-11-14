@@ -12,6 +12,7 @@ import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
 import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
+import { decidePop, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
 
@@ -56,6 +57,34 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     trackEvent("reserve_start", { oncePerSession: true });
   }, []);
   useEffect(() => { heading.current?.focus(); }, [step]);
+  // Browser back/forward (phone back gesture, Android back key) moves between the questions instead of leaving onboarding.
+  const depth = useRef(0);
+  const stepNow = useRef(step);
+  const busyNow = useRef(false);
+  useEffect(() => { stepNow.current = step; busyNow.current = busy; });
+  useEffect(() => {
+    // One history entry per screen. Keep the current entry's state in line with what is shown (resume, restored answers).
+    if (stepFromState(window.history.state) !== step) window.history.replaceState({ ...(window.history.state ?? {}), ...stepState(step) }, "");
+  }, [step]);
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const decision = decidePop(stepNow.current, e.state, LAST_FORM, busyNow.current);
+      if (decision.action === "stay") window.history.pushState(stepState(stepNow.current), "");
+      else if (decision.action === "go") { depth.current += decision.step > stepNow.current ? 1 : -1; setStep(decision.step); setError(""); }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  function goTo(n: number) {
+    window.history.pushState(stepState(n), "");
+    depth.current += 1;
+    setStep(n);
+  }
+  function goBack() {
+    setError("");
+    if (depth.current > 0) { window.history.back(); return; }
+    setStep((s) => Math.max(s - 1, 0));
+  }
   // One funnel event per screen shown (once per tab session), so the next report shows where each step loses people.
   const viewed = STEPS[step]?.event;
   useEffect(() => { if (viewed && !guest) trackEvent(viewed, { oncePerSession: true }); }, [viewed, guest]);
@@ -113,7 +142,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         const r = await withTimeout(saveStep(def.key, payloadFor(def.key, d), step + 1));
         if (!r.ok) { setError(r.error); return; }
       }
-      setStep((s) => Math.min(s + 1, STEPS.length - 1));
+      goTo(Math.min(step + 1, STEPS.length - 1));
     } catch {
       // Dropped connection or a save that never answered: say so and keep the answers on screen.
       setError(NETWORK_ERROR);
@@ -180,7 +209,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   return (
     <div className="ob">
       <div className="ob-top">
-        <button type="button" className="ob-back" onClick={() => { setStep((s) => s - 1); setError(""); }} disabled={!canBack} aria-label="Back"><ArrowLeft size={24} /></button>
+        <button type="button" className="ob-back" onClick={goBack} disabled={!canBack} aria-label="Back"><ArrowLeft size={24} /></button>
         <div className="ob-bar" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={step + 1} aria-label={`Step ${step + 1} of ${STEPS.length}`}><span style={{ width: `${progress}%` }} /></div>
       </div>
       {accountStep ? (
