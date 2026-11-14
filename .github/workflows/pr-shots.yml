@@ -1,0 +1,45 @@
+name: PR shots
+
+# Automatic BEFORE/AFTER screenshots for PRs that touch the UI. Non-blocking: it builds the PR's
+# base and head, screenshots the routes in .github/pr-shots.json, pushes the PNGs to the orphan
+# branch `ci-screenshots` and posts one sticky comment that the "UI proof" check accepts.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "scripts/pr-shots.mjs"
+      - ".github/pr-shots.json"
+
+permissions:
+  contents: write        # push PNGs to ci-screenshots
+  pull-requests: write   # sticky comment
+  actions: write         # re-run a UI proof that failed before the comment existed
+
+concurrency:
+  group: pr-shots-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    name: Auto screenshots
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Capture base + head, publish, comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/pr_shots_ci.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}" "${{ github.event.pull_request.base.sha }}"

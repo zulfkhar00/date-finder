@@ -1,0 +1,22 @@
+{
+  "install": "npm ci",
+  "build": "npm run build",
+  "start": "npx next start -p 3100",
+  "port": 3100,
+  "routes": [
+    "/",
+    "/try",
+    "/reserve",
+    "/guides",
+    "/ai-dating-assistant",
+    "/privacy"
+  ],
+  "env": {
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "SITE_URL": "http://localhost:3100",
+    "SUPABASE_URL": "https://dummy.supabase.co",
+    "SUPABASE_SECRET_KEY": "dummy-ci-secret",
+    "STRIPE_SECRET_KEY": "sk_test_dummy_ci",
+    "STRIPE_WEBHOOK_SECRET": "whsec_dummy_ci"
+  }
+}
