@@ -9,11 +9,25 @@ const summary = [
   "NoSwipe works on the user's own accounts with his real photos; the matches and conversations stay his. The user can read every chat in the app, take over any chat or pause any app at any time. It cannot guarantee matches, replies or dates. Search terms people use for it: AI dating assistant, AI wingman, dating app automation, Tinder automation, Hinge AI, Bumble AI, auto swipe app, done-for-you dating."
 ];
 
+const howItWorks = [
+  "Tell NoSwipe who you want to meet, your dealbreakers and which apps you use (Tinder, Hinge, Bumble).",
+  "NoSwipe fixes your profile first: photo order, bio and prompt answers, using your real photos.",
+  "It swipes on people who match your type and starts and keeps up conversations in your own voice (first person, as the user), on your own accounts.",
+  "When a match says yes, it sets the time and place and sends you the plan: where, when, who.",
+  "You can read every chat, take over any chat or pause any app at any time. Then you just show up."
+];
+
+const availability = "Availability: NoSwipe is online and global, not tied to any city or country. It works wherever Tinder, Hinge and Bumble work.";
+
+const contact = "Contact: support@noswipe.app. Site: " + site + ".";
+
+const limits = "Limits: Tinder, Hinge and Bumble restrict automated tools, so an account can be limited. No one can guarantee matches, replies or dates.";
+
 const audience =
   "Who it is for: men who are tired of swiping on Tinder, Hinge and Bumble and would rather spend that time on actual dates.";
 
 const pricing = [
-  "NoSwipe is in early access. As shown on the site, the only payment today is a one-time, refundable USD 1 early-access payment, which the terms say does not start a service.",
+  "NoSwipe is in early access. The only price today is a one-time, refundable USD 1 ($1.00) early-access payment. At checkout it reads: \"Secure payment · $1.00 once. Refundable early-access fee. Does not start a service.\"",
   "The exact price is shown at checkout before anyone pays, a refund is available by emailing support@noswipe.app, and prices for any ongoing service will be shown before a person decides to join it."
 ];
 
@@ -39,10 +53,20 @@ export function llmsTxt(): string {
     "",
     audience,
     "",
+    availability,
+    "",
+    "## How it works",
+    "",
+    ...howItWorks.map((step, i) => `${i + 1}. ${step}`),
+    "",
+    limits,
+    "",
     "## Pricing",
     "",
     ...pricing.flatMap((line) => [line, ""]),
     privacy,
+    "",
+    contact,
     "",
     "## Key pages",
     "",
@@ -70,10 +94,20 @@ export function llmsFullTxt(): string {
     "",
     audience,
     "",
+    availability,
+    "",
+    "## How it works",
+    "",
+    ...howItWorks.map((step, i) => `${i + 1}. ${step}`),
+    "",
+    limits,
+    "",
     "## Pricing",
     "",
     ...pricing.flatMap((line) => [line, ""]),
     privacy,
+    "",
+    contact,
     "",
     "## Frequently asked questions",
     "",
@@ -85,6 +119,11 @@ export function llmsFullTxt(): string {
     for (const section of page.sections) {
       out.push(`### ${section.title}`, "", ...section.paragraphs.flatMap((p) => [p, ""]));
       if (section.bullets) out.push(...section.bullets.map((b) => `- ${b}`), "");
+    }
+    if (page.comparison) {
+      out.push(`### ${page.comparison.title}`, "", page.comparison.intro, "");
+      for (const row of page.comparison.rows) out.push(`- ${row.label}: ${page.comparison.columns.map((column, i) => `${column}: ${row.cells[i]}`).join(" | ")}`);
+      out.push("");
     }
     out.push("### FAQ", "", ...page.faqs.flatMap((faq) => [`**${faq.question}**`, "", faq.answer, ""]));
   }

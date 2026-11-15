@@ -34,6 +34,26 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
     },
     {
       "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": `${site}/#organization`,
+      name: "NoSwipe",
+      url: site,
+      logo: `${site}/brand/email-logo.png`,
+      email: "support@noswipe.app"
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "NoSwipe",
+      url: site,
+      applicationCategory: "LifestyleApplication",
+      operatingSystem: "Web",
+      description: "AI dating concierge: swipes, chats and books dates for you on your own Tinder, Hinge and Bumble accounts. You just show up.",
+      publisher: { "@id": `${site}/#organization` },
+      offers: { "@type": "Offer", price: "1.00", priceCurrency: "USD", description: "One-time, refundable early-access payment. Does not start a service.", url: `${site}/onboarding` }
+    },
+    {
+      "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "NoSwipe", item: site },
@@ -68,6 +88,12 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
           </header>
 
           <div className="guide-body shell">
+            {page.steps ? (
+              <section aria-labelledby="how-it-works">
+                <h2 id="how-it-works">How it works</h2>
+                <ol>{page.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+              </section>
+            ) : null}
             {page.sections.map((section, index) => (
               <section key={section.title} aria-labelledby={`section-${index + 1}`}>
                 <h2 id={`section-${index + 1}`}>{section.title}</h2>
@@ -75,6 +101,31 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
                 {section.bullets ? <ul>{section.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}
               </section>
             ))}
+
+            {page.comparison ? (
+              <section aria-labelledby="comparison-title">
+                <h2 id="comparison-title">{page.comparison.title}</h2>
+                <p>{page.comparison.intro}</p>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr>
+                        <th scope="col" style={{ textAlign: "left", padding: 8 }}><span className="sr-only">Topic</span></th>
+                        {page.comparison.columns.map((column) => <th scope="col" key={column} style={{ textAlign: "left", padding: 8 }}>{column}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.comparison.rows.map((row) => (
+                        <tr key={row.label} style={{ borderTop: "1px solid rgba(128,128,128,.3)" }}>
+                          <th scope="row" style={{ textAlign: "left", padding: 8, verticalAlign: "top" }}>{row.label}</th>
+                          {row.cells.map((cell, i) => <td key={i} style={{ padding: 8, verticalAlign: "top" }}>{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
 
             <section className="guide-faq" aria-labelledby="guide-faq-title">
               <p className="kicker">Common questions</p>
