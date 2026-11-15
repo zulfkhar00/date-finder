@@ -1,6 +1,8 @@
+export type AiComparison = { title: string; intro: string; columns: string[]; rows: { label: string; cells: string[] }[] };
 export type AiPageSection = { title: string; paragraphs: string[]; bullets?: string[] };
 
 import { geoAiPages } from "@/content/ai-pages-geo";
+import { conciergePages } from "@/content/ai-pages-concierge";
 
 export type AiPage = {
   path: string;
@@ -14,6 +16,10 @@ export type AiPage = {
   /** ISO date of the last substantive edit; defaults to publishedIso. */
   updatedIso?: string;
   sections: AiPageSection[];
+  /** Short numbered how-it-works list, shown right after the answer. */
+  steps?: string[];
+  /** Honest side-by-side of doing it yourself, a matchmaker and NoSwipe. */
+  comparison?: AiComparison;
   faqs: { question: string; answer: string }[];
   related: { href: string; label: string }[];
 };
@@ -310,7 +316,36 @@ const corePages: AiPage[] = [
   }
 ];
 
-export const aiPages: AiPage[] = [...corePages, ...geoAiPages];
+/** Shared by every answer page that carries a comparison, so the facts never drift apart. */
+export const howNoSwipeWorksSteps = [
+  "Tell NoSwipe who you want to meet, your dealbreakers and which apps you use (Tinder, Hinge, Bumble).",
+  "NoSwipe fixes your profile first: photo order, bio and prompt answers, using your real photos.",
+  "It swipes on people who match your type and starts conversations in your own voice, on your own accounts.",
+  "When a match says yes, it sets the time and place and sends you the plan: where, when, who.",
+  "You read any chat, take over any conversation or pause any app whenever you want, then you show up."
+];
+
+export const standardComparison: AiComparison = {
+  title: "Doing it yourself, a matchmaker or NoSwipe",
+  intro: "All three can work. They differ in who does the work, whose pool of people you meet and what you give up.",
+  columns: ["Doing it yourself", "A matchmaker", "NoSwipe"],
+  rows: [
+    { label: "Who does the work", cells: ["You swipe, write and schedule every date.", "A person screens and introduces people.", "NoSwipe swipes, chats in your voice and books the date."] },
+    { label: "Who you meet", cells: ["Anyone on the apps you choose.", "Usually people the matchmaker knows or recruits.", "Matches on your own Tinder, Hinge and Bumble accounts."] },
+    { label: "Your time", cells: ["Evenings and weekends of swiping and chatting.", "Mostly meetings and feedback calls.", "Setting your preferences, then showing up to the date."] },
+    { label: "Control", cells: ["Full.", "You approve or decline introductions.", "You see every chat, can take over any chat and pause any app."] },
+    { label: "Account risk", cells: ["None from tools.", "None, it is separate from the apps.", "Tinder, Hinge and Bumble restrict automated tools, so an account can be limited."] },
+    { label: "Results", cells: ["Depend on the other person.", "Depend on the other person.", "Depend on the other person. Nobody can promise a match, reply or date."] },
+    { label: "Price", cells: ["Free, apart from any app subscription.", "Set by each matchmaker.", "Early access is a one-time, refundable $1.00. The price of any ongoing service is shown before you decide."] }
+  ]
+};
+
+// Pages whose question is "what is this and how does it compare" carry the steps and the comparison.
+const withComparison = new Set(["/ai-dating-assistant", "/ai-that-swipes-for-you", "/dating-app-concierge", "/is-there-an-ai-that-does-dating-apps-for-you", "/ai-dating-concierge-vs-matchmaker"]);
+
+export const aiPages: AiPage[] = [...corePages, ...geoAiPages, ...conciergePages].map((page) =>
+  withComparison.has(page.path) ? { ...page, steps: page.steps ?? howNoSwipeWorksSteps, comparison: page.comparison ?? standardComparison } : page
+);
 
 export function getAiPage(path: string): AiPage {
   const page = aiPages.find((item) => item.path === path);

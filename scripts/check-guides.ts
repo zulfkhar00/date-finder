@@ -126,7 +126,7 @@ for (const guide of guides) {
 assert.equal(metaTitles.size, guides.length, "title tags must be unique");
 assert.equal(queries.size, guides.length, "target queries must be unique");
 
-assert.equal(aiPages.length, 12);
+assert.equal(aiPages.length, 15);
 for (const page of aiPages) {
   assert.equal(page.answer.split(/(?<=[.!?])\s+/).length, 2, `${page.path}: direct answer must be exactly two sentences`);
   assert.ok(page.faqs.length >= 4, `${page.path}: FAQ block`);
