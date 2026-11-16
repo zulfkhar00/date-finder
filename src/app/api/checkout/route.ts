@@ -7,6 +7,7 @@ import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { internalEmailReason } from "@/lib/internal-traffic";
 import { reuseOpenCheckout } from "@/lib/checkout-reuse";
+import { countryFromHeaders } from "@/lib/traffic";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
 export const runtime = "nodejs";
@@ -19,6 +20,12 @@ export async function POST(request: Request) {
     payload = JSON.parse(body);
   } catch {
     return NextResponse.json({ error: "Please check your answers and try again." }, { status: 400 });
+  }
+
+  // US only for now: a visitor the edge places outside the US never gets to the pay step. Unknown country (no geo header) is let through.
+  const country = countryFromHeaders(request.headers);
+  if (country && country !== "US") {
+    return NextResponse.json({ error: "noswipe is only available in the US right now." }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
 
   const parsed = reservationSchema.safeParse(payload);
