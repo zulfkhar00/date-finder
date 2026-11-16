@@ -3,6 +3,7 @@ export type AiPageSection = { title: string; paragraphs: string[]; bullets?: str
 
 import { geoAiPages } from "@/content/ai-pages-geo";
 import { conciergePages } from "@/content/ai-pages-concierge";
+import { longtailPages } from "@/content/ai-pages-longtail";
 
 export type AiPage = {
   path: string;
@@ -120,7 +121,10 @@ const corePages: AiPage[] = [
       { href: "/tinder-automation", label: "Tinder automation with AI" },
       { href: "/hinge-automation", label: "Hinge AI automation" },
       { href: "/bumble-automation", label: "Bumble AI automation" },
-      { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" }
+      { href: "/ai-dating-assistant", label: "What is an AI dating assistant?" },
+      { href: "/dating-app-message-assistant", label: "Dating app message assistant" },
+      { href: "/hire-someone-to-do-my-dating-apps", label: "Hire someone to do your dating apps" },
+      { href: "/matches-but-no-dates", label: "Matches but no dates: what to fix" }
     ]
   },
   {
@@ -182,7 +186,10 @@ const corePages: AiPage[] = [
     related: [
       { href: "/tinder-automation", label: "Tinder automation with AI" },
       { href: "/bumble-automation", label: "Bumble AI automation" },
-      { href: "/dating-app-automation", label: "AI dating app automation" }
+      { href: "/dating-app-automation", label: "AI dating app automation" },
+      { href: "/hinge-openers-that-get-replies", label: "Hinge opener ideas that get replies" },
+      { href: "/what-to-say-after-matching-on-hinge", label: "What to say after matching on Hinge" },
+      { href: "/hinge-prompt-answers-for-men", label: "Hinge prompt answers for men" }
     ]
   },
   {
@@ -343,7 +350,7 @@ export const standardComparison: AiComparison = {
 // Pages whose question is "what is this and how does it compare" carry the steps and the comparison.
 const withComparison = new Set(["/ai-dating-assistant", "/ai-that-swipes-for-you", "/dating-app-concierge", "/is-there-an-ai-that-does-dating-apps-for-you", "/ai-dating-concierge-vs-matchmaker"]);
 
-export const aiPages: AiPage[] = [...corePages, ...geoAiPages, ...conciergePages].map((page) =>
+export const aiPages: AiPage[] = [...corePages, ...geoAiPages, ...conciergePages, ...longtailPages].map((page) =>
   withComparison.has(page.path) ? { ...page, steps: page.steps ?? howNoSwipeWorksSteps, comparison: page.comparison ?? standardComparison } : page
 );
 
