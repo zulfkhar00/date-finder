@@ -213,7 +213,7 @@ assert.ok(contents["src/components/landing-page.tsx"].includes("You just show up
 assert.ok(contents["src/content/faq.ts"].includes("you can tell us to stop at any time"));
 
 const guidePage = contents["src/app/guides/[slug]/page.tsx"];
-assert.equal((guidePage.match(/<CtaLink\b/g) ?? []).length, 2, "each generated guide page renders an inline and a closing CTA (plus the header CTA)");
+assert.equal((guidePage.match(/<CtaLink\b/g) ?? []).length + (guidePage.match(/<ShortHero\b/g) ?? []).length, 2, "each generated guide page renders a hero and a closing CTA (plus the header and sticky CTAs)");
 assert.ok(guidePage.includes("utm_campaign=${guide.slug}&utm_content=guide-${guide.slug}-reserve"), "guide CTA attribution must include unique campaign and content values");
 assert.ok(guidePage.includes("guide.sources.map"), "guide pages must render their cited primary sources");
 
