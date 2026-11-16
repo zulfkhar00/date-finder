@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CtaLink } from "@/components/cta-link";
+import { GuideStickyCta } from "@/components/guide-sticky-cta";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -149,14 +150,15 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
             </aside>
           </div>
 
-          <nav className="shell related-guides" aria-label="Related reading">
-            <p className="kicker">Keep reading</p>
+          <nav className="shell related-guides" aria-label="Related guides">
+            <p className="kicker">Related guides</p>
             <div>
               {page.related.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
             </div>
           </nav>
         </article>
       </main>
+      <GuideStickyCta href={reserveHref} utm={reserveUtm} slug={slug} />
       <SiteFooter />
     </div>
   );

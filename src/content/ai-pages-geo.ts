@@ -133,7 +133,11 @@ export const geoAiPages: AiPage[] = [
     related: [
       { href: "/guides/how-to-get-more-hinge-matches", label: "The full guide: how to get more likes on Hinge" },
       { href: "/guides/hinge-prompts-for-men", label: "Hinge prompts that work" },
-      { href: "/hinge-automation", label: "Hinge AI automation" }
+      { href: "/hinge-automation", label: "Hinge AI automation" },
+      { href: "/hinge-openers-that-get-replies", label: "Hinge opener ideas that get replies" },
+      { href: "/what-to-say-after-matching-on-hinge", label: "What to say after matching on Hinge" },
+      { href: "/hinge-prompt-answers-for-men", label: "Hinge prompt answers for men" },
+      { href: "/how-to-get-more-matches-on-bumble", label: "How to get more matches on Bumble" }
     ]
   },
   {

@@ -12,6 +12,9 @@ export function SiteFooter() {
           <Link href="/dating-app-concierge">Dating concierge</Link>
           <Link href="/is-there-an-ai-that-does-dating-apps-for-you">Does AI do dating apps?</Link>
           <Link href="/ai-dating-concierge-vs-matchmaker">Concierge vs matchmaker</Link>
+          <Link href="/hinge-openers-that-get-replies">Hinge openers</Link>
+          <Link href="/dating-app-message-assistant">Message assistant</Link>
+          <Link href="/hire-someone-to-do-my-dating-apps">Hire help for dating apps</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/#faq">FAQ</Link>

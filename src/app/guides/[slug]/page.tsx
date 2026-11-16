@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CtaLink } from "@/components/cta-link";
+import { GuideStickyCta } from "@/components/guide-sticky-cta";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -192,6 +193,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
           </nav>
         </article>
       </main>
+      <GuideStickyCta href={reserveHref} utm={reserveUtm} slug={guide.slug} />
       <SiteFooter />
     </div>
   );
