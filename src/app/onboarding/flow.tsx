@@ -30,7 +30,7 @@ const STEPS: StepDef[] = [
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },
   { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile.", event: "ob_photos" },
   { key: "consent", title: "One last thing", sub: "Please read this before we start.", event: "ob_consent" },
-  { key: "pay", title: "Reserve early access", event: "ob_pay" }
+  { key: "pay", title: "Activate your profile", event: "ob_pay" }
 ];
 const LAST_FORM = CONSENT_STEP;
 // Visitors who are not signed in answer the basics first; the email code comes at this step (the apps step once signed in).
@@ -232,7 +232,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
             </>
            ) : def.key === "pay" ? (
             <>
-              <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">Early access is a one-time, refundable $1.00 payment. You see the exact price and what it covers on the next screen, before you pay anything.</p></div>
+              <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">One quick, secure checkout turns it on. You see the exact price and what it covers before you pay anything.</p></div>
             </>
            ) : def.key === "basics" ? (
             <div style={{ display: "grid", gap: 22 }}>
