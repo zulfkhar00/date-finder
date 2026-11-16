@@ -5,6 +5,7 @@ import robots from "../src/app/robots";
 import { aiPages } from "../src/content/ai-pages";
 import { llmsFullTxt, llmsTxt } from "../src/lib/llms";
 import { guideSeo } from "../src/content/guide-seo";
+import { promises, promiseFor } from "../src/content/promises";
 import { getGuide, guideSlugs, guides, seoGuides } from "../src/content/guides";
 
 const expectedSlugs = [
@@ -145,6 +146,12 @@ for (const agent of ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", 
   assert.ok(Array.isArray(robotsAgents) && robotsAgents.some((rule) => rule.userAgent === agent && rule.allow === "/"), `robots: ${agent}`);
 }
 
+// Short-page rule: every page has its own one-line promise of 12 words or fewer, shown above the fold.
+for (const key of [...guides.map((g) => g.slug), ...aiPages.map((p) => p.path)]) {
+  assert.ok(promises[key], `${key}: needs a one-line promise`);
+  assert.ok(promises[key].split(/\s+/).length <= 12, `${key}: promise over 12 words`);
+}
+for (const key of Object.keys(promises)) assert.ok(guideSlugs.includes(key) || aiPages.some((p) => p.path === key), `${key}: promise for unknown page`);
 console.log("guides: 32 unique routes, nine sourced expansions, sitemap entries and related links passed");
 
 async function checkRenderedGuides(baseUrl: string) {
@@ -178,9 +185,11 @@ async function checkRenderedGuides(baseUrl: string) {
       assert.equal(link, `/onboarding?ref=${guide.slug}`, `${path}: CTA href carries only ref`);
       refs.add(link);
     }
-    assert.ok(html.includes("You see the exact price before you pay anything."));
+    assert.ok(html.includes(promiseFor(guide.slug).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;")), `${path}: one-line promise`);
+    assert.ok(html.includes('class="steps3"'), `${path}: three visual steps`);
+    assert.ok((html.match(/<details\b/g) ?? []).length >= 4, `${path}: collapsed accordions are in the HTML`);
     assert.doesNotMatch(html.replace(/<script[\s\S]*?<\/script>/g, ""), /\$\s?1\b|wait-?list|reserve a (?:place|spot)|holds? your spot/i, `${path}: no pre-checkout price or waitlist copy`);
-    assert.ok(html.includes("It fixes your profile, swipes on people who fit, chats in your voice and books the date."));
+    assert.ok(html.includes("NoSwipe swipes, chats and books dates for you."));
     const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
     assert.ok(jsonLd, `${path}: structured data`);
     const data = JSON.parse(jsonLd[1]);

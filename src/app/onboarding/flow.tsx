@@ -24,7 +24,7 @@ type StepDef = { key: StepKey; title: string; sub?: string; event?: "ob_apps" | 
 // Everything but the consent box is optional. The questions that matter most come first; the photo upload is last
 // so nobody has to find photos before they have an account and a profile.
 const STEPS: StepDef[] = [
-  { key: "basics", title: "A bit about you", sub: "All optional. If you add a birthday, you must be 18 or older. Only your age is shown." },
+  { key: "basics", title: "A bit about you", sub: "All optional. Add a birthday only if you are 18 or older." },
   { key: "apps", title: "Which apps?", sub: "Optional. We create and run your profile on each one you pick.", event: "ob_apps" },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this.", event: "ob_about" },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },

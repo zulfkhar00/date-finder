@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CtaLink } from "@/components/cta-link";
 import { GuideStickyCta } from "@/components/guide-sticky-cta";
 import { FunnelTracker } from "@/components/funnel-tracker";
+import { Acc, FaqItems, ShortHero } from "@/components/short/parts";
+import { CopyCards } from "@/components/short/copy-cards";
+import { HowSteps } from "@/components/short/how-steps";
+import { promiseFor } from "@/content/promises";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getGuide, guideSlugs, guides, seoGuides } from "@/content/guides";
@@ -45,6 +49,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
   const publishedIso = guide.publishedIso ?? "2026-10-29";
   const publishedLabel = new Date(`${publishedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   const isSeoGuide = seoGuides.some((item) => item.slug === guide.slug);
+  const examples = guide.sections.flatMap((section) => (section.example ? [{ label: section.title, text: section.example.text }] : [])).slice(0, 6);
   const structuredData = [
     {
       "@context": "https://schema.org",
@@ -92,22 +97,18 @@ export default async function GuidePage({ params }: GuidePageProps) {
       />
       <SiteHeader ctaHref={reserveHref} ctaUtm={reserveUtm} />
       <main>
-        <article className="guide-article">
-          <header className="guide-hero shell">
-            <Link href="/guides" className="guide-back">
-              <ArrowLeft size={17} aria-hidden="true" /> All guides
-            </Link>
-            <p className="kicker">{guide.eyebrow}</p>
-            <h1>{guide.h1 ?? guide.title}</h1>
-            <p className="guide-intro">{guide.intro}</p>
-            <p className="guide-meta">Published {publishedLabel} · {guide.readingTime}</p>
-          </header>
+        <article className="guide-article short-page">
+          <ShortHero h1={guide.h1 ?? guide.title} promise={promiseFor(guide.slug)} href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}_hero`} />
+          <HowSteps />
+          <CopyCards items={examples} title="Copy a line" />
 
-          <div className="guide-body shell">
+          <div className="shell short-more">
+            <Acc title="The short version">
+              <p>{guide.intro}</p>
+              <p className="guide-meta">Published {publishedLabel} · {guide.readingTime}</p>
+            </Acc>
             {guide.sections.map((section, index) => (
-              <section key={section.title} aria-labelledby={`section-${index + 1}`}>
-                <p className="guide-section-number">{String(index + 1).padStart(2, "0")}</p>
-                <h2 id={`section-${index + 1}`}>{section.title}</h2>
+              <Acc key={section.title} title={section.title} id={`section-${index + 1}`}>
                 {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
                 {section.bullets ? (
                   <ul>
@@ -120,19 +121,23 @@ export default async function GuidePage({ params }: GuidePageProps) {
                     <p>{section.example.text}</p>
                   </aside>
                 ) : null}
-                {index === 0 ? (
-                  <div className="guide-inline-cta">
-                    <p>Want this done for your own profile?</p>
-                    <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}_inline`} className="btn btn-primary btn-small">Get started</CtaLink>
-                  </div>
-                ) : null}
-              </section>
+              </Acc>
             ))}
 
+            <Acc title="Your checklist" id="review-checklist">
+              <ul className="acc-checks">
+                {guide.checklist.map((item) => (
+                  <li key={item}><span className="check-dot"><Check size={14} aria-hidden="true" /></span>{item}</li>
+                ))}
+              </ul>
+            </Acc>
+
+            <Acc title="FAQ" id="guide-faq-title" className="guide-faq">
+              <FaqItems faqs={guide.faqs} />
+            </Acc>
+
             {guide.sources ? (
-              <section className="guide-sources" aria-labelledby="guide-sources-title">
-                <p className="kicker">Source notes</p>
-                <h2 id="guide-sources-title">Sources and platform context</h2>
+              <Acc title="Sources and platform context" className="guide-sources">
                 <p>
                   Examples and checklists are NoSwipe editorial guidance. Supporting guidance informs specific advice; platform and background links provide context, not evidence for every framework.
                 </p>
@@ -144,42 +149,15 @@ export default async function GuidePage({ params }: GuidePageProps) {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Acc>
             ) : null}
 
-            <section className="guide-checklist" aria-labelledby="review-checklist">
-              <p className="kicker">Quick review</p>
-              <h2 id="review-checklist">Your checklist</h2>
-              <ul>
-                {guide.checklist.map((item) => (
-                  <li key={item}><span className="check-dot"><Check size={14} aria-hidden="true" /></span>{item}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="guide-faq" aria-labelledby="guide-faq-title">
-              <p className="kicker">Common questions</p>
-              <h2 id="guide-faq-title">FAQ</h2>
-              <dl>
-                {guide.faqs.map((faq) => (
-                  <div key={faq.question}>
-                    <dt>{faq.question}</dt>
-                    <dd>{faq.answer}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-
             <aside className="guide-cta" aria-labelledby="guide-cta-title">
-              <p className="kicker">Done for you</p>
               <h2 id="guide-cta-title">Rather skip the swiping?</h2>
-              <p>
-                NoSwipe is AI dating automation for Tinder, Hinge and Bumble. It fixes your profile, swipes on people who fit, chats in your voice and books the date. You just show up.
-              </p>
+              <p>NoSwipe swipes, chats and books dates for you.</p>
               <CtaLink href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}`} className="btn btn-lime">
                 Get started
               </CtaLink>
-              <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>
           </div>
 

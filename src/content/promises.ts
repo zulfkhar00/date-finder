@@ -1,0 +1,70 @@
+/**
+ * One-line answer for the top of every guide and answer page (12 words or fewer). The long text stays
+ * on the page in collapsed sections; this is the only sentence above the fold besides the headline.
+ * Keyed by guide slug or answer-page path.
+ */
+export const promises: Record<string, string> = {
+  // Guides
+  "tinder-profile-review": "Check photos, order and bio in five minutes.",
+  "hinge-prompt-help": "Answer prompts with one detail she can reply to.",
+  "dating-message-help": "Ask one specific question. Skip “hey”.",
+  "first-date-planning": "Pick a simple plan, a time and a backup.",
+  "how-to-get-more-tinder-matches": "Better photos and a short bio get more matches.",
+  "how-to-get-more-bumble-matches": "Clear photos and an easy opener get more replies.",
+  "how-to-get-more-hinge-matches": "Specific prompts and a strong first photo win likes.",
+  "why-you-get-no-matches": "Fix photos, bio and openers, in that order.",
+  "dating-app-photo-order-men": "Lead with a clear face shot. Then show your life.",
+  "hinge-prompts-for-men": "Pick three prompts. Add one detail to each.",
+  "tinder-bio-for-men": "Keep it short, specific and easy to message.",
+  "first-message-after-match": "Mention one detail from her profile. Ask one question.",
+  "when-to-ask-her-out": "Ask after a few good back-and-forths.",
+  "do-ai-dating-assistants-work": "They help with the grind. They cannot promise dates.",
+  "ai-dating-messages-ok": "Yes, if the message sounds like you.",
+  "dating-app-swipe-bots-banned": "It can happen. Know the risk first.",
+  "she-replied-haha": "Match her energy, then ask something easy.",
+  "match-stopped-replying": "One light follow-up is fine. Then let it go.",
+  "opener-examples-by-photo": "Pick her photo type. Copy an opener.",
+  "hinge-photos-for-men": "Give each photo slot one clear job.",
+  "bumble-bio-for-men": "Give her one easy thing to reply to.",
+  "move-from-app-to-number": "Suggest a plan first. Then trade numbers.",
+  "dating-profile-audit-checklist": "Run this five-minute check on your profile.",
+  "dating-profile-mistakes-men": "Twelve common mistakes, each with a quick fix.",
+  "tinder-vs-hinge-vs-bumble-for-men": "Each app suits a different goal. Compare them here.",
+  "dating-with-a-busy-schedule": "Batch your effort. Book dates early.",
+  "text-before-first-date": "Confirm the plan in one short, friendly text.",
+  "she-cancelled-first-date": "Stay relaxed. Offer one new time.",
+  "dating-bio-for-introverts": "Say one real thing instead of “I'm shy”.",
+  "first-date-ideas-not-drinks": "Twelve low-pressure plans that beat another bar.",
+  "why-hey-gets-ignored": "“Hey” asks her to do the work. Send this.",
+  "double-texting-dating-apps": "One follow-up is fine. Do not stack them.",
+  // Answer pages
+  "/ai-dating-assistant": "An AI dating assistant that swipes, chats and books dates for you.",
+  "/dating-app-automation": "Dating app automation: NoSwipe swipes, chats and books your dates.",
+  "/tinder-automation": "NoSwipe swipes and chats on your Tinder for you.",
+  "/hinge-automation": "NoSwipe likes and chats on your Hinge for you.",
+  "/bumble-automation": "NoSwipe swipes and chats on your Bumble for you.",
+  "/ai-dating-apps-vs-dating-coaches": "Coaches advise. AI does the daily work.",
+  "/best-ai-dating-assistant-2026": "Pick the AI dating assistant by what you hand off.",
+  "/ai-that-swipes-for-you": "Yes. NoSwipe is a dating app concierge that swipes for you.",
+  "/how-to-get-more-matches-on-hinge": "Specific prompts and a clear first photo help most.",
+  "/ai-dating-app-openers": "Specific openers beat generic ones. Copy these.",
+  "/is-using-ai-on-dating-apps-allowed": "Apps restrict automation. Know the account risk first.",
+  "/noswipe-vs-rizz-yourmove-keys-ai": "Others suggest lines. NoSwipe acts on your accounts.",
+  "/dating-app-concierge": "A dating app concierge swipes, chats and books dates for you.",
+  "/is-there-an-ai-that-does-dating-apps-for-you": "Yes. NoSwipe is a dating app concierge: it swipes, chats, books.",
+  "/ai-dating-concierge-vs-matchmaker": "A dating concierge works your own apps. A matchmaker introduces people.",
+  "/hinge-openers-that-get-replies": "Reference her prompt. Ask one easy question.",
+  "/what-to-say-after-matching-on-hinge": "Open with one detail from her profile.",
+  "/hinge-prompt-answers-for-men": "Be specific. Give her something to reply to.",
+  "/how-to-get-more-matches-on-bumble": "Clear photos and an easy opener get replies.",
+  "/tinder-openers-that-get-replies": "Skip “hey”. Ask about one thing in her photos.",
+  "/dating-app-message-assistant": "It writes your replies. You can edit anything.",
+  "/hire-someone-to-do-my-dating-apps": "Yes. NoSwipe, a dating app concierge, runs your apps.",
+  "/matches-but-no-dates": "Suggest a plan sooner. Keep chats short."
+};
+
+export const fallbackPromise = "Dating apps, done for you. You just show up.";
+
+export function promiseFor(key: string): string {
+  return promises[key] ?? fallbackPromise;
+}

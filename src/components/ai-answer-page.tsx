@@ -2,6 +2,11 @@ import Link from "next/link";
 import { CtaLink } from "@/components/cta-link";
 import { GuideStickyCta } from "@/components/guide-sticky-cta";
 import { FunnelTracker } from "@/components/funnel-tracker";
+import { Acc, FaqItems, ShortHero, quotedBullets } from "@/components/short/parts";
+import { CopyCards, type CopyItem } from "@/components/short/copy-cards";
+import { HowSteps } from "@/components/short/how-steps";
+import { promiseFor } from "@/content/promises";
+import { QuickCompare } from "@/components/short/quick-compare";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import type { AiPage } from "@/content/ai-pages";
@@ -74,38 +79,40 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
 
   const updatedLabel = page.updatedIso && page.updatedIso !== page.publishedIso ? new Date(`${page.updatedIso}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : null;
 
+  const examples: CopyItem[] = page.sections.flatMap((section) => quotedBullets(section.bullets)).slice(0, 6);
+  const showCompare = Boolean(page.comparison) || ["/noswipe-vs-rizz-yourmove-keys-ai", "/best-ai-dating-assistant-2026", "/dating-app-message-assistant"].includes(page.path);
+
   return (
     <div className="interior">
       <FunnelTracker event="page_view" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <SiteHeader ctaHref={reserveHref} ctaUtm={reserveUtm} />
       <main>
-        <article className="guide-article">
-          <header className="guide-hero shell">
-            <p className="kicker">{page.eyebrow}</p>
-            <h1>{page.h1}</h1>
-            <p className="guide-intro">{page.answer}</p>
-            <p className="guide-meta">Published {publishedLabel}{updatedLabel ? ` · Updated ${updatedLabel}` : ""}</p>
-          </header>
+        <article className="guide-article short-page">
+          <ShortHero h1={page.h1} promise={promiseFor(page.path)} href={reserveHref} utm={reserveUtm} location={`answer_${slug}_hero`} />
+          <HowSteps />
+          <CopyCards items={examples} title="Copy a line" />
+          {showCompare ? <QuickCompare /> : null}
 
-          <div className="guide-body shell">
+          <div className="shell short-more">
+            <Acc title="The full answer">
+              <p>{page.answer}</p>
+              <p className="guide-meta">Published {publishedLabel}{updatedLabel ? ` · Updated ${updatedLabel}` : ""}</p>
+            </Acc>
             {page.steps ? (
-              <section aria-labelledby="how-it-works">
-                <h2 id="how-it-works">How it works</h2>
+              <Acc title="How it works, in detail" id="how-it-works">
                 <ol>{page.steps.map((step) => <li key={step}>{step}</li>)}</ol>
-              </section>
+              </Acc>
             ) : null}
             {page.sections.map((section, index) => (
-              <section key={section.title} aria-labelledby={`section-${index + 1}`}>
-                <h2 id={`section-${index + 1}`}>{section.title}</h2>
+              <Acc key={section.title} title={section.title} id={`section-${index + 1}`}>
                 {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
                 {section.bullets ? <ul>{section.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul> : null}
-              </section>
+              </Acc>
             ))}
 
             {page.comparison ? (
-              <section aria-labelledby="comparison-title">
-                <h2 id="comparison-title">{page.comparison.title}</h2>
+              <Acc title={page.comparison.title} id="comparison-title">
                 <p>{page.comparison.intro}</p>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -125,28 +132,17 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
                     </tbody>
                   </table>
                 </div>
-              </section>
+              </Acc>
             ) : null}
 
-            <section className="guide-faq" aria-labelledby="guide-faq-title">
-              <p className="kicker">Common questions</p>
-              <h2 id="guide-faq-title">FAQ</h2>
-              <dl>
-                {page.faqs.map((faq) => (
-                  <div key={faq.question}>
-                    <dt>{faq.question}</dt>
-                    <dd>{faq.answer}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
+            <Acc title="FAQ" id="guide-faq-title" className="guide-faq">
+              <FaqItems faqs={page.faqs} />
+            </Acc>
 
             <aside className="guide-cta" aria-labelledby="guide-cta-title">
-              <p className="kicker">Done for you</p>
               <h2 id="guide-cta-title">Rather skip the swiping?</h2>
-              <p>NoSwipe creates your profile, swipes on people who fit, chats as you and books the date. You can take over any chat or pause any app at any time.</p>
+              <p>NoSwipe is a dating app concierge. It swipes, chats and books dates for you.</p>
               <CtaLink href={reserveHref} utm={reserveUtm} location={`answer_${slug}`} className="btn btn-lime">Get started</CtaLink>
-              <small>Takes about a minute. You see the exact price before you pay anything.</small>
             </aside>
           </div>
 
