@@ -28,11 +28,11 @@ export type AiPage = {
 const corePages: AiPage[] = [
   {
     path: "/ai-dating-assistant",
-    metaTitle: "AI Dating Assistant: Swipes, Chats, Books Dates",
-    h1: "What is an AI dating assistant?",
+    metaTitle: "AI Dating Assistant: What It Does, How It Works",
+    h1: "AI dating assistant: what it is and what it does",
     eyebrow: "AI dating assistant",
-    description: "An AI dating assistant that actually does the work: swipes on people who fit, chats in your voice and books the date on Tinder, Hinge and Bumble.",
-    answer: "An AI dating assistant is software that takes the grind out of dating apps: it swipes, starts conversations, keeps them going and sets up the date. NoSwipe does all of that on your own Tinder, Hinge and Bumble accounts, so the only part left for you is showing up.",
+    description: "What an AI dating assistant is, what a dating app AI assistant does for you and how NoSwipe swipes, chats and books dates on Tinder, Hinge and Bumble.",
+    answer: "An AI dating assistant (also called a dating assistant AI or dating app AI assistant) is software that takes the grind out of dating apps: it swipes, starts conversations, keeps them going and sets up the date. NoSwipe does all of that on your own Tinder, Hinge and Bumble accounts, so the only part left for you is showing up.",
     publishedIso: "2026-11-04",
     sections: [
       {
@@ -65,6 +65,7 @@ const corePages: AiPage[] = [
     ],
     faqs: [
       { question: "What is an AI dating assistant?", answer: "Software that does the work on dating apps for you: swiping, chatting and scheduling dates. NoSwipe does this on Tinder, Hinge and Bumble." },
+      { question: "What is the difference between a dating assistant and a dating app AI assistant?", answer: "Nothing important: both phrases describe an AI tool that helps with dating apps. Some only draft messages for you to send, and some, like NoSwipe, swipe, chat and book dates on your own accounts." },
       { question: "Does NoSwipe swipe for me?", answer: "Yes. It swipes on people who fit your type and dealbreakers, so you don't spend your evenings doing it." },
       { question: "Does it chat for me?", answer: "Yes. It opens conversations and keeps them going in your voice, then moves them toward a date." },
       { question: "Does it book the date?", answer: "Yes. When a match says yes, NoSwipe sets the time and place and sends you the plan." },
