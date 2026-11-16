@@ -17,6 +17,9 @@ function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () =>
   const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestCode, { step: "email" });
   const [verified, verifyAction, verifying] = useActionState<LoginState, FormData>(verifyCodeInline, { step: "code" });
   const fired = useRef(false);
+  const verifyForm = useRef<HTMLFormElement>(null);
+  const autoSubmit = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(autoSubmit.current), []);
   const [finishing, setFinishing] = useState(false);
   useEffect(() => {
     if (verified.step === "done" && !fired.current) { fired.current = true; setFinishing(true); onSignedIn(); }
@@ -41,12 +44,17 @@ function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () =>
     );
   }
   return (
-    <form action={verifyAction} className="app-form" style={{ marginTop: 22 }}>
+    <form ref={verifyForm} action={verifyAction} className="app-form" style={{ marginTop: 22 }}>
       <p className="app-ok" role="status">We emailed a code to <strong>{sent.email}</strong>. Type it here.</p>
       <input type="hidden" name="email" value={sent.email} />
       <label className="app-field">
         <span>Code</span>
-        <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required readOnly={verifying || finishing} autoFocus />
+        <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required readOnly={verifying || finishing} autoFocus
+          onChange={(e) => {
+            // Submit by itself once a full code is in (a short pause, so a longer code isn't cut off while typing).
+            clearTimeout(autoSubmit.current);
+            if (/^\d{6,10}$/.test(e.currentTarget.value.trim())) autoSubmit.current = setTimeout(() => verifyForm.current?.requestSubmit(), 700);
+          }} />
       </label>
       {verified.error ? <p className="app-error" role="alert">{verified.error}</p> : null}
       <button type="submit" className="app-btn" disabled={verifying || finishing} aria-busy={verifying || finishing}>
