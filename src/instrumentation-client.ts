@@ -1,18 +1,16 @@
-import * as Sentry from "@sentry/nextjs";
-import { initAnalytics, trackRoute } from "@/lib/analytics";
-import { sentryOptions } from "@/lib/sentry-options";
+// Runs before hydration, so it stays tiny: Sentry and PostHog (~400 KB of script) are imported only after the
+// page has loaded and the browser is idle. That keeps them off the critical path (mobile Lighthouse TBT).
+type Monitoring = typeof import("@/lib/monitoring-client");
+let loading: Promise<Monitoring> | undefined;
+const load = () => (loading ??= import("@/lib/monitoring-client"));
 
-// Runs before hydration. Each tool is dormant unless its NEXT_PUBLIC_ key was set at build time.
-const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
-try {
-  if (sentryDsn) Sentry.init(sentryOptions(sentryDsn));
-} catch {
-  // Monitoring must never break the page.
+if (typeof window !== "undefined") {
+  const boot = () => { void load().catch(() => { /* Monitoring must never break the page. */ }); };
+  const whenIdle = () => ("requestIdleCallback" in window ? window.requestIdleCallback(boot, { timeout: 2000 }) : globalThis.setTimeout(boot, 2000));
+  if (document.readyState === "complete") whenIdle();
+  else window.addEventListener("load", whenIdle, { once: true });
 }
 
-initAnalytics();
-
 export function onRouterTransitionStart(url: string, navigationType: "push" | "replace" | "traverse") {
-  if (sentryDsn) Sentry.captureRouterTransitionStart(url, navigationType);
-  if (!initAnalytics(url)) trackRoute(url);
+  void load().then((m) => m.onTransition(url, navigationType)).catch(() => { /* ignore */ });
 }

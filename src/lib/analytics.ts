@@ -1,4 +1,4 @@
-import posthog from "posthog-js";
+import type { PostHog } from "posthog-js";
 import { scrubDeep } from "@/lib/scrub";
 
 // Product analytics (PostHog). Every export is a no-op unless NEXT_PUBLIC_POSTHOG_KEY was set at
@@ -11,6 +11,10 @@ export type FunnelEvent = "page_view" | "get_started" | "reserve_start" | "check
 const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 let ready = false;
+// posthog-js is ~300 KB, so it is not imported here: monitoring-client.ts (loaded after the page has finished loading)
+// passes it in. Until then track() and friends are no-ops, as they already were before init.
+let posthog: PostHog | undefined;
+export function registerPostHog(instance: PostHog) { posthog = instance; }
 
 const PRIVATE_PREFIXES = ["/admin", "/login", "/auth", "/onboarding", "/home", "/chats", "/dates", "/profile"];
 
@@ -47,7 +51,7 @@ function isInternalBrowser(): boolean {
 // visitor who lands on /admin and then navigates to a public page gets initialised at that point.
 // Returns true only on the call that initialised PostHog (that call already tracked `href`).
 export function initAnalytics(href?: string): boolean {
-  if (!key || typeof window === "undefined" || ready) return false;
+  if (!key || !posthog || typeof window === "undefined" || ready) return false;
   if (isPrivateUrl(href ?? window.location.href)) return false;
   try {
     posthog.init(key, {
@@ -82,7 +86,7 @@ export function initAnalytics(href?: string): boolean {
 export function track(event: FunnelEvent, options?: { instant?: boolean; props?: Record<string, string | number | boolean> }) {
   if (!ready) return;
   try {
-    posthog.capture(event, options?.props, options?.instant ? { send_instantly: true } : undefined);
+    posthog?.capture(event, options?.props, options?.instant ? { send_instantly: true } : undefined);
   } catch {
     // ignore
   }
