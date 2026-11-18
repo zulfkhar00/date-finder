@@ -20,10 +20,12 @@ export function LandingPage() {
       <main>
         <section className="shell hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <h1 id="hero-title"><span className="line">Stop swiping.</span><span className="line">Start <span className="mark">dating.</span></span></h1>
-            <p className="hero-sub">A dating app concierge that swipes, chats and books for you. <strong>You just show up.</strong></p>
+            <h1 id="hero-title"><span className="line">Skip the swipe.</span><span className="line">Make <span className="mark">plans.</span></span></h1>
+            <p className="hero-sub">A dating concierge for Hinge, Tinder and Bumble. We handle swiping, chats and date plans. <strong>You just show up.</strong></p>
             <div className="hero-cta" id="hero-cta">
               <CtaLink location="hero">Get started</CtaLink>
+              <a className="btn btn-white" href="/demo">Try the interactive demo</a>
+              <p className="fine">Explore sample matches and date plans, and try taking over a chat. No signup needed for the demo.</p>
             </div>
           </div>
           <div className="hero-art">
@@ -38,7 +40,6 @@ export function LandingPage() {
         </div>
 
         <HowSteps />
-        <p className="shell short-demo"><a href="/demo">See a demo</a></p>
 
         <div className="shell short-more">
           <Acc title="What you get" id="get">
