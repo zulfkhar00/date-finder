@@ -19,7 +19,7 @@ const structuredData = [
     url: site,
     logo: `${site}/brand/email-logo.png`,
     email: "support@noswipe.app",
-    description: "NoSwipe is AI dating automation: it swipes, chats and books first dates for its users on Tinder, Hinge and Bumble, using their own accounts and real photos."
+    description: "NoSwipe sets up profiles with your real photos and handles swiping, chats and date planning on Hinge, Tinder and Bumble using phones we operate."
   },
   { "@context": "https://schema.org", "@type": "WebSite", name: "NoSwipe", url: site },
   {
@@ -36,7 +36,7 @@ const structuredData = [
       "Opens and keeps up conversations in the user's own voice",
       "Books first dates and sends the user the plan: where, when, who",
       "Fixes the profile first: photo order, bio and prompt answers",
-      "The user's own accounts, real photos and matches"
+      "Profiles set up with the user's real photos, with in-app access to matches and chats"
     ],
     description: "Stop swiping. NoSwipe swipes, chats and books dates for you on Tinder, Hinge and Bumble. You just show up."
   },
