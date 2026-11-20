@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, Sparkles, User } from "lucide-react";
-import { AppBadge, Avatar, Empty, ModePill, RowLink, StatusPill } from "@/components/app/ui";
+import { AppBadge, Avatar, Empty, ModePill, RowLink } from "@/components/app/ui";
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
 import { StarterPack } from "@/components/app/starter-pack";
 import type { ChatSummary, SetupItem } from "@/lib/app/data";
 import { APP_LABELS, APPS, splitDates, type AppAccountRow, type DateRow } from "@/lib/app/domain";
+import { appCopy, type CopyContext } from "@/lib/app/status-copy";
 
 // Presentational screens. The real pages (server components, real data) and /demo (sample data) both render
 // these, so the two are the same pixels. `base` is "" for the app and "/demo" for the demo.
@@ -18,8 +19,8 @@ export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps
     <section className="app-card app-next" aria-label="What happens next">
       {compact ? null : <h2 style={{ fontSize: 17, fontWeight: 800 }}>What happens next</h2>}
       <ol className="app-steps">
-        <li><span aria-hidden>1</span><div><strong>We set up your profile</strong><p>{names ? `On ${names}, from your photos and answers.` : "On the apps you pick, from your photos and answers."}</p></div></li>
-        <li><span aria-hidden>2</span><div><strong>Matches and chats appear here</strong><p>NoSwipe chats as you. Read along any time, or take over.</p></div></li>
+        <li><span aria-hidden>1</span><div><strong>A person on our team sets up your profile</strong><p>{names ? `On ${names}, from your photos and answers.` : "On the apps you pick, from your photos and answers."}</p></div></li>
+        <li><span aria-hidden>2</span><div><strong>Matches and chats appear here</strong><p>Once your apps are running, read along any time, or take over a chat.</p></div></li>
         <li><span aria-hidden>3</span><div><strong>Dates land in Dates</strong><p>With the place and the time, plus an email if you have those on.</p></div></li>
       </ol>
       {gaps.length ? (
@@ -45,8 +46,11 @@ function NextGaps({ gaps }: { gaps: SetupItem[] }) {
   );
 }
 
-export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "", pack }: {
-  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string; pack?: HomePack;
+/** What the Home status rows need to say the truth about each app: paid or not, a report hold, and how long the client has waited. */
+export type HomeFulfilment = CopyContext;
+
+export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "", pack, fulfilment = { paid: true } }: {
+  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string; pack?: HomePack; fulfilment?: HomeFulfilment;
 }) {
   const quiet = chats.length === 0 && upcoming.length === 0;
   const accounts = APPS.flatMap((app) => apps.filter((a) => a.app === app));
@@ -67,26 +71,29 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
         <Empty title="No apps yet">Pick the apps you want us to run in your profile. <Link href={`${base}/profile`} className="app-link">Add an app</Link></Empty>
       ) : (
         <ul className="app-list">
-          {accounts.map((a) => (
-            <li key={a.app} className="app-row">
-              <AppBadge app={a.app} />
-              <div className="app-row-body">
-                <div className="app-row-title">{APP_LABELS[a.app]} <StatusPill account={a} /></div>
-                <div className="app-row-sub" style={{ whiteSpace: "normal" }}>
-                  {a.user_paused ? "You paused this app." : a.status === "setting_up" ? (packNode ? `We're setting up your ${APP_LABELS[a.app]}. Your starter pack works on it today.` : `We're setting up your ${APP_LABELS[a.app]}. You'll see matches here.`) : a.status === "live" ? "Running." : "Paused by the team."}
+          {accounts.map((a) => {
+            const copy = appCopy(a, fulfilment);
+            const status = a.user_paused || fulfilment.hold ? null : a.status;
+            return (
+              <li key={a.app} className="app-row" data-testid={`app-status-${a.app}`} data-status={fulfilment.hold ? "held" : a.user_paused ? "paused" : a.status}>
+                <AppBadge app={a.app} />
+                <div className="app-row-body">
+                  <div className="app-row-title">{APP_LABELS[a.app]} <span className="app-pill" data-tone={copy.tone}><i />{copy.label}</span></div>
+                  <div className="app-row-sub" style={{ whiteSpace: "normal" }}>{copy.text}</div>
+                  {status === "needs_client_action" ? <Link href={`${base}/profile`} className="app-link">Open Profile<ChevronRight size={16} aria-hidden /></Link> : null}
                 </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      <h2 className="app-h2">This week</h2>
+      {quiet && !base && matchesThisWeek === 0 ? null : <><h2 className="app-h2">This week</h2>
       <div className="app-stats">
         <div className="app-stat" data-c="coral"><span>Matches</span><strong>{matchesThisWeek}</strong></div>
         <div className="app-stat" data-c="lilac"><span>Active chats</span><strong>{chats.length}</strong></div>
         <div className="app-stat" data-c="lime"><span>Upcoming dates</span><strong>{upcoming.length}</strong></div>
-      </div>
+      </div></>}
 
       <h2 className="app-h2">Needs you</h2>
       {needsYou.length === 0 ? (

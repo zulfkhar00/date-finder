@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import styles from "../admin.module.css";
 
 const LINKS = [
+  { href: "/admin/fulfilment", label: "Fulfilment" },
   { href: "/admin", label: "Overview" },
   { href: "/admin/traffic", label: "Traffic" },
   { href: "/admin/leads", label: "Leads" },

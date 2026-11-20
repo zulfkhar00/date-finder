@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin-auth";
-import { APPS, APP_LABELS, MODE_LABELS, chatMode, effectiveStatus, type App } from "@/lib/app/domain";
+import { APPS, APP_LABELS, MODE_LABELS, STATUS_LABELS, WORKFLOW_STATUSES, chatMode, effectiveStatus, isHaltedStatus, type App, type AppStatus } from "@/lib/app/domain";
+import { listEvents } from "@/lib/fulfilment/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { LocalTime } from "../../_components/local-time";
 import { SetupNotice } from "../../_components/notices";
 import { formatDateTime } from "../../_lib/format";
-import { decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, setAppStatusAction, setNeedsYouAction } from "../actions";
+import { decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, addNoteAction, setAppStatusAction, setNeedsYouAction } from "../actions";
 import { flagLabel } from "@/lib/starter-pack/photo-flags-core";
 import { listFlaggedForUser, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 import { PACK_VERSION } from "@/lib/starter-pack/types";
@@ -20,11 +22,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sb = getSupabaseAdmin();
-  const [{ data: pack }, { data: profile }, { data: prefs }, { data: apps }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, photos, flaggedPhotos, auth] = await Promise.all([
+  const [{ data: pack }, { data: profile }, { data: prefs }, { data: appsNew }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, photos, flaggedPhotos, auth] = await Promise.all([
     sb.from("starter_packs").select("status, content, attempts, last_error, tokens, model, generated_at, next_attempt_at, updated_at").eq("user_id", id).eq("version", PACK_VERSION).maybeSingle(),
     sb.from("profiles").select("*").eq("user_id", id).maybeSingle(),
     sb.from("preferences").select("*").eq("user_id", id).maybeSingle(),
-    sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id),
+    sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").eq("user_id", id),
     sb.from("matches").select("*").eq("user_id", id).order("matched_at", { ascending: false }),
     sb.from("dates").select("*").eq("user_id", id).order("starts_at"),
     sb.from("takeovers").select("match_id, ended_at").eq("user_id", id),
@@ -33,6 +35,10 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
     listFlaggedForUser(sb, id),
     sb.auth.admin.getUserById(id)
   ]);
+  // The new columns exist after supabase/2026-11-20-fulfilment.sql; before it, read the old ones so the page still works.
+  const apps: { app: string; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null }[] | null = appsNew ?? ((await sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id)).data as never);
+  const log = await listEvents(sb, id);
+  const held = (profile?.report_hold as string | null | undefined) ?? null;
   if (!profile) notFound();
   const matchIds = (matches ?? []).map((m) => m.id);
   const { data: msgs } = matchIds.length ? await sb.from("messages").select("id, match_id, sender, body, sent_at, delivered_at").in("match_id", matchIds).order("sent_at", { ascending: false }).limit(300) : { data: [] };
@@ -90,23 +96,52 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         </p>
       </section>
 
-      <section className={styles.card}>
+      <section className={styles.card} data-testid="app-workflow">
         <h2 className={styles.subhead}>App accounts</h2>
+        <p className={styles.sub}>Setting up, then Needs client action (the client reads your reason on their Home screen), then Active, Paused or Closed. Every change is logged with your email and the time. A report hold overrides all of this until it is lifted.</p>
+        {held ? <div className={styles.notice}>A report put this account on hold ({held}). The client sees the hold, not the status below.</div> : null}
         {APPS.map((app) => {
           const row = (apps ?? []).find((a) => a.app === app);
+          const current = row?.status === "live" ? "active" : row?.status ?? "setting_up";
           return (
             <div key={app} style={{ borderTop: "1px solid var(--a-line)", padding: "12px 0" }}>
-              <strong>{APP_LABELS[app]}</strong> {row ? <span className={styles.badge}>{row.user_paused ? "paused by user" : row.status}</span> : <span className={styles.muted}>not chosen by the user</span>}
-              <OpForm action={setAppStatusAction.bind(null, id)} label="Set status">
+              <strong>{APP_LABELS[app]}</strong> {row ? <span className={styles.badge}>{row.user_paused ? "paused by user" : STATUS_LABELS[row.status]}</span> : <span className={styles.muted}>not chosen by the user</span>}
+              {row?.status === "needs_client_action" && row.client_action_reason ? <p className={styles.sub}>Client sees: {row.client_action_reason}</p> : null}
+              {row?.status_changed_at ? <p className={styles.sub}>Changed <LocalTime iso={row.status_changed_at} /></p> : null}
+              <OpForm action={setAppStatusAction.bind(null, id)} label="Save status" pendingLabel="Saving…">
                 <input type="hidden" name="app" value={app} />
-                <label className={styles.field}>Status
-                  <select className={styles.select} name="status" defaultValue={row?.status ?? "setting_up"}>
-                    <option value="setting_up">Setting up</option><option value="live">Live</option><option value="paused">Paused (team)</option>
-                  </select></label>
+                <div className={styles.filters}>
+                  <label className={styles.field}>Status
+                    <select className={styles.select} name="status" defaultValue={current}>
+                      {WORKFLOW_STATUSES.map((st) => <option key={st} value={st}>{st === "paused" ? "Paused (team)" : STATUS_LABELS[st]}</option>)}
+                    </select></label>
+                  <label className={styles.field} style={{ flex: 2 }}>Reason the client sees (needed for Needs you)
+                    <input className={styles.input} name="reason" maxLength={200} defaultValue={row?.status === "needs_client_action" ? row.client_action_reason ?? "" : ""} placeholder="Add 2 more photos / Log in on a fresh browser profile" /></label>
+                </div>
+                <label className={styles.field}>Operator note (internal, never shown to the client)
+                  <input className={styles.input} name="note" maxLength={2000} /></label>
               </OpForm>
             </div>
           );
         })}
+      </section>
+
+      <section className={styles.card} data-testid="fulfilment-log">
+        <h2 className={styles.subhead}>Notes and status log</h2>
+        {log.setupNeeded ? <div className={styles.notice}>The log is not set up yet. Apply <code>supabase/2026-11-20-fulfilment.sql</code>.</div> : null}
+        <OpForm action={addNoteAction.bind(null, id)} label="Add note" pendingLabel="Saving…">
+          <label className={styles.field}>Internal note<textarea className={styles.textarea} style={{ minHeight: 80 }} name="note" required maxLength={2000} /></label>
+        </OpForm>
+        {log.events.length ? (
+          <ul className={styles.logList} style={{ marginTop: 14 }}>
+            {log.events.map((e) => (
+              <li key={e.id}>
+                <span className={styles.muted}><LocalTime iso={e.at} /> · {e.actor}{e.app ? ` · ${APP_LABELS[e.app as App] ?? e.app}` : ""}</span><br />
+                {e.action === "status" ? <>{(e.from_status ?? "none").replace(/_/g, " ")} → <strong>{(e.to_status ?? "").replace(/_/g, " ")}</strong>{e.reason ? <> · client sees &ldquo;{e.reason}&rdquo;</> : null}{e.note ? <> · {e.note}</> : null}</> : <>{e.note}</>}
+              </li>
+            ))}
+          </ul>
+        ) : <p className={styles.muted} style={{ marginTop: 10 }}>Nothing logged yet.</p>}
       </section>
 
       <section className={styles.card}>
@@ -126,7 +161,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         {!matches?.length ? <div className={styles.empty}>No matches yet. Add one above.</div> : matches.map((m) => {
           const mode = chatMode((takeovers ?? []).filter((t) => t.match_id === m.id));
           const acct = (apps ?? []).find((a) => a.app === m.app);
-          const paused = acct ? effectiveStatus(acct) === "paused" : false;
+          const paused = acct ? isHaltedStatus(effectiveStatus(acct)) : false;
           const thread = (msgs ?? []).filter((x) => x.match_id === m.id && x.sender !== "system_internal").slice(0, 6).reverse();
           return (
             <div key={m.id} style={{ borderTop: "1px solid var(--a-line)", padding: "14px 0", display: "grid", gap: 10 }}>

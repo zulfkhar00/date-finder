@@ -306,3 +306,13 @@
 .kpiValue[data-tone="warn"] { color: var(--coral-deep); }
 .actionBox { border: 2px solid var(--a-line); border-radius: var(--r-sm); padding: 12px; min-width: 0; }
 .plainList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+/* Fulfilment queue: SLA badges and the per-client app status lines. */
+.badge_sla_green { background: var(--lime); }
+.badge_sla_amber { background: #FFD66B; }
+.badge_sla_red { background: var(--coral); color: var(--a-ink); }
+.badge_held { background: #ECE7F3; color: var(--grape-2); }
+.appLine { display: block; font-size: 12px; line-height: 1.5; }
+.appReason { color: var(--a-muted); font-size: 12px; display: block; max-width: 28ch; white-space: normal; }
+.logList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.logList li { border-top: 1px solid var(--a-line); padding-top: 8px; }

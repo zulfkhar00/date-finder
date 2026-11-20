@@ -2,13 +2,13 @@
 // Pure logic (no I/O at import time) so scripts/check-app.ts can test it without a browser.
 
 export const RESUME_COPY = {
-  title: "One step left: activate NoSwipe so it starts swiping and chatting for you",
-  body: "Your profile is ready. Activate to switch it on. It swipes, chats in your voice and books the date. You just show up.",
+  title: "One step left: activate NoSwipe so our team starts setting up your apps",
+  body: "Your profile is ready. After you activate, a person on our team starts setting up your dating apps within 72 hours. We show you the status of each app here, and you can pause any of them.",
   button: "Activate NoSwipe",
   opening: "Opening checkout…",
   confirming: "Confirming your payment…",
   doneTitle: "You're activated",
-  doneBody: "Payment received. NoSwipe is setting up your apps now, and your matches and chats show up here.",
+  doneBody: "Payment received. A person on our team will start setting up your apps within 72 hours. The status of each app shows here, and we tell you if we need anything from you.",
   retry: "Checkout could not open. You have not been charged. Please try again."
 } as const;
 

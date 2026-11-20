@@ -2,9 +2,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { buildDateBookedEmail, buildNeedsYouEmail } from "@/lib/app-emails";
-import { APPS, SEND_REFUSALS, canAiSend, chatMode, effectiveStatus, encodeSystemEvent, type AppStatus, type SystemEvent } from "@/lib/app/domain";
+import { APPS, APP_STATUSES, SEND_REFUSALS, canAiSend, chatMode, effectiveStatus, encodeSystemEvent, type AppStatus, type SystemEvent } from "@/lib/app/domain";
 import { sendAppEmail } from "@/lib/email";
 import { parseSiteUrl } from "@/lib/admin-config";
+import { changeAppStatus } from "@/lib/fulfilment/service";
 import { flaggedPhotoIds, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 
 // The automation seam (docs/automation.md). Everything a worker, or the admin console, may do to a
@@ -20,7 +21,7 @@ const uuid = z.string().uuid();
 const iso = z.string().datetime({ offset: true });
 
 export const schemas = {
-  appStatus: z.object({ status: z.enum(["setting_up", "live", "paused"]) }),
+  appStatus: z.object({ status: z.enum(APP_STATUSES), reason: z.string().max(400).optional(), note: z.string().max(2000).optional() }),
   match: z.object({
     app: z.enum(APPS), externalId: z.string().min(1).max(200).optional(),
     name: z.string().trim().min(1).max(80), age: z.number().int().min(18).max(99).nullable().optional(),
@@ -58,13 +59,14 @@ async function notifyUser(sb: SupabaseClient, userId: string, kind: "date" | "ne
   }
 }
 
-export async function setAppStatus(sb: SupabaseClient, userId: string, app: string, input: unknown): Promise<Result<{ app: string; status: AppStatus }>> {
+export async function setAppStatus(sb: SupabaseClient, userId: string, app: string, input: unknown, actor = "automation"): Promise<Result<{ app: string; status: AppStatus; logged: boolean }>> {
   const a = z.enum(APPS).safeParse(app);
   const p = schemas.appStatus.safeParse(input);
   if (!a.success || !p.success) return fail(400, "invalid", "Unknown app or status.");
-  const { error } = await sb.from("app_accounts").upsert({ user_id: userId, app: a.data, status: p.data.status, updated_at: new Date().toISOString() }, { onConflict: "user_id,app" });
-  if (error) return fail(500, "db", "Could not save the app status.");
-  return { ok: true, app: a.data, status: p.data.status };
+  // Rules, the reason the client reads, and the audit row live in one place: lib/fulfilment/service.
+  const result = await changeAppStatus(sb, actor, userId, a.data, p.data);
+  if (!result.ok) return fail(result.status, result.code, result.message);
+  return { ok: true, app: result.app, status: result.status, logged: result.logged };
 }
 
 export async function addMatch(sb: SupabaseClient, userId: string, input: unknown): Promise<Result<{ matchId: string; created: boolean }>> {

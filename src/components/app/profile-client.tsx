@@ -8,7 +8,8 @@ import { PhotoManager, realPhotoApi, type PhotoApi } from "@/components/app/phot
 import { GENDER_LABELS, INTEREST_LABELS, StepFields } from "@/components/app/step-fields";
 import { payloadFor, type Draft } from "@/lib/app/draft";
 import { deleteAccount, saveSettings, saveStep, setAppPaused, signOutUser } from "@/lib/app/actions";
-import { APP_LABELS, GOAL_LABELS, VOICES, VOICE_LABELS, effectiveStatus, type AppAccountRow, type StepName } from "@/lib/app/domain";
+import { appCopy } from "@/lib/app/status-copy";
+import { APP_LABELS, GOAL_LABELS, VOICES, VOICE_LABELS, effectiveStatus, isActiveStatus, type AppAccountRow, type StepName } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 
 type R = { ok: true } | { ok: false; error: string };
@@ -79,7 +80,7 @@ function AppRow({ account, api }: { account: AppAccountRow; api: ProfileApi }) {
       <AppBadge app={account.app} />
       <div className="app-row-body">
         <div className="app-row-title">{APP_LABELS[account.app]} <StatusPill account={{ status: account.status, user_paused: paused }} /></div>
-        <div className="app-row-sub" style={{ whiteSpace: "normal" }}>{error || (s === "paused" ? "Paused. Nothing is sent for you." : s === "live" ? "Running." : "We're setting it up.")}</div>
+        <div className="app-row-sub" style={{ whiteSpace: "normal" }}>{error || (s === "needs_client_action" ? appCopy({ ...account, user_paused: paused }, { paid: true }).text : s === "paused" ? "Paused. Nothing is sent for you." : s === "closed" ? "Closed. Nothing runs on this app." : isActiveStatus(s) ? "Running." : "We're setting it up.")}</div>
       </div>
       <Toggle on={!paused} onChange={(on) => change(!on)} disabled={busy} label={`${APP_LABELS[account.app]} ${paused ? "paused, turn on" : "running, pause"}`} />
     </li>
