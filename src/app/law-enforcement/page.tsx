@@ -15,6 +15,8 @@ export default function LawEnforcementPage() {
     <p>If someone is at risk of death or serious physical harm, say &quot;Emergency&quot; in the subject line. We can disclose information without legal process when we have a good-faith belief that it is needed to prevent that harm, and we review emergency requests as a priority.</p>
     <h2>Child safety</h2>
     <p>We prohibit any sexual content involving minors. We report apparent child sexual exploitation to the National Center for Missing &amp; Exploited Children (NCMEC), as US law requires, and cooperate with follow-up requests.</p>
+    <h2>Reporting a violation</h2>
+    <p>Members of the public can report a profile, message or photo through our <Link href="/report">report form</Link>, anonymously if they prefer. Authorities should still use the email process above.</p>
     <h2>Preservation requests</h2>
     <p>On a written request from law enforcement, we will preserve the information we hold on an account while you obtain legal process. Tell us the account and the period to preserve.</p>
     <h2>Notice to users</h2>

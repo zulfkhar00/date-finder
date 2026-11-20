@@ -82,15 +82,25 @@ export async function addMatch(sb: SupabaseClient, userId: string, input: unknow
   return { ok: true, matchId: data.id, created: true };
 }
 
+/** Users whose account a report put on hold (paused or closed). Empty before supabase/2026-11-20-reports.sql is applied. */
+export async function reportHeldUsers(sb: SupabaseClient, userIds: string[]): Promise<Set<string>> {
+  if (!userIds.length) return new Set();
+  const { data, error } = await sb.from("profiles").select("user_id").in("user_id", userIds).not("report_hold", "is", null);
+  if (error) return new Set();
+  return new Set((data ?? []).map((r) => r.user_id as string));
+}
+
 export async function chatState(sb: SupabaseClient, matchId: string) {
   const { data: match } = await sb.from("matches").select("id, user_id, app, name").eq("id", matchId).maybeSingle();
   if (!match) return null;
-  const [{ data: takeovers }, { data: account }] = await Promise.all([
+  const [{ data: takeovers }, { data: account }, held] = await Promise.all([
     sb.from("takeovers").select("ended_at").eq("match_id", matchId),
-    sb.from("app_accounts").select("status, user_paused").eq("user_id", match.user_id).eq("app", match.app).maybeSingle()
+    sb.from("app_accounts").select("status, user_paused").eq("user_id", match.user_id).eq("app", match.app).maybeSingle(),
+    reportHeldUsers(sb, [match.user_id])
   ]);
   const mode = chatMode(takeovers ?? []);
-  const appStatus = account ? effectiveStatus(account) : "setting_up";
+  // A pause or closure after a report stops every AI send, whatever the per-app status says.
+  const appStatus: AppStatus = held.has(match.user_id) ? "paused" : account ? effectiveStatus(account) : "setting_up";
   return { match, mode, appStatus };
 }
 
@@ -162,7 +172,9 @@ export async function listOutbox(sb: SupabaseClient, limit = 50) {
     .select("id, match_id, user_id, body, created_at, matches(app, external_id, name)")
     .eq("sender", "user").is("delivered_at", null).order("created_at").limit(Math.min(limit, 200));
   if (error) return fail(500, "db", "Could not read the outbox.");
-  return { ok: true as const, messages: data ?? [] };
+  // Nothing is sent for an account a report put on hold.
+  const held = await reportHeldUsers(sb, [...new Set((data ?? []).map((m) => m.user_id as string))]);
+  return { ok: true as const, messages: (data ?? []).filter((m) => !held.has(m.user_id as string)) };
 }
 
 export async function ackOutbox(sb: SupabaseClient, messageId: string): Promise<Result<{ acked: true }>> {

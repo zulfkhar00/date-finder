@@ -295,3 +295,14 @@
   .table th, .table td { padding: 8px 6px; }
   .button, .buttonGhost { min-height: 44px; }
 }
+
+/* Reports (/admin/reports) */
+.rowUrgent td { background: #fff1d6; }
+.rowOverdue td { background: #FFD6D0; }
+.rowUrgent td:first-child { box-shadow: inset 4px 0 0 var(--coral-deep); }
+.table tbody tr.rowUrgent:hover td, .table tbody tr.rowOverdue:hover td { filter: brightness(0.97); }
+.slaOk { font-weight: 700; }
+.slaOver { color: var(--coral-deep); font-weight: 800; }
+.kpiValue[data-tone="warn"] { color: var(--coral-deep); }
+.actionBox { border: 2px solid var(--a-line); border-radius: var(--r-sm); padding: 12px; min-width: 0; }
+.plainList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
