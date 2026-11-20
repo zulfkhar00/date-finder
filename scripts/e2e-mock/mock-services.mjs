@@ -35,7 +35,7 @@ const CHECKS = {
 const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [] };
 const PK = { profiles: "user_id", preferences: "user_id", photo_flags: "photo_id" };
 
-const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], photo_flags: [] };
+const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], photo_flags: [], reports: [], reports_events: [] };
 let runSeq = 0;
 const users = new Map(); // id -> {id,email,otp,otp_hash}
 const outbox = { email: [], telegram: [] };

@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 const subscribeNever = () => () => {};
-const opts: Intl.DateTimeFormatOptions = { dateStyle: "medium", timeStyle: "short", timeZoneName: "short" };
+const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" };
 
 /** Timestamps are stored in UTC. The server render shows UTC; the browser swaps in the admin's own time zone (UTC on hover). */
 export function LocalTime({ iso }: { iso: string | null | undefined }) {

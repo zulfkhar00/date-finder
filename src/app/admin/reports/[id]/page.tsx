@@ -155,7 +155,7 @@ export default async function AdminReportPage({ params }: { params: Promise<{ id
             <section className={styles.card} data-testid="ncmec-panel">
               <h2 className={styles.subhead}>Report to NCMEC</h2>
               <p className={styles.sub}>US law requires us to report apparent child sexual exploitation. This is a person&rsquo;s job: nothing is submitted automatically.</p>
-              <ol style={{ paddingLeft: 20, margin: "0 0 12px", display: "grid", gap: 6 }}>{NCMEC_STEPS.map((s) => <li key={s}>{s}</li>)}</ol>
+              <ol style={{ paddingLeft: 22, margin: "0 0 12px", display: "grid", gap: 6, listStyle: "decimal" }}>{NCMEC_STEPS.map((s) => <li key={s}>{s}</li>)}</ol>
               <p style={{ margin: "0 0 12px" }}><a className={styles.button} href="https://report.cybertip.org/" target="_blank" rel="noopener noreferrer">Open the CyberTipline</a></p>
               {report.ncmec_report_id ? <p className={styles.success} data-testid="ncmec-recorded">Filed <LocalTime iso={report.ncmec_filed_at} /> by {report.ncmec_filed_by}. CyberTipline ID <strong>{report.ncmec_report_id}</strong>.</p> : <p className={styles.muted} style={{ margin: "0 0 8px" }}>Not filed yet.</p>}
               {allowed.has("record_ncmec") ? (
