@@ -46,7 +46,7 @@ export default function TermsPage() {
       <h2>Refund policy</h2>
       <p>The $1 is refundable. Reply to your confirmation email or write to support@noswipe.app and we refund it to your original payment method; your spot is then no longer reserved.</p>
       <h2>Eligibility and contact</h2>
-      <p>You must be 18 or older to sign up. Keep your sign-in codes and confirmation link private. For questions, email <a href="mailto:support@noswipe.app">support@noswipe.app</a>.</p>
+      <p>You must be 18 or older to sign up. The free tools (sign-up, your starter pack) can be used from anywhere. The paid service is offered only to people in the United States, Canada, the United Kingdom, Australia and New Zealand; checkout is not shown elsewhere, and a payment made from outside those countries may be reviewed and refunded. Keep your sign-in codes and confirmation link private. For questions, email <a href="mailto:support@noswipe.app">support@noswipe.app</a>.</p>
       <p className="policy-note">Last updated November 20, 2026. Please also read our <Link href="/privacy">privacy note</Link>, <Link href="/acceptable-use">Acceptable use policy</Link>, <Link href="/refunds">refund policy</Link> and <Link href="/pricing">pricing</Link>.</p>
     </main>
     <SiteFooter />

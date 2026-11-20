@@ -10,11 +10,17 @@
 export const CHECKOUT_CLIENT_EVENTS = ["checkout_form_ready", "checkout_form_error", "payment_submit", "payment_error", "checkout_closed"] as const;
 /** Written by the Stripe webhook (server truth). */
 export const STRIPE_SERVER_EVENTS = ["stripe_payment_failed", "stripe_session_expired"] as const;
+/**
+ * Paid-country gate (src/lib/paid-countries.ts). checkout_blocked_country: the browser showed "not available in your
+ * country" instead of a payment form. paid_country_review: the webhook saw a payment whose billing country is outside
+ * the list and flagged the reservation for a human (never an automatic refund). Neither counts as funnel progress.
+ */
+export const COUNTRY_GATE_EVENTS = ["checkout_blocked_country", "paid_country_review"] as const;
 export type CheckoutClientEvent = (typeof CHECKOUT_CLIENT_EVENTS)[number];
 export type StripeServerEvent = (typeof STRIPE_SERVER_EVENTS)[number];
 
 /** Events that only feed the admin Checkout panel; the visitor and funnel models ignore them. */
-export const CHECKOUT_DIAGNOSTIC_EVENTS: ReadonlySet<string> = new Set<string>([...CHECKOUT_CLIENT_EVENTS, ...STRIPE_SERVER_EVENTS]);
+export const CHECKOUT_DIAGNOSTIC_EVENTS: ReadonlySet<string> = new Set<string>([...CHECKOUT_CLIENT_EVENTS, ...STRIPE_SERVER_EVENTS, ...COUNTRY_GATE_EVENTS]);
 
 export const CHECKOUT_ID_PATTERN = /^cs_(?:test|live)_[A-Za-z0-9]{8,200}$/;
 export const CLOSE_REASONS = ["hidden", "pagehide", "back", "unmount"] as const;
@@ -57,6 +63,8 @@ export type CheckoutDetail = {
   card_country?: string;
   funding?: string;
   reason?: string;
+  /** Country gate: the billing country (2 letters) of a payment that needs review. */
+  billing_country?: string;
   seconds?: number;
   /** Stripe test mode: such rows are kept but never counted as real. */
   test?: true;

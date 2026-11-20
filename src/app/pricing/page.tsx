@@ -14,6 +14,8 @@ export default function PricingPage() {
       <li>It is refundable to your original payment method; see the <Link href="/refunds">refund policy</Link>.</li>
       <li>It does not start the service, buy any number of matches or dates, or promise any result.</li>
     </ul>
+    <h2>Where the paid service is available</h2>
+    <p>The free tools work anywhere. The paid service is available only in the <strong>United States, Canada, the United Kingdom, Australia and New Zealand</strong>. Outside those countries you can still sign up and get your free starter pack, but checkout is not offered. At checkout we ask for your billing address to confirm your country.</p>
     <h2>Nothing else is charged</h2>
     <p>There are no other plans, tiers, fees or hidden charges today. If we introduce a paid service, we show you its price and terms before you decide whether to join it.</p>
     <p className="policy-note">Last updated November 20, 2026. Questions? See <Link href="/contact">Contact</Link> or the <Link href="/terms">Terms</Link>.</p>

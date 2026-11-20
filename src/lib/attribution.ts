@@ -16,9 +16,9 @@ export const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 // One event per onboarding screen shown (once per tab session). ob_code_sent = email entered; the rest are screen names.
 // reserve_start = basics shown, reserve_step_2 = email screen shown, reserve_step_3 = signed in, onboarding_complete = consent given.
 export const ONBOARDING_STEP_EVENTS = ["ob_code_sent", "ob_apps", "ob_about", "ob_type", "ob_photos", "ob_consent", "ob_pay"] as const;
-export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled", "resume_card_view", "resume_card_click", ...ONBOARDING_STEP_EVENTS, ...CHECKOUT_CLIENT_EVENTS] as const;
+export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled", "resume_card_view", "resume_card_click", "checkout_blocked_country", ...ONBOARDING_STEP_EVENTS, ...CHECKOUT_CLIENT_EVENTS] as const;
 export type ClientEventName = (typeof CLIENT_EVENTS)[number];
-export const SERVER_EVENTS = ["checkout_created", "paid", "stripe_payment_failed", "stripe_session_expired"] as const;
+export const SERVER_EVENTS = ["checkout_created", "paid", "stripe_payment_failed", "stripe_session_expired", "paid_country_review"] as const;
 export type FunnelEventName = (typeof CLIENT_EVENTS)[number] | (typeof SERVER_EVENTS)[number];
 
 export function cleanUtm(value: unknown): string | undefined {

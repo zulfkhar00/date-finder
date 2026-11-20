@@ -9,6 +9,8 @@ import { internalEmailReason } from "@/lib/internal-traffic";
 import { trafficFromRequest } from "@/lib/traffic";
 import { reuseOpenCheckout } from "@/lib/checkout-reuse";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
+import { paidAccessFor } from "@/lib/paid-access";
+import { COUNTRY_BLOCKED_CODE, COUNTRY_BLOCKED_COPY } from "@/lib/paid-countries";
 
 export const runtime = "nodejs";
 
@@ -24,6 +26,13 @@ export async function POST(request: Request) {
 
   const parsed = reservationSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: "Please complete every required question." }, { status: 400 });
+
+  // Paid service is offered in a short list of countries (PAID_COUNTRIES). Checked before anything is created, so a
+  // refused visitor leaves no reservation and no Stripe session. Free sign-up never comes through here.
+  const access = await paidAccessFor(request.headers);
+  if (!access.allowed) {
+    return NextResponse.json({ error: COUNTRY_BLOCKED_COPY, code: COUNTRY_BLOCKED_CODE }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   let stripe, supabase, siteUrl;
   try {
@@ -108,6 +117,8 @@ export async function POST(request: Request) {
       managed_payments: { enabled: false },
       payment_method_types: ["card"],
       customer_email: input.email,
+      // The billing country is what the webhook checks against PAID_COUNTRIES: an IP country can be faked, this cannot.
+      billing_address_collection: "required",
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
       line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: CHECKOUT_LINE_ITEM.name, description: CHECKOUT_LINE_ITEM.description } }, quantity: 1 }],

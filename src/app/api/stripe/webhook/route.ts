@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
+import { reviewPaidCountry } from "@/lib/country-review";
 import { sendReservationConfirmation } from "@/lib/email";
 import { failureLabel, paymentFailureDetail, sessionEndDetail } from "@/lib/checkout-events";
 import { noteReservationFailure, recordPaidEvent, recordStripeCheckoutEvent } from "@/lib/funnel";
@@ -28,8 +29,13 @@ async function completeSession(session: Stripe.Checkout.Session, event: Stripe.E
   });
   if (error) throw error;
   const firstDelivery = await recordPaidEvent(supabase, session.id);
+  // Paid from outside PAID_COUNTRIES: flag the reservation for a human (never an automatic refund). Never throws.
+  const countryReview = await reviewPaidCountry(supabase, id.data, session);
   // Retries of an already-paid session (firstDelivery false) stay quiet; unknown (null) still posts.
-  if (firstDelivery !== false) notifyOps("payments", await paidText(supabase, id.data, session, event), event.id);
+  if (firstDelivery !== false) {
+    notifyOps("payments", await paidText(supabase, id.data, session, event), event.id);
+    if (countryReview.review) notifyOps("payments", `Needs review: paid from outside the paid-service countries (${countryReview.billing ?? "country unknown"})${modeTag(event)}. Not refunded.`, `${event.id}:country`);
+  }
   // Last step, and never throws: an email failure must not turn this into a 500 and a Stripe retry.
   await sendReservationConfirmation(supabase, id.data, firstDelivery);
 }
