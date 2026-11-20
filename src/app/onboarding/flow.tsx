@@ -45,6 +45,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const opening = useRef(false);
+  const adopting = useRef(false);
   const saving = useRef(false);
   const [error, setError] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
@@ -98,12 +99,25 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       if (guest) {
         if (saved) { setD(saved.d); setStep(Math.min(Math.max(saved.step, 0), GUEST_ACCOUNT_STEP)); }
       } else if (saved) {
-        // Signed in, but saving the first answers failed: put them back on screen instead of asking again.
+        // Signed in with the first answers still in this tab: put them back on screen instead of asking again.
         setD((x) => mergeGuestBasics(x, saved));
+        // Setting the session cookie makes Next re-render this page as a member before the code step's
+        // onSignedIn can run, so the answers are saved here as well (once, only onto a still-blank profile).
+        if (startStep === 0 && !adopting.current) {
+          adopting.current = true;
+          void (async () => {
+            let ok = false;
+            for (let attempt = 0; attempt < 2 && !ok; attempt++) ok = await withTimeout(adoptGuestAnswers(basicsOf(saved.d))).then((r) => r.ok, () => false);
+            if (!ok) return; // stays on the basics screen with the answers filled in; Continue saves them
+            try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
+            trackEvent("reserve_step_3", { oncePerSession: true });
+            if (stepNow.current === 0) setStep(1);
+          })();
+        }
       }
     } catch { /* storage unavailable */ }
     setReady(true);
-  }, [guest]);
+  }, [guest, startStep]);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!guest || !ready) return;
