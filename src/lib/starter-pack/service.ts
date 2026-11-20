@@ -5,6 +5,7 @@ import { createAnthropicModel } from "./anthropic-model";
 import { claimPack, executePack, runPack, type LoadedPhotos, type ModelImage, type PackDeps, type RunOutcome } from "./generate";
 import { readLimits, utcDay } from "./limits";
 import { buildContext } from "./prompts";
+import { approvedPhotoIds, livePhotoRows, savePhotoVerdicts, sweepPhotoFlags } from "./photo-flags";
 import { getPackStore } from "./supabase-store";
 import { PACK_VERSION, type RunKind } from "./types";
 
@@ -30,8 +31,8 @@ async function loadContext(sb: Admin, userId: string) {
 
 /** Reads the user's first photos into memory. Anything that fails to load is skipped; nothing is written or logged. */
 async function loadPhotos(sb: Admin, userId: string): Promise<LoadedPhotos> {
-  const { data: rows } = await sb.from("profile_photos").select("id, path, position").eq("user_id", userId).order("position").limit(PHOTO_COUNT);
-  const list = rows ?? [];
+  const list = await livePhotoRows<{ id: string; path: string; position: number }>(sb, userId, "id, path, position", PHOTO_COUNT);
+  const approved = await approvedPhotoIds(sb, list.map((r) => r.id));
   const photos: LoadedPhotos["photos"] = [];
   let bytes = 0;
   for (const row of list) {
@@ -43,7 +44,7 @@ async function loadPhotos(sb: Admin, userId: string): Promise<LoadedPhotos> {
       const buffer = Buffer.from(await data.arrayBuffer());
       if (buffer.length === 0 || buffer.length > MAX_PHOTO_BYTES || bytes + buffer.length > MAX_TOTAL_PHOTO_BYTES) continue;
       bytes += buffer.length;
-      photos.push({ id: row.id as string, image: { mediaType, data: buffer.toString("base64") } });
+      photos.push({ id: row.id as string, image: { mediaType, data: buffer.toString("base64") }, approved: approved.has(row.id) });
     } catch { /* one unreadable photo never stops the pack */ }
   }
   return { photos, total: list.length };
@@ -54,7 +55,7 @@ export function realDeps(): PackDeps | null {
   const model = createAnthropicModel();
   if (!model) return null;
   const sb = getSupabaseAdmin();
-  return { store: getPackStore(), model, limits: readLimits(), loadContext: (id) => loadContext(sb, id), loadPhotos: (id) => loadPhotos(sb, id) };
+  return { store: getPackStore(), model, limits: readLimits(), loadContext: (id) => loadContext(sb, id), loadPhotos: (id) => loadPhotos(sb, id), saveFlags: (id, verdicts) => savePhotoVerdicts(id, verdicts, sb) };
 }
 
 export type PackRunResult = RunOutcome | { status: "skipped"; reason: "unconfigured" };
@@ -135,4 +136,9 @@ export async function sweepPacks({ limit = 5, budgetMs = 25_000, now = () => Dat
     else result.skipped += 1;
   }
   return result;
+}
+
+/** Flag-only pass over existing photos (cron route ?flags=1). Cheap classifier, a few users per call, fits 60 s. */
+export async function sweepFlags(limit = 3) {
+  return sweepPhotoFlags({ model: createAnthropicModel() ?? null, limit });
 }

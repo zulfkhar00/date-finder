@@ -33,9 +33,9 @@ const CHECKS = {
   funnel_events: (r) => eventList.includes(r.event)
 };
 const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [] };
-const PK = { profiles: "user_id", preferences: "user_id" };
+const PK = { profiles: "user_id", preferences: "user_id", photo_flags: "photo_id" };
 
-const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [] };
+const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], photo_flags: [] };
 let runSeq = 0;
 const users = new Map(); // id -> {id,email,otp,otp_hash}
 const outbox = { email: [], telegram: [] };
@@ -325,7 +325,7 @@ async function storage(req, res, url) {
 }
 
 // ---- Anthropic (stub model for the starter pack). Deterministic text; never the real API. ----
-// Control: GET /__anthropic?mode=ok|rate_limit|refuse&delay=<ms>. Request contents are never recorded, only counts.
+// Control: GET /__anthropic?mode=ok|rate_limit|refuse|flag&delay=<ms> (flag: the photo call flags photo 2 for review). Request contents are never recorded, only counts.
 const anthropic = { mode: "ok", delayMs: 0, calls: 0, vision: 0 };
 function stubPack(apps) {
   const bios = { hinge: "Night-shift nurse who climbs on weekends and has opinions about ramen.", tinder: "Night-shift nurse. Climbs on weekends, eats ramen after, replies faster than you would expect.", bumble: "Nurse, climber, ramen critic. Message me a place that deserves a second visit.", general: "Nurse who climbs and eats ramen. Ask me about either." };
@@ -362,7 +362,7 @@ async function anthropicApi(req, res, url) {
     anthropic.vision += 1;
     const roles = ["keep", "lead", "drop", "keep", "keep", "keep"];
     const reasons = { lead: "Clear face, good light, and you look relaxed. Start here.", keep: "Adds variety without repeating the lead.", drop: "Close to the lead shot; it adds little, so leave it out." };
-    return reply(JSON.stringify({ ranking: Array.from({ length: images }, (_, i) => ({ photo: i + 1, role: roles[i % 6], reason: reasons[roles[i % 6]] })), add: ["A photo doing something you like outdoors", "One with friends, easy to tell which is you"] }));
+    return reply(JSON.stringify({ ranking: Array.from({ length: images }, (_, i) => ({ photo: i + 1, role: roles[i % 6], reason: reasons[roles[i % 6]], flags: anthropic.mode === "flag" && i === 1 ? ["not_a_real_person_or_not_the_user"] : [] })), add: ["A photo doing something you like outdoors", "One with friends, easy to tell which is you"] }));
   }
   const apps = [...prompt.matchAll(/^\s*- "(hinge|tinder|bumble|general)":/gm)].map((m) => m[1]);
   return reply(JSON.stringify(stubPack(apps.length ? apps : ["general"])));

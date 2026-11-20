@@ -6,20 +6,23 @@ import { CheckCircle2, Lock } from "lucide-react";
 import { EmbeddedPayment } from "@/components/embedded-payment";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
+import { CountryBlocked } from "@/components/app/country-blocked";
+import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
 import { RESUME_COPY, buildResumePayload, pollUntilPaid, type ResumeData } from "@/lib/app/resume";
 
 type Phase = "idle" | "opening" | "paying" | "confirming" | "done";
 
 /** "Finish setting up": the way back to paying for someone who finished onboarding and has not paid. */
-export function ResumeCard({ data }: { data: ResumeData }) {
+export function ResumeCard({ data, paidOffered = true }: { data: ResumeData; paidOffered?: boolean }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [payment, setPayment] = useState<Payment | null>(null);
   const [error, setError] = useState("");
+  const [countryBlocked, setCountryBlocked] = useState(!paidOffered);
   const opening = useRef(false);
   const sessionId = useRef<string | null>(null);
 
-  useEffect(() => { trackEvent("resume_card_view", { oncePerSession: true }); }, []);
+  useEffect(() => { if (!countryBlocked) trackEvent("resume_card_view", { oncePerSession: true }); }, [countryBlocked]);
 
   const confirm = useCallback(async (id: string | null) => {
     await pollUntilPaid(async () => {
@@ -44,6 +47,7 @@ export function ResumeCard({ data }: { data: ResumeData }) {
         body: JSON.stringify(buildResumePayload(data, { attribution: captureAttribution(), funnelSessionId: getFunnelSessionId() }))
       });
       const result = await res.json().catch(() => ({}));
+      if (res.status === 403 && result.code === COUNTRY_BLOCKED_CODE) { setCountryBlocked(true); setPhase("idle"); return; }
       if (res.status === 409) { setPhase("confirming"); void confirm(null); return; } // already paid
       if (!res.ok) throw new Error(result.error || RESUME_COPY.retry);
       const checkout = readCheckoutResponse(result);
@@ -59,6 +63,7 @@ export function ResumeCard({ data }: { data: ResumeData }) {
 
   const onComplete = useCallback(() => { setPayment(null); setPhase("confirming"); void confirm(sessionId.current); }, [confirm]);
 
+  if (countryBlocked) return <CountryBlocked className="app-card resume-card" />;
   if (phase === "paying" && payment) {
     return <section className="app-card resume-card" aria-label="Activate NoSwipe"><EmbeddedPayment neutral payment={payment} onComplete={onComplete} onBack={() => { setPayment(null); setPhase("idle"); }} /></section>;
   }

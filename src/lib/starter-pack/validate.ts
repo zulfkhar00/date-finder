@@ -90,7 +90,7 @@ export function validateTextPack(raw: string, ctx: PackContext): { ok: true; pac
 export type PhotoInput = { id: string };
 
 /** Turns the vision call's JSON into the stored section. Unknown or repeated photo numbers are ignored; missing ones are kept at the end. */
-export function validatePhotoRanking(raw: string, photos: readonly PhotoInput[]): PhotoSection | null {
+export function validatePhotoRanking(raw: string, photos: readonly PhotoInput[], exclude: ReadonlySet<string> = new Set()): PhotoSection | null {
   const json = extractJson(raw) as { ranking?: unknown; add?: unknown } | null;
   if (!json || !Array.isArray(json.ranking)) return null;
   const seen = new Set<number>();
@@ -99,13 +99,14 @@ export function validatePhotoRanking(raw: string, photos: readonly PhotoInput[])
     const n = Number(item?.photo);
     if (!Number.isInteger(n) || n < 1 || n > photos.length || seen.has(n)) continue;
     seen.add(n);
+    if (exclude.has(photos[n - 1].id)) continue; // flagged for review: never part of the suggested order
     const role = item.role === "lead" || item.role === "drop" ? item.role : "keep";
     const reason = stripEmoji(String(item.reason ?? "")).slice(0, 220).trim();
     if (UNSAFE.test(reason)) continue;
     rows.push({ photo_id: photos[n - 1].id, role, reason: reason || (role === "drop" ? "It weakens the set." : "It works in this spot.") });
   }
   if (rows.length === 0) return null;
-  photos.forEach((p, i) => { if (!seen.has(i + 1) && photos.length <= 12) rows.push({ photo_id: p.id, role: "keep", reason: "No strong reason to move it." }); });
+  photos.forEach((p, i) => { if (!seen.has(i + 1) && !exclude.has(p.id) && photos.length <= 12) rows.push({ photo_id: p.id, role: "keep", reason: "No strong reason to move it." }); });
   // Exactly one lead, first; then keepers; drops last. The model's own order is kept within each group.
   let lead = rows.findIndex((r) => r.role === "lead");
   if (lead < 0) lead = rows.findIndex((r) => r.role === "keep");

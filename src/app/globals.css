@@ -546,3 +546,6 @@ h1,h2,h3,h4,p{margin:0}
   .qc{font-size:15px}
   .copy-list{grid-template-columns:1fr 1fr}
 }
+
+/* A photo held for review: outlined so the one line under the grid points at something. */
+.ob-photo[data-flagged="true"] { outline: 3px solid var(--coral, #ff6b5e); outline-offset: -3px; }

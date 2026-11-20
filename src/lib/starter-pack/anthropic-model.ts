@@ -36,7 +36,7 @@ export function createAnthropicModel(apiKey: string | undefined = process.env.AN
       content.push({ type: "text", text: request.user });
       try {
         const message = await client.messages.create({
-          model: PACK_MODEL, max_tokens: request.maxTokens, system: request.system, messages: [{ role: "user", content }]
+          model: request.model ?? PACK_MODEL, max_tokens: request.maxTokens, system: request.system, messages: [{ role: "user", content }]
         });
         const text = message.content.map((block) => (block.type === "text" ? block.text : "")).join("");
         return { text, inputTokens: message.usage?.input_tokens ?? 0, outputTokens: message.usage?.output_tokens ?? 0, stopReason: message.stop_reason };

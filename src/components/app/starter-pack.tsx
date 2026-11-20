@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { USER_FLAG_NOTICE } from "@/lib/starter-pack/photo-flags-core";
 import { CalendarClock, Camera, MessageCircle, PenLine, Sparkles } from "lucide-react";
 import { CopyButton, PackPoller, RegenerateButton } from "@/components/app/starter-pack-client";
 import type { StarterPackView } from "@/lib/app/data";
@@ -65,11 +66,12 @@ function Profiles({ content }: { content: PackContent }) {
 
 const ROLE_LABEL = { lead: "Show first", keep: "Keep", drop: "Drop" } as const;
 
-function Photos({ content, photoUrls }: { content: PackContent; photoUrls: Record<string, string | null> }) {
+function Photos({ content, photoUrls, flagged }: { content: PackContent; photoUrls: Record<string, string | null>; flagged: boolean }) {
   const photos = content.photos;
   return (
     <section className="app-card sp-card" aria-label="Photos">
       <div className="sp-head"><Camera size={18} aria-hidden /><h3>{photos.kind === "ranked" ? "Your photo order" : "Photos to take"}</h3></div>
+      {flagged ? <p className="app-error sp-how" role="status" data-testid="photo-flag-notice">{USER_FLAG_NOTICE}</p> : null}
       {photos.note ? <p className="app-muted sp-how">{photos.note}</p> : null}
       {photos.kind === "ranked" ? (
         <>
@@ -113,8 +115,8 @@ function DatePlan({ content }: { content: PackContent }) {
   );
 }
 
-export function StarterPack({ pack, apps, photoUrls, hasCity, regenLeft }: {
-  pack: StarterPackView | null; apps: AppAccountRow[]; photoUrls: Record<string, string | null>; hasCity: boolean; regenLeft: number;
+export function StarterPack({ pack, apps, photoUrls, hasCity, regenLeft, photoFlagged = false }: {
+  pack: StarterPackView | null; apps: AppAccountRow[]; photoUrls: Record<string, string | null>; hasCity: boolean; regenLeft: number; photoFlagged?: boolean;
 }) {
   const content = pack?.status === "ready" ? pack.content : null;
   const failed = pack?.status === "failed";
@@ -143,7 +145,7 @@ export function StarterPack({ pack, apps, photoUrls, hasCity, regenLeft }: {
           <p className="app-sub">Written in your voice from your answers. Copy a line, paste it into the app yourself. You send everything, and NoSwipe never logs in to your dating apps.</p>
           <div className="sp-stack">
             <Profiles content={content} />
-            <Photos content={content} photoUrls={photoUrls} />
+            <Photos content={content} photoUrls={photoUrls} flagged={photoFlagged} />
             <section className="app-card sp-card" aria-label="Opening lines">
               <div className="sp-head"><MessageCircle size={18} aria-hidden /><h3>5 opening lines</h3></div>
               <p className="app-muted sp-how">Send one when you match. Change a word or two so it sounds like you that day.</p>

@@ -32,7 +32,7 @@ export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps
   );
 }
 
-export type HomePack = { view: ComponentProps<typeof StarterPack>["pack"]; photoUrls: Record<string, string | null>; hasCity: boolean; regenLeft: number };
+export type HomePack = { view: ComponentProps<typeof StarterPack>["pack"]; photoUrls: Record<string, string | null>; hasCity: boolean; regenLeft: number; photoFlagged?: boolean };
 
 function NextGaps({ gaps }: { gaps: SetupItem[] }) {
   return (
@@ -50,7 +50,7 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
 }) {
   const quiet = chats.length === 0 && upcoming.length === 0;
   const accounts = APPS.flatMap((app) => apps.filter((a) => a.app === app));
-  const packNode = pack && !base ? <StarterPack pack={pack.view} apps={apps} photoUrls={pack.photoUrls} hasCity={pack.hasCity} regenLeft={pack.regenLeft} /> : null;
+  const packNode = pack && !base ? <StarterPack pack={pack.view} apps={apps} photoUrls={pack.photoUrls} hasCity={pack.hasCity} regenLeft={pack.regenLeft} photoFlagged={pack.photoFlagged} /> : null;
   return (
     <>
       <h1 className="app-h1">Hi {name || "there"}.</h1>

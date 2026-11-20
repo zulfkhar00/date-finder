@@ -14,6 +14,8 @@ import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attrib
 import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
 import { decidePop, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
+import { CountryBlocked } from "@/components/app/country-blocked";
+import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
 
 // Stripe.js only loads when the payment step opens.
@@ -36,7 +38,7 @@ const LAST_FORM = CONSENT_STEP;
 // Visitors who are not signed in answer the basics first; the email code comes at this step (the apps step once signed in).
 const GUEST_ACCOUNT_STEP = 1;
 
-export function OnboardingFlow({ guest, email, draft: initial, photos: initialPhotos, startStep, paid }: { guest: boolean; email: string; draft: Draft; photos: Photo[]; startStep: number; paid: boolean }) {
+export function OnboardingFlow({ guest, email, draft: initial, photos: initialPhotos, startStep, paid, paidOffered = true }: { guest: boolean; email: string; draft: Draft; photos: Photo[]; startStep: number; paid: boolean; paidOffered?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(startStep);
   const [d, setD] = useState(initial);
@@ -49,6 +51,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const saving = useRef(false);
   const [error, setError] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
+  // Paid service is only offered in some countries (PAID_COUNTRIES). The server decides; a 403 from /api/checkout also lands here.
+  const [countryBlocked, setCountryBlocked] = useState(!paidOffered);
   const heading = useRef<HTMLHeadingElement>(null);
   const tracked = useRef(false);
 
@@ -194,6 +198,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         })
       });
       const result = await res.json();
+      if (res.status === 403 && result.code === COUNTRY_BLOCKED_CODE) { setCountryBlocked(true); return; }
       if (!res.ok) throw new Error(result.error || "Checkout could not open.");
       const checkout = readCheckoutResponse(result);
       if (checkout.mode === "embedded") setPayment(checkout); else window.location.assign(checkout.url);
@@ -244,6 +249,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
               <label className="ob-check"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I understand and agree. I&rsquo;m 18 or older, and any photos I add are of me.</span></label>
               <p className="app-fine">See the <a href="/terms" target="_blank" rel="noreferrer">terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">privacy note</a>. You can delete everything from your profile any time.</p>
             </>
+           ) : def.key === "pay" && countryBlocked ? (
+            <CountryBlocked />
            ) : def.key === "pay" ? (
             <>
               <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">One quick, secure checkout turns it on. You see the exact price and what it covers before you pay anything.</p></div>
@@ -258,7 +265,9 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         </div>
         {error ? <p className="app-error" role="alert" style={{ marginTop: 14 }}>{error}</p> : null}
         <div className="ob-foot" style={{ marginTop: 26 }}>
-          {def.key === "pay" ? (
+          {def.key === "pay" && countryBlocked ? (
+            <button type="button" className="app-btn" onClick={() => router.replace("/home")}>Take me to my home</button>
+          ) : def.key === "pay" ? (
             <>
               <button type="submit" className="app-btn" disabled={busy} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Opening checkout…</> : <><Lock size={18} aria-hidden /> Continue to checkout</>}</button>
               <button type="button" className="app-link" onClick={() => router.replace("/home")} disabled={busy}>Not now, take me to my home</button>
