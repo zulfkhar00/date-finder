@@ -117,7 +117,7 @@ export type SweepResult = { considered: number; ready: number; failed: number; d
  * Generates for every onboarded user who has no ready pack and is due. Sequential, with a time budget so one
  * invocation stays inside the function limit; whatever is left is picked up by the next run.
  */
-export async function sweepPacks({ limit = 5, budgetMs = 200_000, now = () => Date.now() }: { limit?: number; budgetMs?: number; now?: () => number } = {}): Promise<SweepResult> {
+export async function sweepPacks({ limit = 5, budgetMs = 25_000, now = () => Date.now() }: { limit?: number; budgetMs?: number; now?: () => number } = {}): Promise<SweepResult> {
   const result: SweepResult = { considered: 0, ready: 0, failed: 0, deferred: 0, skipped: 0 };
   const deps = realDeps();
   if (!deps) return { ...result, unconfigured: true };

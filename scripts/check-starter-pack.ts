@@ -290,6 +290,13 @@ async function main() {
     assert.ok(!JSON.stringify(h.store.rows).includes("secret profile text"), "raw error messages are never stored");
   }
 
+  {
+    // Photos are reviewed alongside the text: when the text fails, the vision spend is still on the ledger.
+    const h = harness({ photos: twoPhotos, script: (r) => (r.images ? ok(visionJson) : { ...ok(""), stopReason: "refusal" }) });
+    assert.deepEqual(await runPack(h.deps, U1, "auto"), { status: "failed", code: "refusal" });
+    assert.equal(h.store.runs[0].tokens, 6000, "text + vision spend both counted");
+  }
+
   // ---- failed packs: swept later ----------------------------------------------------------------------
   {
     const h = harness({ script: () => new PackError("overloaded", true) });
@@ -421,8 +428,9 @@ async function main() {
   const cron = read("../src/app/api/cron/starter-packs/route.ts");
   assert.match(cron, /process\.env\.CRON_SECRET/, "the cron route needs CRON_SECRET");
   assert.match(cron, /timingSafeEqual/);
+  assert.match(cron, /STARTER_PACK_SWEEP_TOKEN/, "a separate sweep token is accepted too");
   assert.match(cron, /status: 401/);
-  assert.match(read("../vercel.json"), /"\/api\/cron\/starter-packs", "schedule": "\*\/10 \* \* \* \*"/, "every 10 minutes");
+  assert.match(read("../vercel.json"), /"\/api\/cron\/starter-packs", "schedule": "20 6 \* \* \*"/, "daily (Vercel Hobby); the 10-minute sweep is driven from outside with STARTER_PACK_SWEEP_TOKEN");
   assert.match(read("../src/lib/starter-pack/anthropic-model.ts"), /ANTHROPIC_API_KEY/);
   assert.doesNotMatch(read("../src/lib/starter-pack/anthropic-model.ts"), /process\.env\.NEXT_PUBLIC/,"the key stays server-side");
   assert.match(read("../src/lib/starter-pack/types.ts"), /claude-sonnet-5-5/, "latest drafting model");

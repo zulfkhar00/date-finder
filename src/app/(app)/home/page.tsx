@@ -2,7 +2,7 @@ import { ResumeSlot } from "@/components/app/resume-slot";
 import { HomeView } from "@/components/app/views";
 import { getHome, getPhotos, getProfile, getSetupGaps, getStarterPack } from "@/lib/app/data";
 import { createAppClient, requireUser } from "@/lib/app/session";
-import { regenerationsLeft } from "@/lib/starter-pack/service";
+import { regenerationsLeft, schedulePackAfterOnboarding } from "@/lib/starter-pack/service";
 
 export const metadata = { title: "Home" };
 
@@ -14,6 +14,9 @@ export default async function HomePage() {
     // The counter is a nicety: if it can't be read, show the button as available and let the server enforce the limit.
     regenerationsLeft(user.id).catch(() => 3)
   ]);
+  // Self-healing: a visit with no pack (or one that is waiting or failed) nudges generation after the response. The
+  // claim is a no-op while a worker holds the lease, the pack is ready, or it is queued behind the daily cap.
+  if (profile?.onboarding_done_at && (!view || view.status === "pending" || view.status === "failed")) schedulePackAfterOnboarding(user.id);
   const photoUrls = Object.fromEntries(photos.map((p) => [p.id, p.url]));
   return (
     <>

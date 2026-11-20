@@ -179,10 +179,13 @@ no dating app is touched: the user copies the text and pastes it into their own 
 2. Env (all optional, defaults in brackets): `STARTER_PACK_DAILY_CAP` [60 model runs per UTC day],
    `STARTER_PACK_DAILY_TOKEN_CAP` [2500000 input-token equivalents per UTC day], `STARTER_PACK_REGENERATE_PER_DAY` [3 per user].
    `CRON_SECRET` must be set (same one as the digest).
-3. Trigger: finishing onboarding starts the pack right after the response (`after()`). The sweep `GET /api/cron/starter-packs`
-   (`Authorization: Bearer $CRON_SECRET`) every 10 minutes creates packs for onboarded users who have none (the backfill),
-   retries failed packs an hour later (up to 9 tries in total), and picks up packs queued behind the daily cap after 00:05 UTC.
-   `vercel.json` schedules it on Vercel. On Dokploy, point any scheduler at the route, for example
-   `*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://noswipe.app/api/cron/starter-packs`.
+3. Trigger: finishing onboarding starts the pack right after the response (`after()`, which Vercel keeps alive with waitUntil; the
+   onboarding page's `maxDuration` is 60, the Hobby ceiling, and the text and photo calls run side by side to fit). A Home visit with
+   no pack nudges it again, so a killed run heals on the next visit. The sweep `GET /api/cron/starter-packs` creates packs for
+   onboarded users who have none (the backfill), retries failed packs an hour later (9 tries lifetime), and picks up packs queued
+   behind the daily cap after 00:05 UTC. `vercel.json` runs it once a day (06:20 UTC, Hobby limit). Auth is
+   `Authorization: Bearer $CRON_SECRET`, or `Bearer $STARTER_PACK_SWEEP_TOKEN` when that env is set, so a founders' server can call
+   it every 10 minutes: `*/10 * * * * curl -fsS -H "Authorization: Bearer $STARTER_PACK_SWEEP_TOKEN" https://noswipe.app/api/cron/starter-packs`.
+   One call handles one to two users (60 s limit).
 4. Backfill by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "https://noswipe.app/api/cron/starter-packs?limit=5"` (repeat until
    `considered` is 0), or for one user `...?userId=<uuid>`. Admin: /admin/clients/<id> has "Write the pack now".

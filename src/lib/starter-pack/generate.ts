@@ -63,7 +63,11 @@ export async function executePack(deps: PackDeps, userId: string, claim: Claim):
 
   let tries = 0;
   let spent = 0;
+  // The photo review does not depend on the text, so it runs alongside it: the whole pack takes about as long as the
+  // slower of the two calls, which keeps it inside a short serverless limit. Its spend is counted on every exit.
+  let photoWork: Promise<{ section: PhotoSection; spent: number }> | null = null;
   const finish = async (code: string): Promise<RunOutcome> => {
+    if (photoWork) spent += (await photoWork).spent;
     await deps.store.addTokens(runId, spent).catch(() => undefined);
     await deps.store.fail(row, { code, tries, now: now() });
     return { status: "failed", code };
@@ -72,6 +76,10 @@ export async function executePack(deps: PackDeps, userId: string, claim: Claim):
   try {
     const ctx = await deps.loadContext(userId);
     if (!ctx) return await finish("user_gone");
+
+    // Photos: a failure here never fails the pack; the user gets the checklist instead.
+    photoWork = reviewPhotos(deps, userId, ctx, sleep);
+    let photos: PhotoSection = photoChecklist();
 
     // 1. Text: profile rewrite, openers, replies, date plan.
     let feedback: string[] | undefined;
@@ -97,17 +105,8 @@ export async function executePack(deps: PackDeps, userId: string, claim: Claim):
     }
     if (!text) return await finish(lastCode);
 
-    // 2. Photos: a failure here never fails the pack; the user gets the checklist instead.
-    let photos: PhotoSection = photoChecklist();
-    let loaded: LoadedPhotos | null = null;
-    try { loaded = await deps.loadPhotos(userId); } catch { loaded = null; }
-    if (loaded && loaded.photos.length > 0) {
-      const ranked = await rankPhotos(deps, ctx, loaded, sleep);
-      spent += ranked.spent;
-      photos = ranked.section ?? photoChecklist("We couldn't review your photos this time, so here is what a strong set looks like.");
-    } else if (loaded && loaded.total > 0) {
-      photos = photoChecklist("We couldn't open your photos this time, so here is what a strong set looks like.");
-    }
+    photos = (await photoWork).section;
+    spent += (await photoWork).spent;
 
     const content: PackContent = { v: 1, profiles: text.profiles, photos, openers: text.openers, replies: text.replies, datePlan: text.datePlan };
     const final = packContentSchema.safeParse(content);
@@ -119,6 +118,19 @@ export async function executePack(deps: PackDeps, userId: string, claim: Claim):
     // Storage or an unexpected bug: record a code and let the sweep retry. Never include the error text.
     return await finish("internal").catch(() => ({ status: "failed" as const, code: "internal" }));
   }
+}
+
+async function reviewPhotos(deps: PackDeps, userId: string, ctx: PackContext, sleep: (ms: number) => Promise<void>): Promise<{ section: PhotoSection; spent: number }> {
+  try {
+    let loaded: LoadedPhotos | null = null;
+    try { loaded = await deps.loadPhotos(userId); } catch { loaded = null; }
+    if (loaded && loaded.photos.length > 0) {
+      const ranked = await rankPhotos(deps, ctx, loaded, sleep);
+      return { section: ranked.section ?? photoChecklist("We couldn't review your photos this time, so here is what a strong set looks like."), spent: ranked.spent };
+    }
+    if (loaded && loaded.total > 0) return { section: photoChecklist("We couldn't open your photos this time, so here is what a strong set looks like."), spent: 0 };
+  } catch { /* fall through to the checklist */ }
+  return { section: photoChecklist(), spent: 0 };
 }
 
 async function rankPhotos(deps: PackDeps, ctx: PackContext, loaded: LoadedPhotos, sleep: (ms: number) => Promise<void>): Promise<{ section: PhotoSection | null; spent: number }> {
