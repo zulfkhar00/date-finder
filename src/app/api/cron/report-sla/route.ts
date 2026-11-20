@@ -9,12 +9,17 @@ export const dynamic = "force-dynamic";
 // (vercel.json); for 10-minute coverage a founders' server calls it: */10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://noswipe.app/api/cron/report-sla
 // The admin queue page also runs the same sweep when opened. Responses carry counts only.
 
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+function matches(header: string, secret: string | undefined): boolean {
   if (!secret) return false;
-  const given = new TextEncoder().encode(request.headers.get("authorization") ?? "");
+  const given = new TextEncoder().encode(header);
   const expected = new TextEncoder().encode(`Bearer ${secret}`);
   return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+// CRON_SECRET is what Vercel cron sends; STARTER_PACK_SWEEP_TOKEN is the bearer our own 10-minute sweep server already holds.
+function authorized(request: Request): boolean {
+  const header = request.headers.get("authorization") ?? "";
+  return matches(header, process.env.CRON_SECRET) || matches(header, process.env.STARTER_PACK_SWEEP_TOKEN);
 }
 
 export async function GET(request: Request) {
