@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...aiPages.map((page) => ({ url: `${siteUrl}${page.path}`, lastModified: `${page.updatedIso ?? page.publishedIso}T12:00:00Z`, changeFrequency: "monthly" as const, priority: 0.8 })),
     ...guideEntries,
     { url: `${siteUrl}/privacy`, lastModified: "2026-11-04T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
-    { url: `${siteUrl}/terms`, lastModified: "2026-11-04T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
+    { url: `${siteUrl}/terms`, lastModified: "2026-11-20T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
+    ...["acceptable-use", "law-enforcement", "refunds", "pricing", "contact"].map((slug) => ({ url: `${siteUrl}/${slug}`, lastModified: "2026-11-20T12:00:00Z", changeFrequency: "yearly" as const, priority: 0.3 })),
   ];
 }
