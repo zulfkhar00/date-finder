@@ -17,6 +17,11 @@ export function SiteFooter() {
           <Link href="/hire-someone-to-do-my-dating-apps">Hire help for dating apps</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
+          <Link href="/acceptable-use">Acceptable use</Link>
+          <Link href="/refunds">Refunds</Link>
+          <Link href="/pricing">Pricing</Link>
+          <Link href="/contact">Contact</Link>
+          <Link href="/law-enforcement">Law enforcement</Link>
           <Link href="/#faq">FAQ</Link>
         </nav>
       </div>

@@ -326,6 +326,8 @@ h1,h2,h3,h4,p{margin:0}
 .doc h2{font-family:var(--font-display),sans-serif;font-weight:400;font-size:28px;margin:34px 0 10px}
 .doc p,.doc li{font-size:16px;line-height:1.7;color:var(--grape-2)}
 .doc p + p{margin-top:12px}
+.doc ul{list-style:disc;padding-left:22px;margin:12px 0}
+.doc li + li{margin-top:6px}
 .policy-note{font-size:14px;margin-top:34px}
 
 /* Guides */
