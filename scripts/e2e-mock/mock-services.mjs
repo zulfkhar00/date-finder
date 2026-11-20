@@ -32,10 +32,11 @@ const CHECKS = {
     typeof r.email === "string" && r.email.length >= 3 && typeof r.city === "string" && r.city.length >= 2,
   funnel_events: (r) => eventList.includes(r.event)
 };
-const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [] };
+const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [] };
 const PK = { profiles: "user_id", preferences: "user_id" };
 
-const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [] };
+const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [] };
+let runSeq = 0;
 const users = new Map(); // id -> {id,email,otp,otp_hash}
 const outbox = { email: [], telegram: [] };
 const stripe = { sessions: new Map(), violations: [] };
@@ -82,7 +83,10 @@ function matcher(params) {
   return (row) => tests.every((t) => t(row));
 }
 const violates = (table, row, others) => {
-  for (const col of UNIQUE[table] ?? []) if (row[col] != null && others.some((o) => o !== row && o[col] === row[col])) return `duplicate key value violates unique constraint (${col})`;
+  for (const col of UNIQUE[table] ?? []) {
+    const cols = Array.isArray(col) ? col : [col];
+    if (cols.every((c) => row[c] != null) && others.some((o) => o !== row && cols.every((c) => o[c] === row[c]))) return `duplicate key value violates unique constraint (${cols.join(",")})`;
+  }
   return null;
 };
 function project(rows, select) {
@@ -127,12 +131,15 @@ async function rest(req, res, url) {
     const inserted = [];
     for (const input of list) {
       const row = { ...input };
-      if (!(PK[table]) && !row.id) row.id = table === "funnel_events" || table === "profile_photos" ? crypto.randomUUID() : crypto.randomUUID();
+      if (!(PK[table]) && !row.id) row.id = table === "starter_pack_runs" ? ++runSeq : crypto.randomUUID();
+      if (table === "starter_packs") Object.assign(row, { version: 1, status: "pending", content: null, attempts: 0, last_error: null, tokens: 0, model: null, lease_until: null, next_attempt_at: null, generated_at: null, updated_at: now, ...input });
+      if (table === "starter_pack_runs") Object.assign(row, { day: now.slice(0, 10), kind: "auto", tokens: 0, ...input });
       row.created_at ??= now;
       if (table === "reservations") { row.status ??= "pending"; row.stripe_checkout_session_id ??= null; row.stripe_payment_intent_id ??= null; row.queue_position ??= null; }
       if (table === "profiles") { row.onboarding_step ??= 0; row.onboarding_done_at ??= null; }
       if (CHECKS[table] && !CHECKS[table](row)) return send(res, 400, { code: "23514", message: `new row for relation "${table}" violates check constraint` });
-      const existing = onConflict ? rows.find((o) => o[onConflict] != null && o[onConflict] === row[onConflict]) : undefined;
+      const conflictCols = onConflict ? onConflict.split(",") : [];
+      const existing = conflictCols.length ? rows.find((o) => conflictCols.every((c) => o[c] != null && o[c] === row[c])) : undefined;
       if (upsert && existing) {
         if (prefer.includes("merge-duplicates")) Object.assign(existing, row, { id: existing.id, created_at: existing.created_at });
         continue; // ignore-duplicates: not returned
@@ -274,18 +281,100 @@ async function pay(sessionId) {
   return { status: 200, body: { webhookStatus: r.status, sessionId, paymentIntent: s.payment_intent } };
 }
 
+
+// ---- Storage (private photo bucket): just enough for upload, download and signed URLs ----
+const objects = new Map(); // "bucket/path" -> Buffer
+async function storage(req, res, url) {
+  const p = decodeURIComponent(url.pathname.replace("/storage/v1", ""));
+  const chunks = [];
+  if (req.method === "POST" || req.method === "PUT") await new Promise((r) => { req.on("data", (d) => chunks.push(d)); req.on("end", r); });
+  const body = Buffer.concat(chunks);
+  if (p.startsWith("/object/sign/") && req.method === "POST") {
+    const bucket = p.slice("/object/sign/".length);
+    const { paths = [] } = JSON.parse(body.toString() || "{}");
+    return send(res, 200, paths.map((path) => ({ path, error: null, signedURL: `/object/sign/${bucket}/${path}?token=mock` })));
+  }
+  if (p.startsWith("/object/sign/") && req.method === "GET") {
+    const buf = objects.get(p.slice("/object/sign/".length));
+    if (!buf) return send(res, 404, { message: "Object not found" });
+    res.writeHead(200, { "Content-Type": "image/png", "Access-Control-Allow-Origin": "*" }); return res.end(buf);
+  }
+  if (p.startsWith("/object/") && req.method === "POST") {
+    // multipart or raw: keep the file part (the images are only ever displayed back)
+    const key = p.slice("/object/".length);
+    const text = body.toString("binary");
+    const start = text.indexOf("\r\n\r\n");
+    const payload = text.startsWith("--") && start > 0 ? Buffer.from(text.slice(start + 4, text.lastIndexOf("\r\n--")), "binary") : body;
+    objects.set(key, payload);
+    return send(res, 200, { Key: key, Id: crypto.randomUUID() });
+  }
+  if (p.startsWith("/object/") && req.method === "GET") {
+    const buf = objects.get(p.slice("/object/".length).replace(/^authenticated\//, ""));
+    if (!buf) return send(res, 404, { message: "Object not found" });
+    res.writeHead(200, { "Content-Type": "image/png" }); return res.end(buf);
+  }
+  if (p.startsWith("/object/") && req.method === "DELETE") { objects.delete(p.slice("/object/".length)); return send(res, 200, {}); }
+  return send(res, 200, []);
+}
+
+// ---- Anthropic (stub model for the starter pack). Deterministic text; never the real API. ----
+// Control: GET /__anthropic?mode=ok|rate_limit|refuse&delay=<ms>. Request contents are never recorded, only counts.
+const anthropic = { mode: "ok", delayMs: 0, calls: 0, vision: 0 };
+function stubPack(apps) {
+  const bios = { hinge: "Night-shift nurse who climbs on weekends and has opinions about ramen.", tinder: "Night-shift nurse. Climbs on weekends, eats ramen after, replies faster than you would expect.", bumble: "Nurse, climber, ramen critic. Message me a place that deserves a second visit.", general: "Nurse who climbs and eats ramen. Ask me about either." };
+  return {
+    profiles: apps.map((app) => app === "hinge"
+      ? { app, bio: bios.hinge, prompts: [
+          { prompt: "Typical Sunday", answer: "Bouldering until my forearms quit, then ramen and a nap that gets out of hand." },
+          { prompt: "I geek out on", answer: "Anything that makes a twelve-hour shift go faster, usually snacks." },
+          { prompt: "The way to win me over is", answer: "Tell me the best thing you ate this week and defend it." }] }
+      : { app, bio: bios[app] }),
+    openers: [
+      ["What's the best thing you ate this week?", "Easy to answer, shows interest."], ["Settle this for me: ramen at midnight, yes or no?", "Light and opinionated."],
+      ["Which of your photos has the best story behind it?", "Works when they have several photos."], ["Two truths and a lie about your weekend. Go.", "Playful, gets a longer reply."],
+      ["You look like someone with a strong coffee opinion. Am I right?", "Safe and warm."]].map(([line, why]) => ({ line, why })),
+    replies: [
+      { situation: "They answer with one word", template: "Fair. Give me one thing that made today better and I will match it." },
+      { situation: "The chat is going well and you want to meet", template: "I am enjoying this. Coffee this week, somewhere easy to leave if we hate each other?" },
+      { situation: "They ask what you are looking for", template: "Something real, without rushing it. Honest answer: you?" }],
+    datePlan: { headline: "Coffee and a short walk", venues: [{ type: "a quiet coffee place with outdoor seating", why: "Easy to hear each other, easy to leave." }, { type: "a short walk through a busy park", why: "Keeps it light if the coffee runs out." }], when: "Saturday, about 11am", budget: "$10-20 each", backup: "An indoor bookshop cafe if it rains.", tip: "Meet in public and tell a friend where you are." }
+  };
+}
+async function anthropicApi(req, res, url) {
+  if (url.pathname !== "/anthropic/v1/messages") return send(res, 404, { type: "error", error: { type: "not_found_error", message: "not mocked" } });
+  const body = JSON.parse((await read(req)) || "{}");
+  anthropic.calls += 1;
+  if (anthropic.delayMs) await new Promise((r) => setTimeout(r, anthropic.delayMs));
+  if (anthropic.mode === "rate_limit") return send(res, 429, { type: "error", error: { type: "rate_limit_error", message: "mock rate limit" } }, { "retry-after": "1" });
+  const parts = body.messages?.[0]?.content ?? [];
+  const images = parts.filter((c) => c.type === "image").length;
+  const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  const reply = (text, stop = "end_turn") => send(res, 200, { id: `msg_mock_${rand(8)}`, type: "message", role: "assistant", model: body.model, content: [{ type: "text", text }], stop_reason: stop, stop_sequence: null, usage: { input_tokens: 1500 + images * 1500, output_tokens: 900 } });
+  if (anthropic.mode === "refuse") return reply("", "refusal");
+  if (images > 0) {
+    anthropic.vision += 1;
+    const roles = ["keep", "lead", "drop", "keep", "keep", "keep"];
+    const reasons = { lead: "Clear face, good light, and you look relaxed. Start here.", keep: "Adds variety without repeating the lead.", drop: "Close to the lead shot; it adds little, so leave it out." };
+    return reply(JSON.stringify({ ranking: Array.from({ length: images }, (_, i) => ({ photo: i + 1, role: roles[i % 6], reason: reasons[roles[i % 6]] })), add: ["A photo doing something you like outdoors", "One with friends, easy to tell which is you"] }));
+  }
+  const apps = [...prompt.matchAll(/^\s*- "(hinge|tinder|bumble|general)":/gm)].map((m) => m[1]);
+  return reply(JSON.stringify(stubPack(apps.length ? apps : ["general"])));
+}
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (process.env.MOCK_LOG && !url.pathname.startsWith("/__")) { const t0 = Date.now(); res.on("finish", () => console.log(`${req.method} ${url.pathname}${url.search.slice(0, 90)} -> ${res.statusCode} ${Date.now() - t0}ms`)); }
   try {
     if (url.pathname.startsWith("/rest/v1/")) return await rest(req, res, url);
     if (url.pathname.startsWith("/auth/v1/")) return await auth(req, res, url);
-    if (url.pathname.startsWith("/storage/v1/")) return send(res, 200, []);
+    if (url.pathname.startsWith("/storage/v1/")) return await storage(req, res, url);
     if (url.pathname.startsWith("/stripe/")) return await stripeApi(req, res, url);
     if (url.pathname === "/resend/emails") { const b = JSON.parse(await read(req)); outbox.email.push({ at: new Date().toISOString(), to: b.to, subject: b.subject, text: b.text }); return send(res, 200, { id: `mock_${rand(10)}` }); }
     if (url.pathname.includes("/sendMessage")) { const b = JSON.parse(await read(req)); outbox.telegram.push({ at: new Date().toISOString(), text: b.text }); return send(res, 200, { ok: true, result: {} }); }
+    if (url.pathname.startsWith("/anthropic/")) return await anthropicApi(req, res, url);
+    if (url.pathname === "/__anthropic") { Object.assign(anthropic, { mode: url.searchParams.get("mode") || "ok", delayMs: Number(url.searchParams.get("delay") || 0) }); return send(res, 200, anthropic); }
     if (url.pathname === "/__outbox") return send(res, 200, outbox);
-    if (url.pathname === "/__state") return send(res, 200, { db, stripeSessions: [...stripe.sessions.values()], stripeViolations: stripe.violations, eventList });
+    if (url.pathname === "/__state") return send(res, 200, { anthropic: { calls: anthropic.calls, vision: anthropic.vision, mode: anthropic.mode }, db, stripeSessions: [...stripe.sessions.values()], stripeViolations: stripe.violations, eventList });
     if (url.pathname === "/__stripe/pay") { const r = await pay(url.searchParams.get("session")); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
     return send(res, 404, { message: `mock: ${url.pathname}` });
   } catch (e) { console.error("mock error", req.method, url.pathname, e.message); send(res, 500, { message: e.message }); }

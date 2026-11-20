@@ -4,7 +4,7 @@
 //  2. Refuse every other non-local host, so nothing (production Supabase, live Stripe, PostHog, Sentry) can be reached.
 const MOCK = process.env.MOCK_ORIGIN || "http://127.0.0.1:54399";
 const mock = new URL(MOCK);
-const ROUTES = { "api.stripe.com": "/stripe", "api.resend.com": "/resend", "api.telegram.org": "/telegram" };
+const ROUTES = { "api.stripe.com": "/stripe", "api.resend.com": "/resend", "api.telegram.org": "/telegram", "api.anthropic.com": "/anthropic" };
 const isLocal = (h) => h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "[::1]";
 const blocked = [];
 
