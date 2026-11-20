@@ -8,6 +8,7 @@ import { CONSENT_STATEMENT, CONSENT_VERSION, APPS, SEND_REFUSALS, VOICES, canUse
 import { createAppClient, userOrNull } from "@/lib/app/session";
 import { ensureProfile } from "@/lib/app/actions-core";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { schedulePackAfterOnboarding } from "@/lib/starter-pack/service";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const UNAUTH: ActionResult = { ok: false, error: "Your session ended. Sign in again." };
@@ -118,7 +119,10 @@ export async function giveConsent(confirmAdult: boolean): Promise<ActionResult> 
     const { error } = await sb.from("consents").insert({ user_id: user.id, version: CONSENT_VERSION, statement: CONSENT_STATEMENT });
     if (error) return DB_ERR;
   }
-  await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
+  const { error: doneError } = await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
+  // Starter pack: written after this response, never blocking it. A repeat call is a no-op (one pack per user per
+  // version), and the 10-minute sweep covers anything that fails here.
+  if (!doneError) schedulePackAfterOnboarding(user.id);
   return { ok: true };
 }
 

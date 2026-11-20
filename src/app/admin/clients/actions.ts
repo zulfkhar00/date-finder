@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { adminEmailOrNull } from "@/lib/admin-auth";
 import * as core from "@/lib/automation/core";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { startRegeneration } from "@/lib/starter-pack/service";
 
 export type OpState = { ok?: string; error?: string };
 const NOT_ALLOWED: OpState = { error: "Not authorized." };
@@ -65,4 +66,19 @@ export async function addDateAction(userId: string, _prev: OpState, formData: Fo
     matchId: uuid.test(match) ? match : null, who: formData.get("who"), venue: formData.get("venue"),
     address: String(formData.get("address") ?? "") || null, startsAt, summary: String(formData.get("summary") ?? "") || null
   }), userId, "Date booked (the user is emailed if they allow it)");
+}
+
+/** Writes (or rewrites) the user's starter pack now. Honours the daily caps; ignores the user's 3-per-day regenerate limit. */
+export async function generatePackAction(userId: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const { data: profile } = await getSupabaseAdmin().from("profiles").select("onboarding_done_at").eq("user_id", userId).maybeSingle();
+  if (!profile?.onboarding_done_at) return { error: "This user has not finished onboarding." };
+  const started = await startRegeneration(userId, "admin");
+  if (!started.ok) {
+    const why = { unconfigured: "ANTHROPIC_API_KEY is not set.", busy: "A pack is already being written for this user.", cap: "The daily pack cap is reached; it is queued for tomorrow.", limit: "Limit reached.", unavailable: "Couldn't start. Try again." }[started.reason];
+    return { error: why };
+  }
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: "Started. Reload in a minute." };
 }

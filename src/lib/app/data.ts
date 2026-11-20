@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PACK_VERSION, packContentSchema, type PackContent, type PackStatus } from "@/lib/starter-pack/types";
 import { chatMode, effectiveStatus, splitDates, type App, type AppAccountRow, type ChatMode, type DateRow, type Sender } from "./domain";
 
 // Reads for the signed-in app. They run through the user's own session client, so Postgres RLS
@@ -112,4 +113,15 @@ export async function getSetupGaps(sb: SupabaseClient, userId: string): Promise<
   if (!profile?.first_name) gaps.push({ label: "Add your first name", href: "/profile" });
   if (!profile?.city || !prefs?.age_min) gaps.push({ label: "Tell us your type", href: "/profile" });
   return gaps;
+}
+
+export type StarterPackView = { status: PackStatus; content: PackContent | null; last_error: string | null; generated_at: string | null };
+
+/** The signed-in user's starter pack (RLS: own row only). Content that no longer matches the schema counts as not ready. */
+export async function getStarterPack(sb: SupabaseClient, userId: string): Promise<StarterPackView | null> {
+  const { data } = await sb.from("starter_packs").select("status, content, last_error, generated_at").eq("user_id", userId).eq("version", PACK_VERSION).maybeSingle();
+  if (!data) return null;
+  const parsed = data.content ? packContentSchema.safeParse(data.content) : null;
+  const content = parsed?.success ? parsed.data : null;
+  return { status: content ? "ready" : data.status === "ready" ? "pending" : (data.status as PackStatus), content, last_error: data.last_error, generated_at: data.generated_at };
 }

@@ -10,6 +10,8 @@ import { OnboardingFlow } from "./flow";
 
 export const metadata: Metadata = { title: "Set up your profile", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
+// The starter pack is written after the consent step responds (after() in giveConsent); give it room to finish.
+export const maxDuration = 60; // Vercel Hobby ceiling; the pack runs the text and photo calls side by side to fit
 
 export default async function OnboardingPage() {
   const user = await getAppUser();

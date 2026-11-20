@@ -1,8 +1,10 @@
 import Link from "next/link";
+import type { ComponentProps } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, Sparkles, User } from "lucide-react";
 import { AppBadge, Avatar, Empty, ModePill, RowLink, StatusPill } from "@/components/app/ui";
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
+import { StarterPack } from "@/components/app/starter-pack";
 import type { ChatSummary, SetupItem } from "@/lib/app/data";
 import { APP_LABELS, APPS, splitDates, type AppAccountRow, type DateRow } from "@/lib/app/domain";
 
@@ -30,17 +32,35 @@ export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps
   );
 }
 
-export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "" }: {
-  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string;
+export type HomePack = { view: ComponentProps<typeof StarterPack>["pack"]; photoUrls: Record<string, string | null>; hasCity: boolean; regenLeft: number };
+
+function NextGaps({ gaps }: { gaps: SetupItem[] }) {
+  return (
+    <section className="app-card app-next" aria-label="Make it better" style={{ marginTop: 14 }}>
+      <div className="app-next-gaps" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+        <strong>Make your pack better</strong>
+        <ul>{gaps.map((g) => <li key={g.label}><Link href={g.href} className="app-link">{g.label}<ChevronRight size={16} aria-hidden /></Link></li>)}</ul>
+      </div>
+    </section>
+  );
+}
+
+export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "", pack }: {
+  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string; pack?: HomePack;
 }) {
   const quiet = chats.length === 0 && upcoming.length === 0;
   const accounts = APPS.flatMap((app) => apps.filter((a) => a.app === app));
+  const packNode = pack && !base ? <StarterPack pack={pack.view} apps={apps} photoUrls={pack.photoUrls} hasCity={pack.hasCity} regenLeft={pack.regenLeft} /> : null;
   return (
     <>
       <h1 className="app-h1">Hi {name || "there"}.</h1>
       <p className="app-sub">Here&rsquo;s your week.</p>
 
-      {quiet && !base ? <div style={{ marginTop: 18 }}><NextSteps apps={apps} gaps={gaps} /></div> : null}
+      {quiet && !base ? (
+        <div style={{ marginTop: 18 }}>
+          {packNode ? <>{packNode}{gaps.length ? <NextGaps gaps={gaps} /> : null}</> : <NextSteps apps={apps} gaps={gaps} />}
+        </div>
+      ) : null}
 
       <h2 className="app-h2">Your apps</h2>
       {accounts.length === 0 ? (
@@ -53,7 +73,7 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
               <div className="app-row-body">
                 <div className="app-row-title">{APP_LABELS[a.app]} <StatusPill account={a} /></div>
                 <div className="app-row-sub" style={{ whiteSpace: "normal" }}>
-                  {a.user_paused ? "You paused this app." : a.status === "setting_up" ? `We're setting up your ${APP_LABELS[a.app]}. You'll see matches here.` : a.status === "live" ? "Running." : "Paused by the team."}
+                  {a.user_paused ? "You paused this app." : a.status === "setting_up" ? (packNode ? `We're setting up your ${APP_LABELS[a.app]}. Your starter pack works on it today.` : `We're setting up your ${APP_LABELS[a.app]}. You'll see matches here.`) : a.status === "live" ? "Running." : "Paused by the team."}
                 </div>
               </div>
             </li>
@@ -107,6 +127,8 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
           ))}
         </ul>
       )}
+
+      {!quiet && packNode ? <div style={{ marginTop: 26 }}>{packNode}</div> : null}
 
       {chats.length > 0 ? (
         <>

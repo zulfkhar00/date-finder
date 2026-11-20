@@ -5,7 +5,8 @@ import { APPS, APP_LABELS, MODE_LABELS, chatMode, effectiveStatus, type App } fr
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { SetupNotice } from "../../_components/notices";
 import { formatDateTime } from "../../_lib/format";
-import { addDateAction, addMatchAction, addMessageAction, setAppStatusAction, setNeedsYouAction } from "../actions";
+import { addDateAction, addMatchAction, addMessageAction, generatePackAction, setAppStatusAction, setNeedsYouAction } from "../actions";
+import { PACK_VERSION } from "@/lib/starter-pack/types";
 import { OpForm, TzOffset } from "../op-form";
 import styles from "../../admin.module.css";
 
@@ -17,7 +18,8 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sb = getSupabaseAdmin();
-  const [{ data: profile }, { data: prefs }, { data: apps }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, { data: photos }, auth] = await Promise.all([
+  const [{ data: pack }, { data: profile }, { data: prefs }, { data: apps }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, { data: photos }, auth] = await Promise.all([
+    sb.from("starter_packs").select("status, content, attempts, last_error, tokens, model, generated_at, next_attempt_at, updated_at").eq("user_id", id).eq("version", PACK_VERSION).maybeSingle(),
     sb.from("profiles").select("*").eq("user_id", id).maybeSingle(),
     sb.from("preferences").select("*").eq("user_id", id).maybeSingle(),
     sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id),
@@ -44,6 +46,15 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
       </div>
 
       {urls.length ? <section className={styles.card}><div style={{ display: "flex", gap: 8, overflowX: "auto" }}>{urls.map((u) => <img key={u.path} src={u.signedUrl ?? undefined} alt="" style={{ height: 120, borderRadius: 8 }} />)}</div></section> : null}
+
+      <section className={styles.card}>
+        <h2 className={styles.subhead}>Starter pack</h2>
+        <p className={styles.sub}>
+          {pack ? <><span className={styles.badge}>{pack.status}</span> · tries {pack.attempts} · {pack.tokens} tokens · {pack.model ?? "no model yet"}{pack.generated_at ? ` · written ${formatDateTime(pack.generated_at)}` : ""}{pack.last_error ? ` · last error: ${pack.last_error}` : ""}{pack.next_attempt_at && pack.status === "pending" ? ` · next try ${formatDateTime(pack.next_attempt_at)}` : ""}</> : <span className={styles.muted}>No pack yet. The 10-minute sweep creates it, or start it here.</span>}
+        </p>
+        <PackPreview content={pack?.content} />
+        <OpForm action={generatePackAction.bind(null, id)} label={pack ? "Write the pack again" : "Write the pack now"}><span className={styles.muted}>Uses the daily pack budget. Reload the page after a minute.</span></OpForm>
+      </section>
 
       <section className={styles.card}>
         <h2 className={styles.subhead}>Who they want</h2>
@@ -129,5 +140,22 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         </OpForm>
       </section>
     </main>
+  );
+}
+
+type PackJson = { profiles?: { app: string; prompts?: { prompt: string; answer: string }[]; bio: string }[]; openers?: { line: string }[]; replies?: { situation: string; template: string }[]; datePlan?: { headline: string; venues: { type: string }[]; when: string; budget: string } } | null;
+
+function PackPreview({ content }: { content: unknown }) {
+  const c = content as PackJson;
+  if (!c || typeof c !== "object") return null;
+  return (
+    <div style={{ fontSize: 13, display: "grid", gap: 8, margin: "10px 0" }}>
+      {(c.profiles ?? []).map((p) => (
+        <div key={p.app}><strong>{p.app}</strong>: {p.bio}{(p.prompts ?? []).map((q) => <div key={q.prompt} className={styles.muted}>{q.prompt}: {q.answer}</div>)}</div>
+      ))}
+      <div><strong>Openers</strong>{(c.openers ?? []).map((o) => <div key={o.line} className={styles.muted}>{o.line}</div>)}</div>
+      <div><strong>Replies</strong>{(c.replies ?? []).map((r) => <div key={r.situation} className={styles.muted}>{r.situation}: {r.template}</div>)}</div>
+      {c.datePlan ? <div><strong>Date</strong> <span className={styles.muted}>{c.datePlan.headline} · {c.datePlan.venues.map((v) => v.type).join(" / ")} · {c.datePlan.when} · {c.datePlan.budget}</span></div> : null}
+    </div>
   );
 }
