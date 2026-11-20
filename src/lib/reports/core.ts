@@ -130,9 +130,9 @@ export type UploadCheck = { ok: true; type: string; ext: string } | { ok: false;
 /** Size and real file type (by bytes, not by name or declared type). */
 export function checkUpload(bytes: Uint8Array): UploadCheck {
   if (bytes.length === 0) return { ok: false, error: "That file is empty." };
-  if (bytes.length > LIMITS.upload) return { ok: false, error: "The screenshot is too large. Use one under 4 MB." };
+  if (bytes.length > LIMITS.upload) return { ok: false, error: "The image is too large. Use one under 4 MB." };
   const kind = sniffImage(bytes);
-  if (!kind) return { ok: false, error: "Use a JPG, PNG or WebP screenshot." };
+  if (!kind) return { ok: false, error: "Use a JPG, PNG or WebP image." };
   return { ok: true, ...kind };
 }
 

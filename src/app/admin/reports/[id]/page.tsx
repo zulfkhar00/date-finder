@@ -90,8 +90,8 @@ export default async function AdminReportPage({ params }: { params: Promise<{ id
               <dt>Profile name or link</dt><dd>{report.profile_ref ?? "—"}</dd>
               <dt>Reporter</dt><dd>{report.reporter_email ? <a href={`mailto:${report.reporter_email}`}>{report.reporter_email}</a> : "Anonymous"}</dd>
               <dt>In danger</dt><dd>{report.in_danger ? <strong>Yes, the reporter said someone is in danger</strong> : "No"}</dd>
-              <dt>Screenshot</dt><dd>{attachmentUrl ? <>
-                <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className={styles.rowLink}>Open screenshot (link expires in 5 minutes)</a>
+              <dt>Image</dt><dd>{attachmentUrl ? <>
+                <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className={styles.rowLink}>Open image (link expires in 5 minutes)</a>
                 {report.category === "minor_safety" ? <span className={styles.muted}> May show a minor. Do not download or forward it; see the NCMEC steps.</span> : null}
               </> : report.attachment_path ? "Stored, link unavailable" : "None"}</dd>
             </dl>

@@ -99,7 +99,7 @@ export async function submitReport(input: ReportInput, file: Uint8Array | null, 
       const up = await sb.storage.from("report-uploads").upload(path, file, { contentType: upload.type, upsert: false });
       if (up.error) {
         console.error("Report upload failed", (up.error as { statusCode?: string }).statusCode ?? "unknown");
-        return { ok: false, code: "upload", error: "We couldn't store the screenshot. Try again, or send the report without it." };
+        return { ok: false, code: "upload", error: "We couldn't store the image. Try again, or send the report without it." };
       }
     }
     const urgent = input.inDanger || ["minor_safety", "trafficking", "non_consensual_images", "threats"].includes(input.category);

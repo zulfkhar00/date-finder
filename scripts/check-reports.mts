@@ -297,7 +297,7 @@ console.error = (...a: unknown[]) => { logged.push(a.map(String).join(" ")); };
   // a failed insert removes the file again
   db.failInsert.add("reports");
   const failed = await submitReport(base, jpeg, hashIp("2"), T0, sbOf(db));
-  assert.ok(!failed.ok && db.files.size === 1, "no orphaned screenshot after a failed insert");
+  assert.ok(!failed.ok && db.files.size === 1, "no orphaned image after a failed insert");
   // migration not applied: a clear "email us", nothing thrown
   const bare = new Fake(); bare.tables = {};
   const none = await submitReport(base, null, hashIp("3"), T0, sbOf(bare));

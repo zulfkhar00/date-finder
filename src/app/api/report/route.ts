@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // POST multipart: the public report form. No account, no CAPTCHA service. Defences: a hidden honeypot field (a filled one gets
 // a believable success and is dropped), per-address and global rate limits in the database, strict size/type checks on the
-// optional screenshot. Nothing from the body is logged. No email is sent to the reporter.
+// optional image. Nothing from the body is logged. No email is sent to the reporter.
 
 const MAX_BODY = LIMITS.upload + 200_000;
 const noStore = { "Cache-Control": "no-store" };
@@ -20,7 +20,7 @@ function clientIp(request: Request): string | null {
 
 export async function POST(request: Request) {
   const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > MAX_BODY) return NextResponse.json({ error: "The screenshot is too large. Use one under 4 MB." }, { status: 413, headers: noStore });
+  if (length > MAX_BODY) return NextResponse.json({ error: "The image is too large. Use one under 4 MB." }, { status: 413, headers: noStore });
 
   let form: FormData;
   try {
@@ -38,9 +38,9 @@ export async function POST(request: Request) {
   if (parsed.input.honeypot) return NextResponse.json({ ref: newReference() }, { headers: noStore });
 
   let bytes: Uint8Array | null = null;
-  const file = form.get("screenshot");
+  const file = form.get("attachment");
   if (file instanceof File && file.size > 0) {
-    if (file.size > LIMITS.upload) return NextResponse.json({ error: "The screenshot is too large. Use one under 4 MB.", fields: { screenshot: "Too large" } }, { status: 413, headers: noStore });
+    if (file.size > LIMITS.upload) return NextResponse.json({ error: "The image is too large. Use one under 4 MB.", fields: { attachment: "Too large" } }, { status: 413, headers: noStore });
     bytes = new Uint8Array(await file.arrayBuffer());
   }
 
@@ -54,5 +54,5 @@ export async function POST(request: Request) {
   }
   if (result.ok) return NextResponse.json({ ref: result.ref }, { headers: noStore });
   const status = result.code === "rate" ? 429 : result.code === "busy" || result.code === "unavailable" ? 503 : result.code === "upload" ? 422 : 500;
-  return NextResponse.json({ error: result.error, ...(result.code === "upload" ? { fields: { screenshot: result.error } } : {}) }, { status, headers: noStore });
+  return NextResponse.json({ error: result.error, ...(result.code === "upload" ? { fields: { attachment: result.error } } : {}) }, { status, headers: noStore });
 }

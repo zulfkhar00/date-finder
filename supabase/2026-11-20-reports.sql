@@ -10,7 +10,7 @@
 -- caused it, so the app can show the appeal notice. Users cannot write them (profiles has no write grant for browsers).
 -- The report-uploads bucket is private with NO policy for anon or authenticated: only the service role can read or write it.
 -- What is stored about a reporter: the optional email they typed and a keyed hash of their IP address (rate limiting only).
--- Report text and screenshots are never logged.
+-- Report text and images are never logged.
 
 -- 1. Reports. One row per submission; reports about the same profile share group_key.
 --   status: new -> acknowledged -> investigating -> actioned | dismissed; actioned -> appealed -> actioned (upheld) | dismissed (overturned)
@@ -112,7 +112,7 @@ revoke all on public.reports_events from public, anon, authenticated;
 grant select, insert, update, delete on public.reports to service_role;
 grant select, insert on public.reports_events to service_role;
 
--- 5. Private bucket for the optional screenshot. 4 MB and three image types, enforced by Storage as well as by the app.
+-- 5. Private bucket for the optional image. 4 MB and three image types, enforced by Storage as well as by the app.
 -- Object path: <report ref>/<random>.<ext>. No policy for browser roles, so only the service role can touch it.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('report-uploads', 'report-uploads', false, 4194304, array['image/jpeg', 'image/png', 'image/webp'])

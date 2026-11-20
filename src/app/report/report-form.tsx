@@ -12,7 +12,7 @@ const CATEGORY_HINTS: Partial<Record<Category, string>> = {
   threats: "Threats of violence or harm to a person."
 };
 
-type Fields = Partial<Record<"email" | "subjectKind" | "datingApp" | "description" | "category" | "screenshot", string>>;
+type Fields = Partial<Record<"email" | "subjectKind" | "datingApp" | "description" | "category" | "attachment", string>>;
 
 function EmergencyGuidance({ minor, images }: { minor: boolean; images: boolean }) {
   return (
@@ -52,11 +52,11 @@ export function ReportForm() {
     if (!data.get("subjectKind")) next.subjectKind = "Choose what you are reporting.";
     if (!data.get("category")) next.category = "Choose a category.";
     if (!String(data.get("description") ?? "").trim()) next.description = "Tell us what happened.";
-    const file = data.get("screenshot");
+    const file = data.get("attachment");
     if (file instanceof File && file.size > 0) {
-      if (file.size > LIMITS.upload) next.screenshot = "The screenshot is too large. Use one under 4 MB.";
-      else if (!sniffImage(new Uint8Array(await file.slice(0, 12).arrayBuffer()))) next.screenshot = "Use a JPG, PNG or WebP screenshot.";
-    } else data.delete("screenshot");
+      if (file.size > LIMITS.upload) next.attachment = "The image is too large. Use one under 4 MB.";
+      else if (!sniffImage(new Uint8Array(await file.slice(0, 12).arrayBuffer()))) next.attachment = "Use a JPG, PNG or WebP image.";
+    } else data.delete("attachment");
     if (Object.keys(next).length) { setFields(next); setError("Please fix the highlighted fields."); return; }
 
     setFields({}); setError(null); setPending(true);
@@ -155,11 +155,11 @@ export function ReportForm() {
       </div>
 
       <div className={styles.group}>
-        <label className={styles.label} htmlFor="screenshot">Screenshot <span className={styles.optional}>(optional)</span></label>
-        <p className={styles.hint} id="screenshot-hint">One JPG, PNG or WebP, up to 4 MB. It is stored privately and only our safety team can open it.</p>
-        <input id="screenshot" name="screenshot" type="file" accept="image/jpeg,image/png,image/webp" className={`${styles.input} ${fields.screenshot ? styles.invalid : ""}`} style={{ paddingTop: 12 }}
-          aria-describedby={fields.screenshot ? "screenshot-hint err-screenshot" : "screenshot-hint"} aria-invalid={fields.screenshot ? true : undefined} />
-        {fields.screenshot ? <p id="err-screenshot" className={styles.fieldError}>{fields.screenshot}</p> : null}
+        <label className={styles.label} htmlFor="attachment">Image <span className={styles.optional}>(optional)</span></label>
+        <p className={styles.hint} id="attachment-hint">One JPG, PNG or WebP, up to 4 MB. It is stored privately and only our safety team can open it.</p>
+        <input id="attachment" name="attachment" type="file" accept="image/jpeg,image/png,image/webp" className={`${styles.input} ${fields.attachment ? styles.invalid : ""}`} style={{ paddingTop: 12 }}
+          aria-describedby={fields.attachment ? "attachment-hint err-attachment" : "attachment-hint"} aria-invalid={fields.attachment ? true : undefined} />
+        {fields.attachment ? <p id="err-attachment" className={styles.fieldError}>{fields.attachment}</p> : null}
       </div>
 
       <div className={styles.group}>
