@@ -104,13 +104,14 @@ export const GOAL_LABELS: Record<(typeof GOALS)[number], string> = {
 export const VOICES = ["warm", "playful", "direct"] as const;
 export const VOICE_LABELS: Record<(typeof VOICES)[number], string> = { warm: "Warm", playful: "Playful", direct: "Direct" };
 
-// Every answer is optional. Blank means "not given" and is stored as null or an empty list. The one rule that
-// stays is 18+: a birthday that is given must be 18 to 99 (the consent step also has an explicit 18+ box).
+// Every answer except the birthday is optional. Blank means "not given" and is stored as null or an empty list.
+// The birthday is required and must be 18 to 99 (the consent step also has an explicit 18+ box).
 const blank = z.literal("");
 const optInt = (min: number, max: number) => z.number().int().min(min).max(max).nullable();
 export const stepSchemas = {
   name: z.object({ firstName: text(60) }),
-  birthday: z.object({ birthday: z.union([blank, z.string().refine((v) => { const a = ageFromBirthday(v); return a !== null && a >= 18 && a <= 99; }, "You need to be 18 or older.")]) }),
+  // Birthday is required: it is the age gate (Stripe dating policy). 18 to 99 only.
+  birthday: z.object({ birthday: z.string().min(1, "Add your birthday. NoSwipe is only for adults 18 or older.").refine((v) => { const a = ageFromBirthday(v); return a !== null && a >= 18 && a <= 99; }, "You need to be 18 or older.") }),
   who: z.object({ gender: z.union([blank, z.enum(GENDERS)]), interestedIn: z.array(z.enum(INTERESTED_IN)).max(3) }),
   about: z.object({
     job: text(120),
