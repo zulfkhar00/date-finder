@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PHOTO_MAX } from "@/lib/app/domain";
 import { ensureProfile } from "@/lib/app/actions-core";
 import { signUrls } from "@/lib/app/data";
+import { livePhotoRows } from "@/lib/starter-pack/photo-flags";
 import { userOrNull } from "@/lib/app/session";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -35,8 +36,8 @@ export async function POST(request: Request) {
 
   const sb = getSupabaseAdmin();
   await ensureProfile(sb, user.id, user.email);
-  const { data: existing } = await sb.from("profile_photos").select("position").eq("user_id", user.id).order("position", { ascending: false });
-  if ((existing?.length ?? 0) >= PHOTO_MAX) return NextResponse.json({ error: `You can add up to ${PHOTO_MAX} photos.` }, { status: 409 });
+  const existing = (await livePhotoRows<{ position: number }>(sb, user.id, "position")).reverse(); // soft-deleted photos do not count
+  if (existing.length >= PHOTO_MAX) return NextResponse.json({ error: `You can add up to ${PHOTO_MAX} photos.` }, { status: 409 });
   const path = `${user.id}/${crypto.randomUUID()}.${kind.ext}`;
   const up = await sb.storage.from("profile-photos").upload(path, bytes, { contentType: kind.type, upsert: false });
   if (up.error) return NextResponse.json({ error: "Couldn't store that photo. Try again." }, { status: 500 });

@@ -5,6 +5,7 @@ import { buildDateBookedEmail, buildNeedsYouEmail } from "@/lib/app-emails";
 import { APPS, SEND_REFUSALS, canAiSend, chatMode, effectiveStatus, encodeSystemEvent, type AppStatus, type SystemEvent } from "@/lib/app/domain";
 import { sendAppEmail } from "@/lib/email";
 import { parseSiteUrl } from "@/lib/admin-config";
+import { flaggedPhotoIds, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 
 // The automation seam (docs/automation.md). Everything a worker, or the admin console, may do to a
 // client's account goes through these functions with the service-role client. Both the HTTP routes
@@ -174,15 +175,18 @@ export async function ackOutbox(sb: SupabaseClient, messageId: string): Promise<
 
 export async function clientBrief(sb: SupabaseClient, userId: string) {
   if (!uuid.safeParse(userId).success) return fail(404, "not_found", "Unknown client.");
-  const [{ data: profile }, { data: prefs }, { data: apps }, { data: photos }, { data: consent }] = await Promise.all([
+  const [{ data: profile }, { data: prefs }, { data: apps }, photoRows, flagged, { data: consent }] = await Promise.all([
     sb.from("profiles").select("first_name, birthday, gender, interested_in, city, job, height_cm, interests, voice, onboarding_done_at, internal").eq("user_id", userId).maybeSingle(),
     sb.from("preferences").select("age_min, age_max, distance_km, looking_for, dealbreakers").eq("user_id", userId).maybeSingle(),
     sb.from("app_accounts").select("app, status, user_paused").eq("user_id", userId),
-    sb.from("profile_photos").select("path, position").eq("user_id", userId).order("position"),
+    livePhotoRows<{ id: string; path: string; position: number }>(sb, userId, "id, path, position"),
+    flaggedPhotoIds(userId, sb),
     sb.from("consents").select("version, accepted_at").eq("user_id", userId).order("accepted_at", { ascending: false }).limit(1)
   ]);
   if (!profile) return fail(404, "not_found", "Unknown client.");
-  const signed = await Promise.all((photos ?? []).map(async (p) => {
+  // Removed photos are gone; photos flagged for review stay out of the brief until a person approves them.
+  const photos = photoRows.filter((p) => !flagged.has(p.id));
+  const signed = await Promise.all(photos.map(async (p) => {
     const { data } = await sb.storage.from("profile-photos").createSignedUrl(p.path, 3600);
     return { position: p.position, url: data?.signedUrl ?? null };
   }));

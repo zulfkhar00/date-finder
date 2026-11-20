@@ -97,10 +97,18 @@ export function buildPackUserPrompt(c: PackContext, feedback?: string[]): string
   ].filter((s) => s !== "").join("\n");
 }
 
+/** Safety flags ride on the same vision call (no extra model call). They only route a photo to a person for review. */
+const SAFETY_RULES = [
+  "Also give every photo a \"flags\" array, usually empty. Add a flag only when it clearly applies; when unsure, leave it out. Allowed values:",
+  "\"explicit_or_sexual\" (nudity or sexual content), \"possible_minor\" (anyone who may be under 18), \"not_a_real_person_or_not_the_user\" (a celebrity or well-known person, stock photo, screenshot, meme, cartoon, AI art, or no person at all),",
+  "\"violence_or_weapons\" (weapons, violence, gore). Flags are used only to route the photo to a human reviewer. Never describe what you saw, never write the flag name inside a reason."
+].join(" ");
+
 export const VISION_SYSTEM_PROMPT = [
   "You review profile photos for one adult user of dating apps, to suggest their best order. You only advise; you never contact anyone.",
   "Be kind and practical. Judge only photo craft: light, clarity, face visible, variety, how it reads as a first impression. Never rate attractiveness or body, never identify anyone, never describe anything sexual.",
   "If a photo is explicit, group-only with no clear way to tell who the user is, or unreadable, give role \"drop\" and a neutral craft reason without describing content.",
+  SAFETY_RULES,
   "Output a single JSON object and nothing else: no prose, no code fences."
 ].join("\n");
 
@@ -108,7 +116,7 @@ export function buildVisionUserPrompt(c: PackContext, count: number): string {
   return [
     `You are given ${count} photos in order, labelled Photo 1 to Photo ${count} just before each image.`,
     `Apps: ${c.apps.join(", ")}. They want to meet ${c.target}.`,
-    "Return JSON: {\"ranking\": [{\"photo\": <number>, \"role\": \"lead\"|\"keep\"|\"drop\", \"reason\": <max 160 chars>}], \"add\": [up to 3 short suggestions of photos to add, each max 120 chars]}.",
+    "Return JSON: {\"ranking\": [{\"photo\": <number>, \"role\": \"lead\"|\"keep\"|\"drop\", \"reason\": <max 160 chars>, \"flags\": [<zero or more safety flags>]}], \"add\": [up to 3 short suggestions of photos to add, each max 120 chars]}.",
     "Exactly one photo has role \"lead\" (the first photo to show). List every photo once, best order first. \"drop\" only if it hurts the set (blurry, duplicate, hidden face, heavy filter)."
   ].join("\n");
 }
@@ -121,3 +129,17 @@ export const PHOTO_CHECKLIST = [
   "One photo with friends, where it is obvious which one is you.",
   "One photo that shows your city or a place you like, no sunglasses."
 ];
+
+/** The flag-only call used by the sweep over existing photos (cheap model, no ranking). */
+export const FLAG_SYSTEM_PROMPT = [
+  "You screen profile photos for a dating-profile service so a human can review the risky ones. You only classify; you never contact anyone and never describe what you see.",
+  SAFETY_RULES,
+  "Output a single JSON object and nothing else: no prose, no code fences."
+].join("\n");
+
+export function buildFlagUserPrompt(count: number): string {
+  return [
+    `You are given ${count} photos in order, labelled Photo 1 to Photo ${count} just before each image.`,
+    "Return JSON: {\"photos\": [{\"photo\": <number>, \"flags\": [<zero or more safety flags>]}]}. List every photo once."
+  ].join("\n");
+}

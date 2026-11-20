@@ -5,7 +5,9 @@ import { APPS, APP_LABELS, MODE_LABELS, chatMode, effectiveStatus, type App } fr
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { SetupNotice } from "../../_components/notices";
 import { formatDateTime } from "../../_lib/format";
-import { addDateAction, addMatchAction, addMessageAction, generatePackAction, setAppStatusAction, setNeedsYouAction } from "../actions";
+import { decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, setAppStatusAction, setNeedsYouAction } from "../actions";
+import { flagLabel } from "@/lib/starter-pack/photo-flags-core";
+import { listFlaggedForUser, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 import { PACK_VERSION } from "@/lib/starter-pack/types";
 import { OpForm, TzOffset } from "../op-form";
 import styles from "../../admin.module.css";
@@ -18,7 +20,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sb = getSupabaseAdmin();
-  const [{ data: pack }, { data: profile }, { data: prefs }, { data: apps }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, { data: photos }, auth] = await Promise.all([
+  const [{ data: pack }, { data: profile }, { data: prefs }, { data: apps }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, photos, flaggedPhotos, auth] = await Promise.all([
     sb.from("starter_packs").select("status, content, attempts, last_error, tokens, model, generated_at, next_attempt_at, updated_at").eq("user_id", id).eq("version", PACK_VERSION).maybeSingle(),
     sb.from("profiles").select("*").eq("user_id", id).maybeSingle(),
     sb.from("preferences").select("*").eq("user_id", id).maybeSingle(),
@@ -27,13 +29,17 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
     sb.from("dates").select("*").eq("user_id", id).order("starts_at"),
     sb.from("takeovers").select("match_id, ended_at").eq("user_id", id),
     sb.from("consents").select("version, accepted_at").eq("user_id", id).order("accepted_at", { ascending: false }).limit(1),
-    sb.from("profile_photos").select("path, position").eq("user_id", id).order("position"),
+    livePhotoRows<{ path: string; position: number }>(sb, id, "path, position"),
+    listFlaggedForUser(sb, id),
     sb.auth.admin.getUserById(id)
   ]);
   if (!profile) notFound();
   const matchIds = (matches ?? []).map((m) => m.id);
   const { data: msgs } = matchIds.length ? await sb.from("messages").select("id, match_id, sender, body, sent_at, delivered_at").in("match_id", matchIds).order("sent_at", { ascending: false }).limit(300) : { data: [] };
-  const urls = photos?.length ? (await sb.storage.from("profile-photos").createSignedUrls(photos.map((p) => p.path), 600)).data ?? [] : [];
+  const signedUrls = (await sb.storage.from("profile-photos").createSignedUrls([...photos.map((p) => p.path), ...flaggedPhotos.map((p) => p.path)], 600)).data ?? [];
+  const urlFor = new Map(signedUrls.map((u) => [u.path, u.signedUrl]));
+  const flaggedPaths = new Set(flaggedPhotos.map((p) => p.path));
+  const urls = photos.filter((p) => !flaggedPaths.has(p.path)).map((p) => ({ path: p.path, signedUrl: urlFor.get(p.path) ?? null }));
 
   return (
     <main className={styles.main}>
@@ -44,6 +50,27 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <p className={styles.sub}>{auth.data.user?.email} · {profile.city ?? "no city"} · {profile.job ?? "no job"} · consent {consents?.[0] ? formatDateTime(consents[0].accepted_at) : "not given"}</p>
         </div>
       </div>
+
+      {flaggedPhotos.length ? (
+        <section className={styles.card} aria-label="Flagged photos" data-testid="flagged-photos">
+          <h2 className={styles.subhead}>Flagged photos <span className={styles.badge} data-tone="warn">{flaggedPhotos.length}</span></h2>
+          <p className={styles.sub}>The model held these back for a person to look at. They are not used in the pack. The user only sees &ldquo;One photo can&rsquo;t be used&rdquo;. Approve if it was a false positive, or remove it.</p>
+          <div style={{ display: "grid", gap: 14 }}>
+            {flaggedPhotos.map((f) => (
+              <div key={f.photoId} style={{ display: "grid", gap: 10, borderTop: "1px solid var(--a-line)", paddingTop: 12 }}>
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                  {urlFor.get(f.path) ? <img src={urlFor.get(f.path) ?? undefined} alt="Flagged photo" style={{ height: 160, maxWidth: "100%", borderRadius: 8 }} /> : <span className={styles.muted}>Photo unavailable</span>}
+                  <div><strong>{flagLabel(f.flags)}</strong>{f.flaggedAt ? <p className={styles.sub}>Flagged {formatDateTime(f.flaggedAt)}</p> : null}</div>
+                </div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  <OpForm action={decideFlaggedPhotoAction.bind(null, id, "approve")} label="Approve" pendingLabel="Approving…"><input type="hidden" name="photoId" value={f.photoId} /></OpForm>
+                  <OpForm action={decideFlaggedPhotoAction.bind(null, id, "remove")} label="Remove" pendingLabel="Removing…"><input type="hidden" name="photoId" value={f.photoId} /></OpForm>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {urls.length ? <section className={styles.card}><div style={{ display: "flex", gap: 8, overflowX: "auto" }}>{urls.map((u) => <img key={u.path} src={u.signedUrl ?? undefined} alt="" style={{ height: 120, borderRadius: 8 }} />)}</div></section> : null}
 

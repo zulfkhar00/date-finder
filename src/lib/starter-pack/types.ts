@@ -4,6 +4,8 @@ import { z } from "zod";
 /** Bump to give every user a fresh pack (a new row; the old one stays). One pack per user per version. */
 export const PACK_VERSION = 1;
 export const PACK_MODEL = "claude-sonnet-5-5";
+/** Cheap classifier for the photo-flag sweep. */
+export const FLAG_MODEL = "claude-haiku-5-5";
 
 export const PACK_APPS = ["hinge", "tinder", "bumble", "general"] as const;
 export type PackApp = (typeof PACK_APPS)[number];

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { generatePackFor, sweepPacks } from "@/lib/starter-pack/service";
+import { generatePackFor, sweepFlags, sweepPacks } from "@/lib/starter-pack/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ export const maxDuration = 60; // Vercel Hobby ceiling; one pack takes about 20-
 // Protected by CRON_SECRET or STARTER_PACK_SWEEP_TOKEN. Responses carry counts only, never user data.
 //
 //   GET /api/cron/starter-packs                      sweep, up to 5 users (?limit=1..10)
+//   GET /api/cron/starter-packs?flags=1              photo safety-flag pass over existing photos, up to 3 users (?limit=1..6)
 //   GET /api/cron/starter-packs?userId=<uuid>        generate for one user now (kind "admin": ignores the regenerate limit)
 // Both honour the daily run and token caps (STARTER_PACK_DAILY_CAP, STARTER_PACK_DAILY_TOKEN_CAP).
 
@@ -43,6 +44,10 @@ export async function GET(request: Request) {
     if (userId) {
       if (!UUID.test(userId)) return NextResponse.json({ error: "Bad userId" }, { status: 400, headers });
       return NextResponse.json({ result: await generatePackFor(userId, "admin") }, { headers });
+    }
+    if (url.searchParams.get("flags") === "1") {
+      const flagLimit = Math.min(6, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "3", 10) || 3));
+      return NextResponse.json(await sweepFlags(flagLimit), { headers });
     }
     const limit = Math.min(10, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "5", 10) || 5));
     return NextResponse.json(await sweepPacks({ limit }), { headers });

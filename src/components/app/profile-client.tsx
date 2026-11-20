@@ -86,7 +86,7 @@ function AppRow({ account, api }: { account: AppAccountRow; api: ProfileApi }) {
   );
 }
 
-export function ProfileClient({ email, age, draft, photos, apps, voice, notifyEmail, api = realProfileApi }: { email: string; age: number | null; draft: Draft; photos: Photo[]; apps: AppAccountRow[]; voice: string; notifyEmail: boolean; api?: ProfileApi }) {
+export function ProfileClient({ email, age, draft, photos, flaggedPhotoIds = [], apps, voice, notifyEmail, api = realProfileApi }: { email: string; age: number | null; draft: Draft; photos: Photo[]; flaggedPhotoIds?: string[]; apps: AppAccountRow[]; voice: string; notifyEmail: boolean; api?: ProfileApi }) {
   const router = useRouter();
   const [v, setV] = useState(voice);
   const [notify, setNotify] = useState(notifyEmail);
@@ -117,7 +117,7 @@ export function ProfileClient({ email, age, draft, photos, apps, voice, notifyEm
       <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
         <section className="app-card" aria-label="Photos">
           <h2 style={{ fontSize: 17, fontWeight: 800 }}>Photos</h2>
-          <PhotoManager initial={photos} api={api.photos} />
+          <PhotoManager initial={photos} api={api.photos} flaggedIds={flaggedPhotoIds} />
         </section>
 
         <EditCard api={api} title="Basics" steps={["name", "birthday", "who"]} draft={draft} summary={

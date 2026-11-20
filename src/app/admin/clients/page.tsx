@@ -1,17 +1,23 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { usersWithFlags } from "@/lib/starter-pack/photo-flags";
 import { Badge, SetupNotice } from "../_components/notices";
 import { formatDateTime } from "../_lib/format";
 import styles from "../admin.module.css";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminClientsPage() {
+export default async function AdminClientsPage({ searchParams }: { searchParams: Promise<{ flagged?: string }> }) {
   const access = await requireAdminPage();
   if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
   const sb = getSupabaseAdmin();
-  const { data: profiles, error } = await sb.from("profiles").select("user_id, first_name, city, internal, onboarding_done_at, created_at").order("created_at", { ascending: false }).limit(100);
+  const onlyFlagged = (await searchParams).flagged === "1";
+  // Photos the model held back for a person to look at (supabase/2026-11-20-photo-flags.sql); empty until that is applied.
+  const flagCounts = await usersWithFlags(sb);
+  const base = sb.from("profiles").select("user_id, first_name, city, internal, onboarding_done_at, created_at").order("created_at", { ascending: false }).limit(100);
+  // The filter looks at every flagged user, not just the 100 newest.
+  const { data: profiles, error } = onlyFlagged ? await base.in("user_id", [...flagCounts.keys()]) : await base;
   const ids = (profiles ?? []).map((p) => p.user_id);
   const [{ data: apps }, users] = await Promise.all([
     ids.length ? sb.from("app_accounts").select("user_id, app, status, user_paused").in("user_id", ids) : Promise.resolve({ data: [] as { user_id: string; app: string; status: string; user_paused: boolean }[] }),
@@ -22,10 +28,14 @@ export default async function AdminClientsPage() {
     <main className={styles.main}>
       <div className={styles.pageHead}>
         <div><h1>Clients</h1><p className={styles.sub}>People who signed up in the app. Open one to set app status, add matches, messages and dates.</p></div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/admin/clients" className={onlyFlagged ? styles.buttonGhost : styles.button} aria-current={onlyFlagged ? undefined : "page"}>All</Link>
+          <Link href="/admin/clients?flagged=1" className={onlyFlagged ? styles.button : styles.buttonGhost} aria-current={onlyFlagged ? "page" : undefined}>Flagged ({flagCounts.size})</Link>
+        </div>
       </div>
       <section className={styles.card}>
         {error ? <div className={styles.notice}>Couldn&rsquo;t read clients. Has <code>supabase/2026-11-04-app.sql</code> been applied?</div> : null}
-        {!profiles?.length ? <div className={styles.empty}>No clients yet.</div> : (
+        {!profiles?.length ? <div className={styles.empty}>{onlyFlagged ? "No flagged photos waiting for review." : "No clients yet."}</div> : (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead><tr><th>Joined</th><th>Name</th><th>Email</th><th className={styles.hideSm}>City</th><th>Apps</th><th>Onboarding</th></tr></thead>
@@ -33,7 +43,7 @@ export default async function AdminClientsPage() {
                 {profiles.map((p) => (
                   <tr key={p.user_id}>
                     <td className={styles.nowrap}>{formatDateTime(p.created_at)}</td>
-                    <td><Link href={`/admin/clients/${p.user_id}`} className={styles.rowLink}>{p.first_name || "—"}</Link> {p.internal ? <span className={styles.badge}>internal</span> : null}</td>
+                    <td><Link href={`/admin/clients/${p.user_id}`} className={styles.rowLink}>{p.first_name || "—"}</Link> {p.internal ? <span className={styles.badge}>internal</span> : null} {flagCounts.has(p.user_id) ? <span className={styles.badge} data-tone="warn">Flagged{flagCounts.get(p.user_id)! > 1 ? ` x${flagCounts.get(p.user_id)}` : ""}</span> : null}</td>
                     <td>{email.get(p.user_id)}</td>
                     <td className={styles.hideSm}>{p.city ?? "—"}</td>
                     <td>{(apps ?? []).filter((a) => a.user_id === p.user_id).map((a) => <span key={a.app} className={styles.badge} style={{ marginRight: 4 }}>{a.app}: {a.user_paused ? "paused (user)" : a.status}</span>)}</td>

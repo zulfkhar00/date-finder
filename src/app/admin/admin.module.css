@@ -90,6 +90,7 @@
 
 /* Badges: one tone per meaning, all from the landing palette. */
 .badge { display: inline-block; padding: 1px 9px; border: 1.5px solid var(--a-ink); border-radius: var(--r-pill); font-size: 12px; font-weight: 700; background: var(--paper); color: var(--a-ink); white-space: nowrap; }
+.badge[data-tone="warn"] { background: var(--coral); }
 .badge_paid, .badge_content_posted { background: var(--lime); }
 .badge_pending, .badge_content_fix, .badge_content_review { background: var(--blush); }
 .badge_refunded, .badge_declined, .badge_content_failed { background: var(--coral); }

@@ -5,6 +5,7 @@ import { adminEmailOrNull } from "@/lib/admin-auth";
 import * as core from "@/lib/automation/core";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { startRegeneration } from "@/lib/starter-pack/service";
+import { decideFlaggedPhoto } from "@/lib/starter-pack/photo-flags";
 
 export type OpState = { ok?: string; error?: string };
 const NOT_ALLOWED: OpState = { error: "Not authorized." };
@@ -81,4 +82,21 @@ export async function generatePackAction(userId: string, _prev: OpState, _formDa
   }
   revalidatePath(`/admin/clients/${userId}`);
   return { ok: "Started. Reload in a minute." };
+}
+
+/**
+ * A person's decision on a photo the model flagged. Approve: the flag was a false positive; the photo is cleared for good
+ * and the pack is written again so it can use it. Remove: soft-delete (the user stops seeing it; the flag stays on record).
+ */
+export async function decideFlaggedPhotoAction(userId: string, decision: "approve" | "remove", _prev: OpState, formData: FormData): Promise<OpState> {
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const photoId = String(formData.get("photoId") ?? "");
+  if (!uuid.test(photoId)) return { error: "Unknown photo." };
+  const result = await decideFlaggedPhoto(getSupabaseAdmin(), userId, photoId, decision);
+  if (!result.ok) return { error: result.error };
+  // Best effort: a capped or busy pack run must not turn a saved decision into an error.
+  if (decision === "approve") await startRegeneration(userId, "admin").catch(() => undefined);
+  revalidatePath(`/admin/clients/${userId}`);
+  revalidatePath("/admin/clients");
+  return { ok: decision === "approve" ? "Approved. The photo can be used." : "Removed." };
 }

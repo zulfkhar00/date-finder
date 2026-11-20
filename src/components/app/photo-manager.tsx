@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, ImagePlus, Trash2 } from "lucide-react";
 import { removePhoto, reorderPhotos } from "@/lib/app/actions";
 import { PHOTO_MAX } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
+import { USER_FLAG_NOTICE } from "@/lib/starter-pack/photo-flags-core";
 import { PHOTO_NETWORK_ERROR as NETWORK_ERROR, uploadErrorMessage, withTimeout } from "@/lib/app/photo-errors";
 
 /** Shrinks a photo in the browser (max 1600 px, JPEG) so uploads stay small and fast. */
@@ -41,11 +42,13 @@ export const realPhotoApi: PhotoApi = {
   }
 };
 
-export function PhotoManager({ initial, onChange, onBusyChange, api = realPhotoApi }: { initial: Photo[]; onChange?: (photos: Photo[]) => void; onBusyChange?: (busy: boolean) => void; api?: PhotoApi }) {
+export function PhotoManager({ initial, flaggedIds = [], onChange, onBusyChange, api = realPhotoApi }: { initial: Photo[]; flaggedIds?: string[]; onChange?: (photos: Photo[]) => void; onBusyChange?: (busy: boolean) => void; api?: PhotoApi }) {
   const [photos, setPhotos] = useState(initial);
   const [busy, setBusy] = useState<string>("");
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  // Photos held for review: the user is told one neutral line and can replace the photo. Removing one clears it from here at once.
+  const flagged = photos.filter((p) => flaggedIds.includes(p.id));
 
   // Tell the parent while something is in flight so "Continue" waits for it instead of leaving mid-upload.
   const lock = (value: string) => { setBusy(value); onBusyChange?.(value !== ""); };
@@ -98,7 +101,7 @@ export function PhotoManager({ initial, onChange, onBusyChange, api = realPhotoA
     <div>
       <div className="ob-photos">
         {photos.map((p, i) => (
-          <div className="ob-photo" key={p.id}>
+          <div className="ob-photo" key={p.id} data-flagged={flaggedIds.includes(p.id) ? "true" : undefined}>
             {p.url ? <img src={p.url} alt={`Your photo ${i + 1}`} /> : null}
             <span className="num">{i === 0 ? "Main" : i + 1}</span>
             <div className="tools">
@@ -116,6 +119,7 @@ export function PhotoManager({ initial, onChange, onBusyChange, api = realPhotoA
       </div>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(e) => void add(e.target.files)} aria-label="Choose photos" />
       <p className="app-fine">{photos.length} of {PHOTO_MAX} · 3 or more works best. Your first photo is your main one. Real photos of you only.</p>
+      {flagged.length ? <p className="app-error" role="status" data-testid="photo-flag-notice">{USER_FLAG_NOTICE}</p> : null}
       {error ? <p className="app-error" role="alert">{error}</p> : null}
     </div>
   );
