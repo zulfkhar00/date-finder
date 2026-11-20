@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CHECKOUT_DIAGNOSTIC_EVENTS, checkoutIdFromKey } from "@/lib/checkout-events";
 import { PROBE_SESSION_PREFIX, reservationExclusion } from "@/lib/internal-traffic";
 
 // The one place funnel numbers are computed. It reads raw rows with the server key and drops
@@ -85,6 +86,9 @@ export function internalSessionIds(events: Pick<EventRow, "event" | "session_id"
     if (e.session_id && (e.event === "checkout_created" || e.event === "paid")) {
       const id = stripeIdOf(e.dedupe_key);
       if (badStripeSessions.has(id) || id.startsWith("cs_test_")) internal.add(e.session_id);
+    } else if (e.session_id && CHECKOUT_DIAGNOSTIC_EVENTS.has(e.event)) {
+      const id = checkoutIdFromKey(e.dedupe_key);
+      if (id && (badStripeSessions.has(id) || id.startsWith("cs_test_"))) internal.add(e.session_id);
     }
   }
   return internal;
@@ -122,7 +126,7 @@ export function computeRealFunnel(allEvents: EventRow[], allReservations: Reserv
   const daily = new Map<string, { pageViews: number; visitors: Set<string> }>();
   for (const e of events) {
     if (!e.session_id || internalSessions.has(e.session_id)) continue;
-    if (e.event === "checkout_created" || e.event === "paid") continue; // server events: reservations are the source of truth
+    if (e.event === "checkout_created" || e.event === "paid" || CHECKOUT_DIAGNOSTIC_EVENTS.has(e.event)) continue; // server events: reservations are the source of truth; diagnostics only feed the Checkout panel
     let s = sessions.get(e.session_id);
     if (!s) { s = { variant: e.variant ?? "premium", campaign: e.utm_campaign ?? "(none)", pageView: false, getStarted: false, started: false, done: false }; sessions.set(e.session_id, s); }
     if (e.event === "page_view") {

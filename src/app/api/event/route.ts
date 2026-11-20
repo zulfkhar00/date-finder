@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { clientEventSchema } from "@/lib/attribution";
+import { CHECKOUT_CLIENT_EVENTS, clientDedupeKey, type CheckoutClientEvent } from "@/lib/checkout-events";
 import { insertClientFunnelEvent } from "@/lib/funnel";
 import { isNonProductionOrigin } from "@/lib/internal-traffic";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -32,8 +33,9 @@ function clientKey(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
 }
 
-// Only the CLIENT_EVENTS (page_view, get_started, reserve_start, onboarding_complete, checkout_canceled) are accepted from the browser.
-// checkout_created and paid are recorded server-side by /api/checkout and the Stripe webhook.
+// Only the CLIENT_EVENTS (page_view, get_started, reserve_start, onboarding_complete, checkout_canceled, checkout_form_ready, payment_submit, ...) are accepted from the browser.
+// checkout_created, paid and the stripe_* events are recorded server-side by /api/checkout and the Stripe webhook.
+// country and device are always derived here from the request headers (Vercel/Cloudflare geo header, User-Agent); the browser cannot set them.
 export async function POST(request: Request) {
   if (rateLimited(clientKey(request), Date.now())) {
     return new NextResponse(null, { status: 429, headers: { "Retry-After": "60" } });
@@ -63,8 +65,13 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
+  // Checkout diagnostics carry the Checkout Session id and are idempotent per session per step, so a
+  // double fire, a beacon plus its fetch fallback, or a spammed client records once.
+  const isCheckoutEvent = (CHECKOUT_CLIENT_EVENTS as readonly string[]).includes(parsed.data.event);
+  const checkoutId = parsed.data.checkoutId;
   const result = await insertClientFunnelEvent(supabase, {
     event: parsed.data.event,
+    ...(isCheckoutEvent && checkoutId ? { dedupeKey: clientDedupeKey(parsed.data.event as CheckoutClientEvent, checkoutId, parsed.data.detail), detail: parsed.data.detail } : {}),
     sessionId: parsed.data.sessionId,
     variant: parsed.data.variant,
     utmCampaign: parsed.data.utmCampaign,

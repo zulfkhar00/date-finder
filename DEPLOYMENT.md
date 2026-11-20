@@ -71,7 +71,7 @@ In the matching Stripe test or live mode, create a **snapshot** webhook destinat
 https://noswipe.app/api/stripe/webhook
 ```
 
-For the first deployment, create this destination in **Stripe test mode**. Subscribe to `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, and `charge.refunded`. Reveal that destination's `whsec_...` signing secret, set it as `STRIPE_WEBHOOK_SECRET` in Dokploy, and redeploy the Application.
+For the first deployment, create this destination in **Stripe test mode**. Subscribe to `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `charge.refunded`, and `payment_intent.payment_failed` (the last one gives the decline code and card country shown in the admin Checkout panel; run `supabase/2026-11-20-checkout-forensics.sql` first). Reveal that destination's `whsec_...` signing secret, set it as `STRIPE_WEBHOOK_SECRET` in Dokploy, and redeploy the Application.
 
 ## 6. Verify before accepting live payments
 
