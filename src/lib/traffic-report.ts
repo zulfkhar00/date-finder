@@ -5,6 +5,7 @@
 // funnel session tied to them, plus our own probe sessions (internalSessionIds in real-funnel).
 // Importing real-funnel pulls in "server-only", so run the tests with --conditions=react-server.
 
+import { CHECKOUT_DIAGNOSTIC_EVENTS } from "@/lib/checkout-events";
 import { internalSessionIds, splitReservations, type ReservationRow } from "@/lib/real-funnel";
 import { DIRECT_CHANNEL, NOT_CAPTURED_CHANNEL, resolveChannel, normalizeChannel } from "@/lib/traffic";
 
@@ -58,7 +59,7 @@ export type TrafficModel = {
   captureSince: number | null;
 };
 
-const SERVER_EVENTS = new Set(["checkout_created", "paid"]);
+const SERVER_EVENTS = new Set(["checkout_created", "paid", ...CHECKOUT_DIAGNOSTIC_EVENTS]);
 
 /** Groups raw events into one record per visit (tab session) and drops internal / test traffic. */
 export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[]): TrafficModel {
