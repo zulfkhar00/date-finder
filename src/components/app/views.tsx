@@ -60,12 +60,6 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
       <h1 className="app-h1">Hi {name || "there"}.</h1>
       <p className="app-sub">Here&rsquo;s your week.</p>
 
-      {quiet && !base ? (
-        <div style={{ marginTop: 18 }}>
-          {packNode ? <>{packNode}{gaps.length ? <NextGaps gaps={gaps} /> : null}</> : <NextSteps apps={apps} gaps={gaps} />}
-        </div>
-      ) : null}
-
       <h2 className="app-h2">Your apps</h2>
       {accounts.length === 0 ? (
         <Empty title="No apps yet">Pick the apps you want us to run in your profile. <Link href={`${base}/profile`} className="app-link">Add an app</Link></Empty>
@@ -87,6 +81,12 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
           })}
         </ul>
       )}
+
+      {quiet && !base ? (
+        <div style={{ marginTop: 18 }}>
+          {packNode ? <>{packNode}{gaps.length ? <NextGaps gaps={gaps} /> : null}</> : <NextSteps apps={apps} gaps={gaps} />}
+        </div>
+      ) : null}
 
       {quiet && !base && matchesThisWeek === 0 ? null : <><h2 className="app-h2">This week</h2>
       <div className="app-stats">

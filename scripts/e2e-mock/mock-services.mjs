@@ -30,12 +30,14 @@ const CHECKS = {
     ["committed", "meaningful", "exploring"].includes(r.relationship_goal) &&
     ["monthly", "twice_monthly", "weekly"].includes(r.date_frequency) &&
     typeof r.email === "string" && r.email.length >= 3 && typeof r.city === "string" && r.city.length >= 2,
-  funnel_events: (r) => eventList.includes(r.event)
+  funnel_events: (r) => eventList.includes(r.event),
+  // supabase/2026-11-20-fulfilment.sql
+  app_accounts: (r) => ["setting_up", "needs_client_action", "active", "live", "paused", "closed"].includes(r.status) && (r.client_action_reason == null || (r.client_action_reason.length >= 1 && r.client_action_reason.length <= 200))
 };
-const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [] };
+const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], fulfilment_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [] };
 const PK = { profiles: "user_id", preferences: "user_id", photo_flags: "photo_id" };
 
-const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], photo_flags: [], reports: [], reports_events: [] };
+const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], photo_flags: [], reports: [], reports_events: [], fulfilment_events: [] };
 let runSeq = 0;
 const users = new Map(); // id -> {id,email,otp,otp_hash}
 const outbox = { email: [], telegram: [] };
@@ -116,6 +118,14 @@ async function rest(req, res, url) {
 
   if (req.method === "GET" || req.method === "HEAD") {
     let out = rows.filter(matcher(params));
+    // RLS stand-in: a signed-in user's JWT only ever reads their own rows (supabase/2026-11-04-app.sql own-select policies).
+    const bearer = (req.headers.authorization || "").replace("Bearer ", "");
+    if (bearer && bearer !== "mock-service-key" && bearer !== "mock-anon-key" && bearer.split(".").length === 3) {
+      try {
+        const sub = JSON.parse(Buffer.from(bearer.split(".")[1], "base64url").toString()).sub;
+        if (sub) out = out.filter((r) => r.user_id === sub);
+      } catch { /* not a user JWT */ }
+    }
     const order = params.get("order");
     if (order) { const [col, dir] = order.split("."); out = [...out].sort((a, b) => (a[col] > b[col] ? 1 : a[col] < b[col] ? -1 : 0) * (dir === "desc" ? -1 : 1)); }
     const total = out.length;
@@ -135,6 +145,7 @@ async function rest(req, res, url) {
       if (table === "starter_packs") Object.assign(row, { version: 1, status: "pending", content: null, attempts: 0, last_error: null, tokens: 0, model: null, lease_until: null, next_attempt_at: null, generated_at: null, updated_at: now, ...input });
       if (table === "starter_pack_runs") Object.assign(row, { day: now.slice(0, 10), kind: "auto", tokens: 0, ...input });
       row.created_at ??= now;
+      if (table === "fulfilment_events") row.at ??= now;
       if (table === "reservations") { row.status ??= "pending"; row.stripe_checkout_session_id ??= null; row.stripe_payment_intent_id ??= null; row.queue_position ??= null; }
       if (table === "profiles") { row.onboarding_step ??= 0; row.onboarding_done_at ??= null; }
       if (CHECKS[table] && !CHECKS[table](row)) return send(res, 400, { code: "23514", message: `new row for relation "${table}" violates check constraint` });

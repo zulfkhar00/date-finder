@@ -69,13 +69,18 @@ export default async function AdminFulfilmentPage({ searchParams }: { searchPara
         {!rows.length ? <div className={styles.empty}>{all.length ? "No clients match these filters." : "Nobody has finished onboarding yet."}</div> : (
           <div className={styles.tableWrap}>
             <table className={styles.table} data-testid="fulfilment-table">
-              <thead><tr><th>Waiting</th><th>Client</th><th>Paid</th><th className={styles.hideSm}>Country</th><th>Apps</th><th className={styles.hideSm}>Pack</th><th className={styles.hideSm}>Photos</th><th className={styles.hideSm}>Signed up</th></tr></thead>
+              <thead><tr><th>Waiting</th><th>Client</th><th className={styles.hideSm}>Paid</th><th className={styles.hideSm}>Country</th><th>Apps</th><th className={styles.hideSm}>Pack</th><th className={styles.hideSm}>Photos</th><th className={styles.hideSm}>Signed up</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.userId} data-paid={r.paid ? "true" : "false"}>
                     <td className={styles.nowrap}><Waiting row={r} /></td>
-                    <td><Link href={`/admin/clients/${r.userId}`} className={styles.rowLink}>{r.firstName || "Unnamed"}</Link><span className={styles.appReason}>{r.email}</span></td>
-                    <td>{r.paid ? <span className={`${styles.badge} ${styles.badge_paid}`}>Paid</span> : <span className={styles.badge}>Unpaid</span>}</td>
+                    <td>
+                      <Link href={`/admin/clients/${r.userId}`} className={styles.rowLink}>{r.firstName || "Unnamed"}</Link>{" "}
+                      <span className={`${styles.badge} ${r.paid ? styles.badge_paid : ""}`} data-testid="paid-badge">{r.paid ? "Paid" : "Unpaid"}</span>
+                      <span className={`${styles.appReason} fx-email`} style={{ overflowWrap: "anywhere" }}>{r.email}</span>
+                      {r.countrySupport === "unsupported" ? <span className={styles.badge} data-tone="warn">{r.country} unsupported</span> : null}
+                    </td>
+                    <td className={styles.hideSm}>{r.paid ? <span className={`${styles.badge} ${styles.badge_paid}`}>Paid</span> : <span className={styles.badge}>Unpaid</span>}</td>
                     <td className={styles.hideSm}>{r.country ?? "—"}{r.countrySupport === "unsupported" ? <> <span className={styles.badge} data-tone="warn">unsupported</span></> : null}</td>
                     <td>
                       {r.apps.length ? r.apps.map((a) => (

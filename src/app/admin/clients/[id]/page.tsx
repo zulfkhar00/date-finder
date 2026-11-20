@@ -115,7 +115,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                     <select className={styles.select} name="status" defaultValue={current}>
                       {WORKFLOW_STATUSES.map((st) => <option key={st} value={st}>{st === "paused" ? "Paused (team)" : STATUS_LABELS[st]}</option>)}
                     </select></label>
-                  <label className={styles.field} style={{ flex: 2 }}>Reason the client sees (needed for Needs you)
+                  <label className={styles.field} style={{ flex: "2 1 220px" }}>Reason the client sees (needed for Needs you)
                     <input className={styles.input} name="reason" maxLength={200} defaultValue={row?.status === "needs_client_action" ? row.client_action_reason ?? "" : ""} placeholder="Add 2 more photos / Log in on a fresh browser profile" /></label>
                 </div>
                 <label className={styles.field}>Operator note (internal, never shown to the client)
