@@ -7,7 +7,6 @@ import { HINGE_PROMPTS } from "./hinge-prompts";
 /** Free-text answers are untrusted: strip control characters, collapse whitespace, cap the length. */
 export function cleanText(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
-  // eslint-disable-next-line no-control-regex -- control characters are exactly what is being removed
   const out = value.replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029]/g, " ").replace(/\s+/g, " ").trim().slice(0, max).trim();
   return out || null;
 }
