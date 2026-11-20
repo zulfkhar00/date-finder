@@ -167,3 +167,22 @@ Redeploy after setting them. **Check it** with a Stripe test-mode reservation us
 2. Set `CONTENT_SYNC_TOKEN` (32+ random characters) in the production environment and redeploy.
 
 An external sync job owned by the founders calls `POST /api/content/sync` every 5 minutes with that bearer token. It upserts every video, uploads previews through one-time signed upload URLs, receives the open requests, applies them to the queue, and reports them done on the next call. The page only reads; previews are served as 10-minute signed URLs.
+
+## 11. Starter pack (AI profile rewrite, photo order, openers, date plan)
+
+Written for every onboarded user by `claude-sonnet-5-5` (server only, `ANTHROPIC_API_KEY`). Nothing is sent to anyone and
+no dating app is touched: the user copies the text and pastes it into their own app.
+
+1. Run `supabase/2026-11-20-starter-packs.sql` (idempotent; tables `starter_packs`, `starter_pack_runs`; RLS on, browser roles
+   revoked, users can only SELECT their own pack). Until it is applied the Home screen shows "We're writing your pack" and
+   generation fails closed (no model call is made without the ledger).
+2. Env (all optional, defaults in brackets): `STARTER_PACK_DAILY_CAP` [60 model runs per UTC day],
+   `STARTER_PACK_DAILY_TOKEN_CAP` [2500000 input-token equivalents per UTC day], `STARTER_PACK_REGENERATE_PER_DAY` [3 per user].
+   `CRON_SECRET` must be set (same one as the digest).
+3. Trigger: finishing onboarding starts the pack right after the response (`after()`). The sweep `GET /api/cron/starter-packs`
+   (`Authorization: Bearer $CRON_SECRET`) every 10 minutes creates packs for onboarded users who have none (the backfill),
+   retries failed packs an hour later (up to 9 tries in total), and picks up packs queued behind the daily cap after 00:05 UTC.
+   `vercel.json` schedules it on Vercel. On Dokploy, point any scheduler at the route, for example
+   `*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://noswipe.app/api/cron/starter-packs`.
+4. Backfill by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "https://noswipe.app/api/cron/starter-packs?limit=5"` (repeat until
+   `considered` is 0), or for one user `...?userId=<uuid>`. Admin: /admin/clients/<id> has "Write the pack now".
