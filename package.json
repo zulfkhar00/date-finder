@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:demo": "node scripts/check-demo.mjs",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-scrub.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-email.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-checkout.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-checkout-reuse.mjs && node scripts/check-public-copy.mjs && node --import tsx scripts/check-guides.ts && node --conditions=react-server --import tsx scripts/check-admin-analytics.ts && node --import tsx scripts/check-app.ts && node --import tsx scripts/check-onboarding.ts && node --import tsx scripts/check-photos.ts && node --import tsx scripts/check-step-history.ts"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-scrub.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-email.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-checkout.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-checkout-reuse.mjs && node scripts/check-public-copy.mjs && node --import tsx scripts/check-guides.ts && node --conditions=react-server --import tsx scripts/check-admin-analytics.ts && node --import tsx scripts/check-app.ts && node --import tsx scripts/check-onboarding.ts && node --import tsx scripts/check-photos.ts && node --import tsx scripts/check-step-history.ts && node --conditions=react-server --import tsx scripts/check-checkout-events.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",

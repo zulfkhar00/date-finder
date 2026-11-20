@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHECKOUT_CLIENT_EVENTS, cleanCheckoutId, cleanClientDetail } from "@/lib/checkout-events";
 
 // Shared by the browser capture code and the server routes. Values are first-party only and
 // never include personal data: UTM values that look like an email are dropped, and the
@@ -15,9 +16,9 @@ export const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 // One event per onboarding screen shown (once per tab session). ob_code_sent = email entered; the rest are screen names.
 // reserve_start = basics shown, reserve_step_2 = email screen shown, reserve_step_3 = signed in, onboarding_complete = consent given.
 export const ONBOARDING_STEP_EVENTS = ["ob_code_sent", "ob_apps", "ob_about", "ob_type", "ob_photos", "ob_consent", "ob_pay"] as const;
-export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled", "resume_card_view", "resume_card_click", ...ONBOARDING_STEP_EVENTS] as const;
+export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled", "resume_card_view", "resume_card_click", ...ONBOARDING_STEP_EVENTS, ...CHECKOUT_CLIENT_EVENTS] as const;
 export type ClientEventName = (typeof CLIENT_EVENTS)[number];
-export const SERVER_EVENTS = ["checkout_created", "paid"] as const;
+export const SERVER_EVENTS = ["checkout_created", "paid", "stripe_payment_failed", "stripe_session_expired"] as const;
 export type FunnelEventName = (typeof CLIENT_EVENTS)[number] | (typeof SERVER_EVENTS)[number];
 
 export function cleanUtm(value: unknown): string | undefined {
@@ -68,6 +69,8 @@ export type Attribution = z.infer<typeof attributionSchema>;
 
 export const sessionIdSchema = z.uuid();
 
+const checkoutEventSet: ReadonlySet<string> = new Set(CHECKOUT_CLIENT_EVENTS);
+
 export const clientEventSchema = z.object({
   sessionId: sessionIdSchema,
   event: z.enum(CLIENT_EVENTS),
@@ -80,5 +83,11 @@ export const clientEventSchema = z.object({
   utmMedium: optionalUtm,
   utmContent: optionalUtm,
   referrer: z.string().max(512).optional().catch(undefined),
-  landingPath: z.string().max(200).optional().catch(undefined)
-});
+  landingPath: z.string().max(200).optional().catch(undefined),
+  // Checkout diagnostics (src/lib/checkout-events.ts): the Stripe Checkout Session id and a
+  // whitelisted detail object. Required for the checkout_* / payment_* events, ignored for the rest.
+  checkoutId: z.unknown().optional().transform(cleanCheckoutId),
+  detail: z.unknown().optional()
+}).superRefine((value, ctx) => {
+  if (checkoutEventSet.has(value.event) && !value.checkoutId) ctx.addIssue({ code: "custom", message: "checkoutId required", path: ["checkoutId"] });
+}).transform((value) => ({ ...value, detail: cleanClientDetail(value.detail, value.checkoutId) }));

@@ -6,6 +6,7 @@ import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding }
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { internalEmailReason } from "@/lib/internal-traffic";
+import { trafficFromRequest } from "@/lib/traffic";
 import { reuseOpenCheckout } from "@/lib/checkout-reuse";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 
@@ -125,7 +126,10 @@ export async function POST(request: Request) {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
       throw updateError ?? new Error("Reservation was not attached to checkout");
     }
-    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref, dedupeKey: `checkout_created:${session.id}` });
+    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref,
+      // Country (geo header) and device (UA) of the person opening checkout, so drop-offs can be split by them.
+      traffic: (({ device, country }) => ({ device, country }))(trafficFromRequest({}, request.headers)),
+      dedupeKey: `checkout_created:${session.id}` });
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Checkout creation failed", error instanceof Error ? error.message : "unknown error");

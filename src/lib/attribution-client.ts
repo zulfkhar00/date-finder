@@ -118,9 +118,41 @@ function isInternalBrowser(): boolean {
   }
 }
 
-export function trackEvent(event: ClientEventName, options: { oncePerSession?: boolean } = {}) {
+export type TrackOptions = {
+  oncePerSession?: boolean;
+  /** Stripe Checkout Session id: required for the checkout_* / payment_* events. */
+  checkoutId?: string;
+  /** Whitelisted checkout detail; the server re-validates and drops anything else. */
+  detail?: { code?: string; type?: string; paymentMethod?: string; reason?: string; seconds?: number };
+  /** Prefer navigator.sendBeacon (survives the page going away); falls back to fetch keepalive. */
+  beacon?: boolean;
+};
+
+/**
+ * Sends a body to /api/event. sendBeacon first when asked (it is the only transport that reliably
+ * survives pagehide on mobile Safari), then fetch with keepalive when sendBeacon is missing, refuses
+ * the payload, or throws (some ad blockers make it return false). Never throws.
+ */
+export function postFunnelEvent(body: string, preferBeacon: boolean) {
   try {
-    if (options.oncePerSession && !firstTimeThisSession(event)) return;
+    if (preferBeacon && typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      if (navigator.sendBeacon("/api/event", new Blob([body], { type: "application/json" }))) return;
+    }
+  } catch {
+    // fall through to fetch
+  }
+  try {
+    void fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
+  } catch {
+    // blocked outright: nothing more to try
+  }
+}
+
+export function trackEvent(event: ClientEventName, options: TrackOptions = {}) {
+  try {
+    // Once-per-tab-session key: checkout events are once per Checkout Session (payment_error per code).
+    const onceKey = [event, options.checkoutId, options.detail?.code].filter(Boolean).join(":");
+    if (options.oncePerSession && !firstTimeThisSession(onceKey)) return;
     const attribution = captureAttribution();
     // Source hints ride on every event (first-touch cookie values); where the visit came from and
     // which page it landed on are only meaningful once, on page_view. The server reduces them.
@@ -134,9 +166,10 @@ export function trackEvent(event: ClientEventName, options: { oncePerSession?: b
       utmSource: attribution.utm_source,
       utmMedium: attribution.utm_medium,
       utmContent: attribution.utm_content,
+      ...(options.checkoutId ? { checkoutId: options.checkoutId, detail: options.detail } : {}),
       ...landing
     });
-    void fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
+    postFunnelEvent(body, options.beacon === true);
   } catch {
     // Tracking must never affect the page.
   }

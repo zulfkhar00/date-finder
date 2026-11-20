@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
 import { sendReservationConfirmation } from "@/lib/email";
-import { recordPaidEvent } from "@/lib/funnel";
+import { failureLabel, paymentFailureDetail, sessionEndDetail } from "@/lib/checkout-events";
+import { noteReservationFailure, recordPaidEvent, recordStripeCheckoutEvent } from "@/lib/funnel";
 import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
 import { getStripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -31,6 +32,41 @@ async function completeSession(session: Stripe.Checkout.Session, event: Stripe.E
   if (firstDelivery !== false) notifyOps("payments", await paidText(supabase, id.data, session, event), event.id);
   // Last step, and never throws: an email failure must not turn this into a 500 and a Stripe retry.
   await sendReservationConfirmation(supabase, id.data, firstDelivery);
+}
+
+/**
+ * Diagnostics from Stripe for a checkout that did not pay. Instrumentation only: it never throws, so a
+ * problem here cannot turn into a 500 and a Stripe retry storm, and it never changes a reservation's
+ * status. Idempotent: the funnel row is keyed by the Stripe event id.
+ */
+async function recordCheckoutDiagnostics(event: Stripe.Event): Promise<void> {
+  try {
+    const supabase = getSupabaseAdmin();
+    if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const asyncFailed = event.type === "checkout.session.async_payment_failed";
+      const detail = sessionEndDetail(asyncFailed ? "async_payment_failed" : "expired", session.id, event.livemode, event.created - session.created);
+      await recordStripeCheckoutEvent(supabase, { event: asyncFailed ? "stripe_payment_failed" : "stripe_session_expired", stripeEventId: event.id, checkoutSessionId: session.id, detail });
+      if (asyncFailed) await noteReservationFailure(supabase, session.id, failureLabel(detail));
+      return;
+    }
+    if (event.type === "payment_intent.payment_failed") {
+      const intent = event.data.object as Stripe.PaymentIntent;
+      // A PaymentIntent opened by Checkout does not carry our reservation; ask Stripe which session owns it.
+      let checkoutId: string | null = null;
+      try {
+        const owner = await getStripe().checkout.sessions.list({ payment_intent: intent.id, limit: 1 });
+        checkoutId = owner.data[0]?.id ?? null;
+      } catch {
+        // unlinked: the failure is still recorded, just without its session
+      }
+      const detail = paymentFailureDetail(intent, event.livemode, checkoutId);
+      await recordStripeCheckoutEvent(supabase, { event: "stripe_payment_failed", stripeEventId: event.id, checkoutSessionId: checkoutId, detail });
+      if (checkoutId) await noteReservationFailure(supabase, checkoutId, failureLabel(detail));
+    }
+  } catch (error) {
+    console.error("Checkout diagnostics failed", event.id, error instanceof Error ? error.name : "unknown error");
+  }
 }
 
 function modeTag(event: Stripe.Event): string {
@@ -83,8 +119,12 @@ export async function POST(request: Request) {
           const email = session.customer_details?.email ?? session.customer_email;
           notifyOps("payments", [`❌ Payment failed${modeTag(event)}`, email ?? ""].filter(Boolean).join("\n"), event.id);
         }
+        await recordCheckoutDiagnostics(event);
         break;
       }
+      case "payment_intent.payment_failed":
+        await recordCheckoutDiagnostics(event);
+        break;
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         if (typeof charge.payment_intent === "string" && charge.amount_refunded >= charge.amount) {

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireAdminPage } from "@/lib/admin-auth";
+import { getCheckoutPanel, type CheckoutPanel } from "./_lib/checkout-data";
+import { CheckoutPanelCard } from "./_components/checkout-panel";
 import { AdminDataError, getOverview, type OverviewData } from "./_lib/data";
 import { formatInt, percent } from "./_lib/format";
 import { AlarmsRow } from "./_components/alarms";
@@ -28,6 +30,14 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
     data = await getOverview(RANGES[range], 30);
   } catch (error) {
     problem = error instanceof AdminDataError && error.schemaMissing ? "schema" : "query";
+  }
+
+  // The Checkout panel is its own read: if it fails the rest of the overview still renders.
+  let checkout: CheckoutPanel | null = null;
+  try {
+    checkout = await getCheckoutPanel();
+  } catch {
+    checkout = null;
   }
 
   const prev = data?.previous ?? null;
@@ -77,6 +87,8 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
 
           <DimTable title="Top channels" dimension="Source" rows={data.topChannels} note={data.trafficCaptured ? undefined : "Source data is not captured yet (apply supabase/2026-11-03-traffic.sql); everything shows as (not captured)."} limit={5} />
           <p className={styles.sub}><Link href="/admin/traffic" className={styles.rowLink}>Open full traffic report</Link></p>
+
+          {checkout ? <CheckoutPanelCard panel={checkout} /> : <p className={styles.sub}>The Checkout panel could not be loaded.</p>}
 
           <div className={styles.grid2}>
             <FunnelTable title="Funnel by variant" dimension="Variant" rows={groupFunnel(data.funnel, "variant")} />
