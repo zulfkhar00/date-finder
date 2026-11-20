@@ -12,7 +12,7 @@ import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
 import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
-import { decidePop, stepFromState, stepState } from "@/lib/app/step-history";
+import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
 import { CountryBlocked } from "@/components/app/country-blocked";
 import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
@@ -87,8 +87,12 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   }
   function goBack() {
     setError("");
+    if (step > LAST_FORM) { router.push("/home"); return; }
     if (depth.current > 0) { window.history.back(); return; }
-    setStep((s) => Math.max(s - 1, 0));
+    if (step > 0) { setStep((s) => s - 1); return; }
+    // First screen: nothing earlier to show, so Back leaves onboarding (to where the visitor came from, else the landing page).
+    if (leaveOnboardingTarget({ historyLength: window.history.length, referrer: document.referrer, origin: window.location.origin }) === "back") window.history.back();
+    else router.push("/");
   }
   // One funnel event per screen shown (once per tab session), so the next report shows where each step loses people.
   const viewed = STEPS[step]?.event;
@@ -210,7 +214,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     }
   }
 
-  const canBack = step > 0 && step <= LAST_FORM && !busy && !photoBusy;
+  // Every screen has a working Back: the first leaves onboarding, the activation step (profile already saved) goes to Home.
+  const canBack = !busy && !photoBusy;
   // Only the consent box is required. Every other step can be skipped.
   const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : true;
   const isBlank =

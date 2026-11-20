@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Hand, RotateCcw, Send } from "lucide-react";
+import { ChevronLeft, Hand, RefreshCw, RotateCcw, Send } from "lucide-react";
 import { Avatar, ModePill } from "@/components/app/ui";
 import { When } from "@/components/app/when";
 import { APP_LABELS, SENT_BY_TAG, bubbleSide, parseSystemEvent, type App, type ChatMode } from "@/lib/app/domain";
@@ -15,10 +15,55 @@ export type ThreadApi = {
   handBack: (matchId: string) => Promise<Result>;
   send: (matchId: string, body: string) => Promise<Result>;
 };
+/** A reply written for the user, in his own voice, waiting for his OK. Only the owner preview uses it. */
+export type ThreadDraft = { body: string; reason?: string | null; canRetake: boolean };
+export type ThreadDraftApi = {
+  send: (matchId: string, body: string) => Promise<Result>;
+  retake: (matchId: string) => Promise<Result>;
+  skip: (matchId: string) => Promise<Result>;
+  request: (matchId: string) => Promise<Result>;
+};
 type Props = {
   match: { id: string; name: string; age: number | null; app: App }; photoUrl: string | null; messages: MessageRow[]; mode: ChatMode; paused: boolean;
   api: ThreadApi; base?: string;
+  /** Optional review-before-sending flow (draft card, "typing" bubble). Absent in the real app and /demo. */
+  draft?: ThreadDraft | null; draftApi?: ThreadDraftApi; typing?: boolean; canDraft?: boolean;
 };
+
+function DraftCard({ matchId, name, draft, api }: { matchId: string; name: string; draft: ThreadDraft; api: ThreadDraftApi }) {
+  const [text, setText] = useState(draft.body);
+  const [busy, setBusy] = useState<"" | "send" | "retake" | "skip">("");
+  const [error, setError] = useState("");
+  // A different take replaces what is in the box; edits are the user's own until then.
+  const [seen, setSeen] = useState(draft.body);
+  if (seen !== draft.body) { setSeen(draft.body); setText(draft.body); }
+  async function go(kind: "send" | "retake" | "skip", fn: () => Promise<Result>) {
+    if (busy) return;
+    setBusy(kind); setError("");
+    const r = await fn();
+    if (!r.ok) setError(r.error ?? "Something went wrong.");
+    setBusy("");
+  }
+  return (
+    <section className="th-draft" aria-label={`Reply to ${name}, ready to send`}>
+      <div className="th-draft-top"><strong>{draft.reason ?? "Reply ready"}</strong><span>In your voice</span></div>
+      <label className="sr-only" htmlFor="draft-text">Reply to {name}</label>
+      <textarea id="draft-text" value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={4000} disabled={busy !== ""} />
+      {error ? <p className="app-error" role="alert">{error}</p> : null}
+      <div className="th-draft-actions">
+        <button type="button" className="app-btn small" disabled={busy !== "" || !text.trim()} aria-busy={busy === "send"} onClick={() => go("send", () => api.send(matchId, text))}>
+          {busy === "send" ? <><span className="app-spinner" aria-hidden /> Sending…</> : <><Send size={16} aria-hidden /> Send</>}
+        </button>
+        {draft.canRetake ? (
+          <button type="button" className="app-btn ghost small" disabled={busy !== ""} aria-busy={busy === "retake"} onClick={() => go("retake", () => api.retake(matchId))}>
+            {busy === "retake" ? <span className="app-spinner" aria-hidden /> : <RefreshCw size={16} aria-hidden />} Another take
+          </button>
+        ) : null}
+        <button type="button" className="app-btn ghost small" disabled={busy !== ""} aria-busy={busy === "skip"} onClick={() => go("skip", () => api.skip(matchId))}>Skip</button>
+      </div>
+    </section>
+  );
+}
 
 function dayKey(iso: string) { return new Date(iso).toDateString(); }
 
@@ -34,11 +79,11 @@ function SystemRow({ body }: { body: string }) {
   );
 }
 
-export function Thread({ match, photoUrl, messages, mode, paused, api, base = "" }: Props) {
+export function Thread({ match, photoUrl, messages, mode, paused, api, base = "", draft = null, draftApi, typing = false, canDraft = false }: Props) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<"" | "take" | "back" | "send">("");
+  const [busy, setBusy] = useState<"" | "take" | "back" | "send" | "ask">("");
   const [, startTransition] = useTransition();
   const end = useRef<HTMLDivElement>(null);
   const count = useRef(messages.length);
@@ -46,7 +91,7 @@ export function Thread({ match, photoUrl, messages, mode, paused, api, base = ""
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: count.current === messages.length ? "auto" : "smooth", block: "end" });
     count.current = messages.length;
-  }, [messages.length]);
+  }, [messages.length, typing, draft?.body]);
 
   async function run(kind: "take" | "back", fn: () => Promise<Result>) {
     if (busy) return;
@@ -67,7 +112,7 @@ export function Thread({ match, photoUrl, messages, mode, paused, api, base = ""
   }
 
   return (
-    <div className="th">
+    <div className={`th${draft && mode === "ai" ? " has-draft" : ""}`}>
       <div className="th-head">
         <Link href={`${base}/chats`} className="back" aria-label="Back to chats"><ChevronLeft size={26} /></Link>
         <Avatar name={match.name} url={photoUrl} />
@@ -98,6 +143,7 @@ export function Thread({ match, photoUrl, messages, mode, paused, api, base = ""
               </div>
             );
           })}
+          {typing ? <div className="th-msg them th-typing" role="status" aria-label={`${match.name} is typing`}><i /><i /><i /></div> : null}
           <div ref={end} />
         </div>
       </div>
@@ -121,6 +167,12 @@ export function Thread({ match, photoUrl, messages, mode, paused, api, base = ""
             </>
           ) : (
             <>
+              {draft && draftApi ? <DraftCard key={match.id} matchId={match.id} name={match.name} draft={draft} api={draftApi} /> : null}
+              {!draft && canDraft && draftApi && !typing ? (
+                <button type="button" className="app-btn ghost" disabled={busy !== ""} aria-busy={busy === "ask"} onClick={async () => { setBusy("ask"); await draftApi.request(match.id); setBusy(""); }}>
+                  {busy === "ask" ? <><span className="app-spinner" aria-hidden /> Drafting…</> : <>Draft a reply</>}
+                </button>
+              ) : null}
               <p className="app-muted" style={{ fontSize: 14, fontWeight: 600, textAlign: "center" }}>
                 {paused ? `${APP_LABELS[match.app]} is paused, so nothing is sent for you. You can still take over.` : "Chatting as you, in your voice. Read along, or jump in any time."}
               </p>

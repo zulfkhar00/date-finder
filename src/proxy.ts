@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { ADMIN_COOKIE_OPTIONS, readAdminConfig } from "@/lib/admin-config";
 import { APP_COOKIE_OPTIONS, readAppConfig } from "@/lib/app/config";
 
-// Runs for /admin and the signed-in app (/login, /onboarding, /home, /chats, /dates, /profile). Refreshes the Supabase Auth session cookie (Server Components cannot
+// Runs for /admin, the owner preview (/app) and the signed-in app (/login, /onboarding, /home, /chats, /dates, /profile). Refreshes the Supabase Auth session cookie (Server Components cannot
 // write cookies) and marks admin responses as not indexable. Authorization itself happens in
 // every admin page, route handler and server action, not here.
 export async function proxy(request: NextRequest) {
@@ -38,5 +38,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/login", "/auth/:path*", "/onboarding", "/home", "/chats", "/chats/:path*", "/dates", "/dates/:path*", "/profile", "/profile/:path*", "/api/app/:path*"]
+  matcher: ["/admin", "/admin/:path*", "/login", "/auth/:path*", "/onboarding", "/home", "/chats", "/chats/:path*", "/dates", "/dates/:path*", "/profile", "/profile/:path*", "/api/app/:path*", "/app", "/app/:path*"]
 };

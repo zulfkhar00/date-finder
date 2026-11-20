@@ -29,3 +29,21 @@ export function decidePop(current: number, state: unknown, lastForm: number, loc
   if (locked || current > lastForm || target > lastForm) return { action: "stay" };
   return { action: "go", step: target };
 }
+
+/**
+ * Where Back goes on the first onboarding screen. There is no earlier question, so it leaves the flow:
+ * to the page the visitor came from when that was a page of ours worth returning to, otherwise to the landing page.
+ * (A same-origin referrer of /login, /auth or /onboarding itself would just bounce them back in.)
+ */
+export function leaveOnboardingTarget(input: { historyLength: number; referrer: string; origin: string }): "back" | "/" {
+  const { historyLength, referrer, origin } = input;
+  if (historyLength <= 1 || !referrer) return "/";
+  try {
+    const from = new URL(referrer);
+    if (from.origin !== origin) return "/";
+    if (/^\/(login|auth|onboarding)(\/|$)/.test(from.pathname)) return "/";
+    return "back";
+  } catch {
+    return "/";
+  }
+}
