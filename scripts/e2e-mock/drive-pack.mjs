@@ -5,7 +5,7 @@
 //   PW_CORE=/path/to/playwright-core PW_CHROMIUM_PATH=/path/to/chrome \
 //     node scripts/e2e-mock/drive-pack.mjs <outDir> [desktop|mobile] [scenario]
 //
-// scenarios: happy (3 photos, city, Hinge + Tinder), nophotos, nocity, failure (model 429s, then recovers),
+// scenarios: happy (3 photos, city, Hinge + Tinder), flagged (the stub model flags photo 2 for review), nophotos, nocity, failure (model 429s, then recovers),
 //            before (no pack: only used against a checkout that does not have the feature, to capture BEFORE)
 import { createRequire } from "node:module";
 import { deflateSync } from "node:zlib";
@@ -21,7 +21,7 @@ const MOCK = "http://127.0.0.1:54399";
 const email = `pack-${scenario}-${kind}-${Date.now().toString(36)}@example.test`;
 const shots = path.join(outDir, `${scenario}-${kind}`);
 fs.mkdirSync(shots, { recursive: true });
-const photoCount = scenario === "happy" ? 3 : 0;
+const photoCount = scenario === "happy" || scenario === "flagged" ? 3 : 0;
 const city = scenario === "nocity" ? "" : "San Francisco";
 const NAME = process.env.NAME || "Zhanserik";
 
@@ -72,7 +72,7 @@ const heading = (t) => page.getByRole("heading", { name: t }).waitFor({ timeout:
 });
 const cont = (name = /^(Continue|Skip for now)$/) => page.getByRole("button", { name }).click();
 
-await mockCall(`/__anthropic?mode=${scenario === "failure" ? "rate_limit" : "ok"}&delay=${scenario === "happy" || scenario === "nophotos" ? 6000 : 0}`);
+await mockCall(`/__anthropic?mode=${scenario === "failure" ? "rate_limit" : scenario === "flagged" ? "flag" : "ok"}&delay=${scenario === "happy" || scenario === "nophotos" ? 6000 : 0}`);
 
 await page.goto(`${APP}/`);
 await page.locator('a[href*="/onboarding"]:visible').first().click();
