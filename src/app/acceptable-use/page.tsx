@@ -19,7 +19,10 @@ export default function AcceptableUsePage() {
       <li>Run scams, romance fraud or any attempt to get money, gifts or personal data from a match by deceit.</li>
       <li>Pretend to be someone else, use another person&apos;s photos, or build a fake identity (catfishing).</li>
       <li>Scrape or copy data about other people from NoSwipe or from dating apps, or resell it.</li>
-      <li>Use NoSwipe to break the law, or to attack, overload or probe our systems.</li>
+      <li>Post or send sexually explicit content, nudity or sexualised images in a profile, a message or anywhere else on NoSwipe.</li>
+      <li>Commit, threaten, depict or promote sexual violence, or any sexual act without consent.</li>
+      <li>Share, request or threaten to share intimate or sexual images of anyone without their consent (non-consensual content), or any content recorded without consent.</li>
+      <li>Use NoSwipe for any illegal act, to break any law, or to attack, overload or probe our systems.</li>
     </ul>
     <h2>Your own dating-app accounts</h2>
     <p>NoSwipe only works on profiles that belong to you, for you, with your explicit consent. You may not give us access to, or ask us to run, an account that belongs to someone else. You can pause any app or take over any chat at any time, and withdraw your consent by deleting your account. Dating apps have their own rules; you are responsible for following them.</p>
