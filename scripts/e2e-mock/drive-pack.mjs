@@ -182,7 +182,7 @@ if (scenario === "happy") {
   for (let i = 0; i < 3; i++) {
     const btn = page.getByRole("button", { name: /Write it again/ });
     await btn.click();
-    await page.waitForFunction((n) => /\d+ left today|No refreshes left/.test(document.querySelector(".sp-regen")?.textContent || "") && true, i, { timeout: 15000 });
+    await page.waitForFunction(() => /\d+ left today|No refreshes left/.test(document.querySelector(".sp-regen")?.textContent || ""), null, { timeout: 15000 });
     await page.waitForTimeout(1500);
     await page.reload();
     await waitReady();
