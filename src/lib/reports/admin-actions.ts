@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { APP_STATUSES } from "@/lib/app/domain";
 import { decideFlaggedPhoto, isUndefinedRelation } from "@/lib/starter-pack/photo-flags";
 import { ACTION_LABELS, CLIENT_ACTIONS, allowedActions, parseNcmecId, parseNote, sameDeciderWarning, type ActionName, type Hold } from "./core";
 import { getReport, logEvent, type ReportRow } from "./service";
@@ -48,7 +49,7 @@ async function releaseHold(sb: Admin, report: ReportRow): Promise<boolean> {
   const { data: profile } = await sb.from("profiles").select("report_hold_report_id").eq("user_id", userId).maybeSingle();
   if (!profile || profile.report_hold_report_id !== report.id) return true;
   for (const [app, status] of Object.entries(report.pause_snapshot ?? {})) {
-    if (!["setting_up", "live", "paused"].includes(status)) continue;
+    if (!(APP_STATUSES as readonly string[]).includes(status)) continue;
     await sb.from("app_accounts").update({ status, updated_at: new Date().toISOString() }).eq("user_id", userId).eq("app", app);
   }
   const upd = await sb.from("profiles").update({ report_hold: null, report_hold_report_id: null, report_hold_at: null }).eq("user_id", userId);

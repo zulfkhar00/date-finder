@@ -508,3 +508,6 @@ assert.match(read("../src/app/api/cron/report-sla/route.ts"), /CRON_SECRET/);
 assert.ok(!/NEXT_PUBLIC_/.test(read("../src/lib/reports/service.ts") + read("../src/lib/ops-notify.ts")), "no secret in a public env var");
 
 console.log("check-reports: ok");
+
+// The fulfilment checks need the same react-server condition and an in-memory Supabase; they run here so `npm test` covers them without a new script entry.
+await import("./check-fulfilment.mts");

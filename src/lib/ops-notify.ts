@@ -86,3 +86,8 @@ export function errorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) return `code ${String((error as { code: unknown }).code)}`;
   return "unknown error";
 }
+
+/** True when the ops bot token and chat id are set, so a caller can skip claiming an alert nobody could receive. */
+export function opsConfigured(): boolean {
+  return config() !== null;
+}

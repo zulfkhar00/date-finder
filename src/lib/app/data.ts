@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PACK_VERSION, packContentSchema, type PackContent, type PackStatus } from "@/lib/starter-pack/types";
-import { chatMode, effectiveStatus, splitDates, type App, type AppAccountRow, type ChatMode, type DateRow, type Sender } from "./domain";
+import { chatMode, effectiveStatus, isHaltedStatus, splitDates, type App, type AppAccountRow, type ChatMode, type DateRow, type Sender } from "./domain";
 
 // Reads for the signed-in app. They run through the user's own session client, so Postgres RLS
 // (supabase/2026-11-04-app.sql) is what limits every query to that user's rows.
@@ -25,8 +25,11 @@ export async function getPrefs(sb: SupabaseClient, userId: string) {
   return data;
 }
 export async function getApps(sb: SupabaseClient) {
-  const { data } = await sb.from("app_accounts").select("app, status, user_paused").order("app");
-  return (data ?? []) as AppAccountRow[];
+  // client_action_reason and status_changed_at come from supabase/2026-11-20-fulfilment.sql; before it is applied, read the old columns.
+  const { data, error } = await sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").order("app");
+  if (!error) return (data ?? []) as AppAccountRow[];
+  const { data: legacy } = await sb.from("app_accounts").select("app, status, user_paused").order("app");
+  return (legacy ?? []) as AppAccountRow[];
 }
 export async function signUrls(sb: SupabaseClient, paths: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
@@ -55,7 +58,7 @@ export async function listChats(sb: SupabaseClient): Promise<ChatSummary[]> {
   const urls = await signUrls(sb, rows.flatMap((m) => (m.photo_path ? [m.photo_path] : [])));
   const lastBy = new Map<string, MessageRow>();
   for (const m of (msgs ?? []) as MessageRow[]) if (m.sender !== "system_internal" && !lastBy.has(m.match_id)) lastBy.set(m.match_id, m);
-  const pausedApps = new Set(apps.filter((a) => effectiveStatus(a) === "paused").map((a) => a.app));
+  const pausedApps = new Set(apps.filter((a) => isHaltedStatus(effectiveStatus(a))).map((a) => a.app));
   const list = rows.map((m) => ({
     ...m, photoUrl: m.photo_path ? urls.get(m.photo_path) ?? null : null, last: lastBy.get(m.id) ?? null,
     mode: chatMode((takeovers ?? []).filter((t) => t.match_id === m.id)), paused: pausedApps.has(m.app)
@@ -75,7 +78,7 @@ export async function getChat(sb: SupabaseClient, id: string) {
   const account = apps.find((a) => a.app === match.app);
   return {
     match, photoUrl: match.photo_path ? urls.get(match.photo_path) ?? null : null,
-    messages: (messages ?? []) as MessageRow[], mode: chatMode(takeovers ?? []), paused: account ? effectiveStatus(account) === "paused" : false
+    messages: (messages ?? []) as MessageRow[], mode: chatMode(takeovers ?? []), paused: account ? isHaltedStatus(effectiveStatus(account)) : false
   };
 }
 

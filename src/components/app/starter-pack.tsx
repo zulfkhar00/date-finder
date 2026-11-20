@@ -3,7 +3,7 @@ import { USER_FLAG_NOTICE } from "@/lib/starter-pack/photo-flags-core";
 import { CalendarClock, Camera, MessageCircle, PenLine, Sparkles } from "lucide-react";
 import { CopyButton, PackPoller, RegenerateButton } from "@/components/app/starter-pack-client";
 import type { StarterPackView } from "@/lib/app/data";
-import { APP_LABELS, type App, type AppAccountRow } from "@/lib/app/domain";
+import type { AppAccountRow } from "@/lib/app/domain";
 import type { PackApp, PackContent } from "@/lib/starter-pack/types";
 
 // "Your starter pack" on Home. Everything here is text the user pastes into their own dating apps; NoSwipe does
@@ -17,11 +17,11 @@ const HOW_TO: Record<PackApp, string> = {
 };
 const APP_TITLE: Record<PackApp, string> = { hinge: "Hinge", tinder: "Tinder", bumble: "Bumble", general: "Any app" };
 
+/** The status of each app is on the Home cards above; this line only frames the pack and promises nothing about the setup. */
 export function SetupStatus({ apps }: { apps: AppAccountRow[] }) {
-  const settingUp = apps.filter((a) => a.status === "setting_up" && !a.user_paused).map((a) => APP_LABELS[a.app as App]);
-  if (!settingUp.length) return null;
-  const names = settingUp.length > 1 ? `${settingUp.slice(0, -1).join(", ")} and ${settingUp[settingUp.length - 1]}` : settingUp[0];
-  return <p className="app-sub sp-lede">We&rsquo;re setting up your {names}. In the meantime, here&rsquo;s your starter pack: written for you, ready to use today.</p>;
+  const waiting = apps.some((a) => a.status === "setting_up" && !a.user_paused);
+  if (!waiting) return null;
+  return <p className="app-sub sp-lede">While your apps are being set up, here&rsquo;s your starter pack: written for you, ready to use today.</p>;
 }
 
 function Skeleton() {

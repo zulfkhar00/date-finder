@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { adminEmailOrNull } from "@/lib/admin-auth";
 import * as core from "@/lib/automation/core";
+import { addNoteEvent } from "@/lib/fulfilment/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { startRegeneration } from "@/lib/starter-pack/service";
 import { decideFlaggedPhoto } from "@/lib/starter-pack/photo-flags";
@@ -21,8 +22,24 @@ function done<T extends { ok: boolean }>(result: T | core.Failure, userId: strin
 // work, so the same rules (no AI sends during a takeover or pause) apply as for the worker API.
 
 export async function setAppStatusAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
-  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
-  return done(await core.setAppStatus(getSupabaseAdmin(), userId, String(formData.get("app")), { status: formData.get("status") }), userId, "Status saved");
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await core.setAppStatus(getSupabaseAdmin(), userId, String(formData.get("app")), { status: formData.get("status"), reason: formData.get("reason") ?? undefined, note: formData.get("note") ?? undefined }, admin);
+  if (result.ok && !result.logged) {
+    revalidatePath(`/admin/clients/${userId}`);
+    return { error: "Status saved, but the change could not be logged. Run supabase/2026-11-20-fulfilment.sql." };
+  }
+  revalidatePath("/admin/fulfilment");
+  return done(result, userId, "Status saved");
+}
+
+export async function addNoteAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await addNoteEvent(getSupabaseAdmin(), admin, userId, formData.get("note"), String(formData.get("app") ?? ""));
+  if (!result.ok) return { error: result.message };
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: "Note saved" };
 }
 
 export async function addMatchAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {

@@ -129,7 +129,7 @@ import { reservationSchema, onboardingSchema } from "../src/lib/reservation";
 import { CLIENT_EVENTS } from "../src/lib/attribution";
 
 for (const [k, v] of Object.entries(RESUME_COPY)) assert.equal(RESUME_FORBIDDEN.test(v), false, `resume copy "${k}" uses a banned word`);
-assert.ok(RESUME_COPY.title.startsWith("One step left: activate NoSwipe so it starts swiping and chatting for you"));
+assert.ok(RESUME_COPY.title.startsWith("One step left: activate NoSwipe so our team starts setting up your apps"));
 assert.ok((CLIENT_EVENTS as readonly string[]).includes("resume_card_view") && (CLIENT_EVENTS as readonly string[]).includes("resume_card_click"));
 assert.match(readFileSync("supabase/2026-11-11-resume-card-events.sql", "utf8"), /resume_card_click[\s\S]*enable row level security[\s\S]*revoke all on public\.funnel_events from public, anon, authenticated/);
 

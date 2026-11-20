@@ -1,6 +1,7 @@
 import { ResumeSlot } from "@/components/app/resume-slot";
 import { HomeView } from "@/components/app/views";
 import { getHome, getPhotos, getProfile, getSetupGaps, getStarterPack } from "@/lib/app/data";
+import { getClientFulfilment } from "@/lib/app/fulfilment-view";
 import { createAppClient, requireUser } from "@/lib/app/session";
 import { flaggedPhotoIds } from "@/lib/starter-pack/photo-flags";
 import { regenerationsLeft, schedulePackAfterOnboarding } from "@/lib/starter-pack/service";
@@ -16,6 +17,7 @@ export default async function HomePage() {
     regenerationsLeft(user.id).catch(() => 3),
     flaggedPhotoIds(user.id).catch(() => new Set<string>())
   ]);
+  const fulfilment = await getClientFulfilment(user, profile?.onboarding_done_at ?? null).catch(() => ({ paid: true as const }));
   // Self-healing: a visit with no pack (or one that is waiting or failed) nudges generation after the response. The
   // claim is a no-op while a worker holds the lease, the pack is ready, or it is queued behind the daily cap.
   if (profile?.onboarding_done_at && (!view || view.status === "pending" || view.status === "failed")) schedulePackAfterOnboarding(user.id);
@@ -26,7 +28,7 @@ export default async function HomePage() {
       <ResumeSlot />
       <HomeView
         name={profile?.first_name ?? ""} apps={home.apps} chats={home.chats} upcoming={home.upcoming} needsYou={home.needsYou}
-        matchesThisWeek={home.matchesThisWeek} gaps={gaps}
+        matchesThisWeek={home.matchesThisWeek} gaps={gaps} fulfilment={fulfilment}
         pack={{ view, photoUrls, hasCity: Boolean(profile?.city), regenLeft, photoFlagged: photos.some((p) => flagged.has(p.id)) }}
       />
     </>

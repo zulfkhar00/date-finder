@@ -6,15 +6,35 @@ export const APPS = ["tinder", "hinge", "bumble"] as const;
 export type App = (typeof APPS)[number];
 export const APP_LABELS: Record<App, string> = { tinder: "Tinder", hinge: "Hinge", bumble: "Bumble" };
 
-export type AppStatus = "setting_up" | "live" | "paused";
+/**
+ * What the team set for one app. setting_up -> needs_client_action -> active -> paused -> closed is the workflow the
+ * operators follow (supabase/2026-11-20-fulfilment.sql). `live` is the older name for `active`; rows written before the
+ * migration keep it and every reader treats the two the same.
+ */
+export const APP_STATUSES = ["setting_up", "needs_client_action", "active", "live", "paused", "closed"] as const;
+export type AppStatus = (typeof APP_STATUSES)[number];
+/** The statuses the operator console offers (the legacy `live` is read, never written by a person). */
+export const WORKFLOW_STATUSES = ["setting_up", "needs_client_action", "active", "paused", "closed"] as const;
 export type Sender = "match" | "as_user_ai" | "user" | "system_internal";
 
-export type AppAccountRow = { app: App; status: AppStatus; user_paused: boolean };
+export type AppAccountRow = { app: App; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null };
 /** What the user sees: their own pause toggle wins over whatever the team set. */
 export function effectiveStatus(account: Pick<AppAccountRow, "status" | "user_paused">): AppStatus {
   return account.user_paused ? "paused" : account.status;
 }
-export const STATUS_LABELS: Record<AppStatus, string> = { setting_up: "Setting up", live: "Live", paused: "Paused" };
+/** `live` and `active` mean the same thing. */
+export function isActiveStatus(status: AppStatus): boolean {
+  return status === "active" || status === "live";
+}
+/** Nothing runs for the user: they paused it, the team paused it, or it is closed. */
+export function isHaltedStatus(status: AppStatus): boolean {
+  return status === "paused" || status === "closed";
+}
+export const STATUS_LABELS: Record<AppStatus, string> = {
+  setting_up: "Setting up", needs_client_action: "Needs you", active: "Active", live: "Active", paused: "Paused", closed: "Closed"
+};
+export const REASON_MIN = 3;
+export const REASON_MAX = 200;
 
 // --- chats and takeover ----------------------------------------------------------------------
 
@@ -33,7 +53,7 @@ export type SendDecision = { ok: true } | { ok: false; reason: "taken_over" | "a
 /** Can the automation write a message as the user right now? Never during a takeover or a pause. */
 export function canAiSend(mode: ChatMode, appStatus: AppStatus): SendDecision {
   if (mode === "user") return { ok: false, reason: "taken_over" };
-  if (appStatus === "paused") return { ok: false, reason: "app_paused" };
+  if (appStatus === "paused" || appStatus === "closed") return { ok: false, reason: "app_paused" };
   return { ok: true };
 }
 /** The user may type only after taking over. */

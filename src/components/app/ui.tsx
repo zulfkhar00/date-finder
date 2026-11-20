@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { APP_LABELS, MODE_LABELS, STATUS_LABELS, effectiveStatus, initials, type App, type AppAccountRow, type ChatMode } from "@/lib/app/domain";
+import { APP_LABELS, MODE_LABELS, STATUS_LABELS, effectiveStatus, isActiveStatus, isHaltedStatus, initials, type App, type AppAccountRow, type ChatMode } from "@/lib/app/domain";
 
 export function AppBadge({ app }: { app: App }) {
   return <span className="app-badge" data-app={app} aria-hidden="true">{APP_LABELS[app][0]}</span>;
@@ -12,7 +12,7 @@ export function Avatar({ name, url, large }: { name: string; url?: string | null
 
 export function StatusPill({ account }: { account: Pick<AppAccountRow, "status" | "user_paused"> }) {
   const s = effectiveStatus(account);
-  return <span className="app-pill" data-tone={s === "live" ? "lime" : s === "paused" ? "grey" : "coral"}><i />{STATUS_LABELS[s]}</span>;
+  return <span className="app-pill" data-tone={isActiveStatus(s) ? "lime" : isHaltedStatus(s) ? "grey" : "coral"}><i />{STATUS_LABELS[s]}</span>;
 }
 
 export function ModePill({ mode, paused }: { mode: ChatMode; paused?: boolean }) {
