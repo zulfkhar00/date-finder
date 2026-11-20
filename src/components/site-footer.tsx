@@ -21,6 +21,7 @@ export function SiteFooter() {
           <Link href="/refunds">Refunds</Link>
           <Link href="/pricing">Pricing</Link>
           <Link href="/contact">Contact</Link>
+          <Link href="/report">Report a violation</Link>
           <Link href="/law-enforcement">Law enforcement</Link>
           <Link href="/#faq">FAQ</Link>
         </nav>

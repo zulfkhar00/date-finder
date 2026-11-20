@@ -31,7 +31,10 @@ export default function AcceptableUsePage() {
     <h2>What happens if you break this policy</h2>
     <p>We may pause or end your service, close the profiles we run for you and delete your account, without notice where the risk is serious. Any payment is refunded only as set out in the <Link href="/refunds">refund policy</Link>. Where the law requires it, or where we believe someone is in danger, we report conduct to the authorities and cooperate under our <Link href="/law-enforcement">law enforcement protocol</Link>. Reports of child sexual exploitation go to the National Center for Missing &amp; Exploited Children (NCMEC).</p>
     <h2>Report a violation</h2>
-    <p>If you see or experience conduct that breaks this policy, email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> with what happened and, if you can, the profile or chat involved. We review reports and act on them. If someone is in immediate danger, call your local emergency number first.</p>
+    <p>If you see or experience conduct that breaks this policy, use the <Link href="/report">report form</Link>. It takes a minute, needs no account, and can be anonymous. You can also email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> with what happened and, if you can, the profile or chat involved. If someone is in immediate danger, call your local emergency number first.</p>
+    <p>We acknowledge every report within 24 hours and aim to resolve it within 72 hours. Reports about minors, trafficking, intimate images shared without consent and threats are handled first, with a 4 hour target. We act on a report by pausing or closing an account, removing a photo, or both, and we keep a record of every decision.</p>
+    <h2>Appeals</h2>
+    <p>If we pause or close your account after a report, you will see a notice in the app with an Appeal button. You have 14 days to use it. We review appeals within 7 days, and a different reviewer than the one who made the original decision handles it whenever we can. We do not tell you who made the report.</p>
     <p className="policy-note">Last updated November 20, 2026. See also our <Link href="/terms">Terms</Link> and <Link href="/privacy">privacy note</Link>.</p>
   </DocPage>;
 }

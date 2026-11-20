@@ -23,6 +23,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...guideEntries,
     { url: `${siteUrl}/privacy`, lastModified: "2026-11-04T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
     { url: `${siteUrl}/terms`, lastModified: "2026-11-20T12:00:00Z", changeFrequency: "yearly", priority: 0.2 },
-    ...["acceptable-use", "law-enforcement", "refunds", "pricing", "contact"].map((slug) => ({ url: `${siteUrl}/${slug}`, lastModified: "2026-11-20T12:00:00Z", changeFrequency: "yearly" as const, priority: 0.3 })),
+    ...["acceptable-use", "law-enforcement", "report", "refunds", "pricing", "contact"].map((slug) => ({ url: `${siteUrl}/${slug}`, lastModified: "2026-11-20T12:00:00Z", changeFrequency: "yearly" as const, priority: 0.3 })),
   ];
 }

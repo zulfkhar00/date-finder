@@ -189,3 +189,17 @@ no dating app is touched: the user copies the text and pastes it into their own 
    One call handles one to two users (60 s limit).
 4. Backfill by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "https://noswipe.app/api/cron/starter-packs?limit=5"` (repeat until
    `considered` is 0), or for one user `...?userId=<uuid>`. Admin: /admin/clients/<id> has "Write the pack now".
+
+## Takedown process (reports, appeals)
+
+1. Run `supabase/2026-11-20-reports.sql` (idempotent; after `2026-11-04-app.sql` and `2026-11-20-photo-flags.sql`). It adds `reports`,
+   `reports_events`, three `profiles` hold columns and the private `report-uploads` bucket. Until then `/report` answers "email us" and
+   `/admin/reports` shows a setup notice.
+2. Public form: `/report` (no account, no CAPTCHA service; honeypot, per-address and global limits in the database). Optional env
+   `REPORT_HASH_SALT` keys the address hash (falls back to the server Supabase key). No email is sent to reporters.
+3. Admin: `/admin/reports` (queue, SLA timers, filters) and `/admin/reports/<id>` (actions, audit log, NCMEC panel).
+4. Ops alerts reuse the ops bot (`NOSWIPE_OPS_BOT_TOKEN`, `NOSWIPE_OPS_CHAT_ID`): one line per new report and per SLA breach. They go to
+   the errors topic until `NOSWIPE_OPS_REPORTS_TOPIC_ID` names a dedicated forum topic.
+5. SLA breach sweep: `GET /api/cron/report-sla` (`Authorization: Bearer $CRON_SECRET`). `vercel.json` runs it daily (Hobby limit); for
+   10-minute coverage call it from a founders' server: `*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://noswipe.app/api/cron/report-sla`.
+   Opening `/admin/reports` runs the same sweep. Each breach is announced once.

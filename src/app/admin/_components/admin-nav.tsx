@@ -9,7 +9,8 @@ const LINKS = [
   { href: "/admin/traffic", label: "Traffic" },
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/clients", label: "Clients" },
-  { href: "/admin/videos", label: "Videos" }
+  { href: "/admin/videos", label: "Videos" },
+  { href: "/admin/reports", label: "Reports" }
 ] as const;
 
 /** Admin section nav; the current section is highlighted. */
