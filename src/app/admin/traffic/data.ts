@@ -25,7 +25,7 @@ export async function getTrafficPage(range: RangeKey): Promise<TrafficPageData> 
   } catch {
     throw new AdminDataError("traffic", undefined);
   }
-  const model = buildTrafficModel(rows.events, rows.reservations);
+  const model = buildTrafficModel(rows.events, rows.reservations, rows.internalUserIds);
   let earliest: number | null = null;
   for (const s of model.sessions.values()) earliest = earliest === null ? s.firstAt : Math.min(earliest, s.firstAt);
   const w = rangeWindows(range, nowMs, earliest);

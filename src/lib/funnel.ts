@@ -14,6 +14,8 @@ type FunnelEvent = {
   traffic?: Partial<TrafficFields>;
   /** Checkout diagnostics (supabase/2026-11-20-checkout-forensics.sql): short whitelisted tokens only. */
   detail?: CheckoutDetail;
+  /** Signed-in account behind the event (supabase/2026-11-21-funnel-account-link.sql). Never an email. */
+  account?: { userId: string; internal: boolean } | null;
   /** When set, a repeated insert with the same key is ignored (e.g. Stripe webhook retries, double fires). */
   dedupeKey?: string;
 };
@@ -21,7 +23,7 @@ type FunnelEvent = {
 /**
  * The insert shapes to try, newest first. Optional columns may not exist yet (migration not applied):
  * an undefined-column error falls to the next shape, dropping detail, then traffic, then ref, so events
- * keep flowing before every migration is in. Shapes that would repeat the previous one are skipped.
+ * keep flowing before every migration is in (the account link is the first thing dropped). Shapes that would repeat the previous one are skipped.
  */
 export function funnelRowAttempts(input: FunnelEvent): Record<string, unknown>[] {
   const base: Record<string, unknown> = {
@@ -34,7 +36,8 @@ export function funnelRowAttempts(input: FunnelEvent): Record<string, unknown>[]
   const traffic = Object.fromEntries(Object.entries(input.traffic ?? {}).filter(([, value]) => value !== null && value !== undefined));
   const detail = input.detail && Object.keys(input.detail).length > 0 ? { detail: input.detail } : {};
   const ref = input.ref ? { ref: input.ref } : {};
-  const shapes = [{ ...base, ...ref, ...traffic, ...detail }, { ...base, ...ref, ...traffic }, { ...base, ...ref }, base];
+  const account = input.account ? { user_id: input.account.userId, account_internal: input.account.internal } : {};
+  const shapes = [{ ...base, ...ref, ...traffic, ...detail, ...account }, { ...base, ...ref, ...traffic, ...detail }, { ...base, ...ref, ...traffic }, { ...base, ...ref }, base];
   return shapes.filter((row, i) => i === 0 || Object.keys(row).length !== Object.keys(shapes[i - 1]).length);
 }
 

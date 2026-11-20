@@ -23,6 +23,8 @@ export type TrafficEvent = {
   utm_campaign: string | null;
   dedupe_key: string | null;
   ref?: string | null;
+  user_id?: string | null;
+  account_internal?: boolean | null;
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_content?: string | null;
@@ -62,9 +64,9 @@ export type TrafficModel = {
 const SERVER_EVENTS = new Set(["checkout_created", "paid", ...CHECKOUT_DIAGNOSTIC_EVENTS]);
 
 /** Groups raw events into one record per visit (tab session) and drops internal / test traffic. */
-export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[]): TrafficModel {
+export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[], internalUserIds: ReadonlySet<string> = new Set()): TrafficModel {
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
-  const internal = internalSessionIds(events, badStripeSessions);
+  const internal = internalSessionIds(events, badStripeSessions, internalUserIds);
   const sorted = [...events].sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
 
   const stripeToSession = new Map<string, string>();

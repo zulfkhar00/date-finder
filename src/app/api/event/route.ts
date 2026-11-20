@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { clientEventSchema } from "@/lib/attribution";
 import { CHECKOUT_CLIENT_EVENTS, clientDedupeKey, type CheckoutClientEvent } from "@/lib/checkout-events";
+import { accountFromRequest } from "@/lib/funnel-account-request";
 import { insertClientFunnelEvent } from "@/lib/funnel";
 import { isNonProductionOrigin } from "@/lib/internal-traffic";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -69,8 +70,12 @@ export async function POST(request: Request) {
   // double fire, a beacon plus its fetch fallback, or a spammed client records once.
   const isCheckoutEvent = (CHECKOUT_CLIENT_EVENTS as readonly string[]).includes(parsed.data.event);
   const checkoutId = parsed.data.checkoutId;
+  // A signed-in browser's events carry the account (id + internal flag), so a founder who leaves before
+  // checkout is not counted as a visitor. Guests stay account-less; the sign-in cookie is the only input.
+  const account = await accountFromRequest(request);
   const result = await insertClientFunnelEvent(supabase, {
     event: parsed.data.event,
+    account,
     ...(isCheckoutEvent && checkoutId ? { dedupeKey: clientDedupeKey(parsed.data.event as CheckoutClientEvent, checkoutId, parsed.data.detail), detail: parsed.data.detail } : {}),
     sessionId: parsed.data.sessionId,
     variant: parsed.data.variant,

@@ -19,6 +19,8 @@ export type CheckoutEventRow = {
   device?: string | null;
   country?: string | null;
   detail?: CheckoutDetail | null;
+  user_id?: string | null;
+  account_internal?: boolean | null;
 };
 
 export type CheckoutStep = { key: "opened" | "ready" | "submitted" | "paid"; label: string; count: number; pctOfOpened: number | null; pctOfPrevious: number | null };
@@ -64,11 +66,11 @@ const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 :
 /** Reservations our own integration runs left behind: city "Integration test". Treated like any example.test address. */
 const INTEGRATION_CITY = /integration test/i;
 
-export function computeCheckoutReport(events: CheckoutEventRow[], reservationRows: (ReservationRow & { city?: string | null })[], now = new Date(), sinceDays = 30): CheckoutReport {
+export function computeCheckoutReport(events: CheckoutEventRow[], reservationRows: (ReservationRow & { city?: string | null })[], now = new Date(), sinceDays = 30, internalUserIds: ReadonlySet<string> = new Set()): CheckoutReport {
   const sinceMs = now.getTime() - sinceDays * DAY;
   const allReservations = reservationRows.map((r) => (r.city && INTEGRATION_CITY.test(r.city) ? { ...r, email: "integration-test@example.test" } : r));
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
-  const internal = internalSessionIds(events, badStripeSessions);
+  const internal = internalSessionIds(events, badStripeSessions, internalUserIds);
   const excluded = { bots: 0, internal: 0, stripeTest: 0 };
   // A checkout any of whose rows belongs to a probe session or a bot is not a real user's, even when
   // its reservation (which carries no device or session) looks ordinary.

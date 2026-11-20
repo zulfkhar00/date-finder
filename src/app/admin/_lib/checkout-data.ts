@@ -1,12 +1,14 @@
 import "server-only";
 import { computeCheckoutReport, type CheckoutEventRow, type CheckoutReport } from "@/lib/checkout-report";
-import { fetchAllRows, RESERVATION_COLUMNS, type ReservationRow } from "@/lib/real-funnel";
+import { fetchAllRows, loadInternalUserIds, RESERVATION_COLUMNS, type ReservationRow } from "@/lib/real-funnel";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // Loads the last 30 days of funnel_events (with device / country / detail when the migration is in) and
 // every reservation, then hands them to the pure report. Row contents are never logged, only codes.
 
 const DAY = 24 * 60 * 60 * 1000;
+const ACCOUNT_COLUMNS = "user_id, account_internal";
+const ACCOUNT_FULL_COLUMNS = `id, created_at, event, session_id, dedupe_key, device, country, detail, ${ACCOUNT_COLUMNS}`;
 const FULL_COLUMNS = "id, created_at, event, session_id, dedupe_key, device, country, detail";
 const TRAFFIC_ONLY_COLUMNS = "id, created_at, event, session_id, dedupe_key, device, country";
 const BASE_COLUMNS = "id, created_at, event, session_id, dedupe_key";
@@ -23,10 +25,10 @@ export async function getCheckoutPanel(now = new Date()): Promise<CheckoutPanel>
   const since = new Date(now.getTime() - 30 * DAY).toISOString();
   let events: CheckoutEventRow[] | null = null;
   let diagnosticsCaptured = false;
-  for (const columns of [FULL_COLUMNS, TRAFFIC_ONLY_COLUMNS, BASE_COLUMNS]) {
+  for (const columns of [ACCOUNT_FULL_COLUMNS, FULL_COLUMNS, TRAFFIC_ONLY_COLUMNS, BASE_COLUMNS]) {
     try {
       events = await fetchAllRows<CheckoutEventRow>("funnel_events", columns, supabase, since, "created_at");
-      diagnosticsCaptured = columns === FULL_COLUMNS; // the detail column exists only after the migration
+      diagnosticsCaptured = columns === FULL_COLUMNS || columns === ACCOUNT_FULL_COLUMNS; // the detail column exists only after the migration
       break;
     } catch {
       // retry with fewer columns; a real outage fails all three
@@ -41,6 +43,6 @@ export async function getCheckoutPanel(now = new Date()): Promise<CheckoutPanel>
     reservations = await fetchAllRows<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at");
   }
 
-  const report = computeCheckoutReport(events, reservations, now, 30);
+  const report = computeCheckoutReport(events, reservations, now, 30, await loadInternalUserIds(supabase));
   return { ...report, diagnosticsCaptured, geoCaptured: events.some((e) => Boolean(e.country || e.device)) };
 }
