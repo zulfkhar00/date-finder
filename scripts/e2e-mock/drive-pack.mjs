@@ -21,7 +21,7 @@ const MOCK = "http://127.0.0.1:54399";
 const email = `pack-${scenario}-${kind}-${Date.now().toString(36)}@example.test`;
 const shots = path.join(outDir, `${scenario}-${kind}`);
 fs.mkdirSync(shots, { recursive: true });
-const photoCount = scenario === "happy" || scenario === "before" ? 3 : 0;
+const photoCount = scenario === "happy" ? 3 : 0;
 const city = scenario === "nocity" ? "" : "San Francisco";
 const NAME = process.env.NAME || "Zhanserik";
 
