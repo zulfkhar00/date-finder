@@ -4,7 +4,7 @@
 //
 //   node scripts/e2e-mock/mock-services.mjs            (port 54399)
 //
-// Control endpoints: GET /__state, GET /__outbox, POST /__stripe/pay?session=cs_test_...
+// Control endpoints: GET /__state, GET /__outbox, /__stripe/pay?session=cs_test_..., /__stripe/fail?session=...&code=&decline=&country=&repeat=, /__stripe/expire?session=...
 import http from "node:http";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // ---- schema facts copied from supabase/*.sql so the mock rejects what Postgres would reject ----
 const sqlDir = path.join(here, "../../supabase");
 const eventList = (() => {
-  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-11-resume-card-events.sql"), "utf8");
+  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-20-checkout-forensics.sql"), "utf8");
   const body = sql.slice(sql.indexOf("check (event in ("));
   return [...body.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]);
 })();
@@ -181,6 +181,7 @@ async function rpc(req, res, name) {
 async function auth(req, res, url) {
   const p = url.pathname.replace("/auth/v1", "");
   const body = req.method === "POST" ? JSON.parse((await read(req)) || "{}") : {};
+  if (p === "/admin/users" && req.method === "GET") return send(res, 200, { users: [...users.values()].map(userJson), aud: "authenticated" });
   if (p === "/admin/users" && req.method === "POST") {
     if ([...users.values()].some((u) => u.email === body.email)) return send(res, 422, { code: 422, error_code: "email_exists", msg: "A user with this email address has already been registered" });
     const u = { id: crypto.randomUUID(), email: body.email, created: new Date().toISOString() };
@@ -248,6 +249,12 @@ async function stripeApi(req, res, url) {
     stripe.sessions.set(id, s);
     return send(res, 200, s);
   }
+  // List by PaymentIntent (the webhook asks which Checkout Session owns a failed PaymentIntent).
+  if (p === "/v1/checkout/sessions" && req.method === "GET") {
+    const pi = url.searchParams.get("payment_intent");
+    const data = [...stripe.sessions.values()].filter((s) => !pi || s.payment_intent === pi);
+    return send(res, 200, { object: "list", data, has_more: false, url: "/v1/checkout/sessions" });
+  }
   const m = p.match(/^\/v1\/checkout\/sessions\/(cs_test_[A-Za-z0-9]+)(\/expire)?$/);
   if (m) {
     const s = stripe.sessions.get(m[1]);
@@ -274,6 +281,33 @@ async function pay(sessionId) {
   return { status: 200, body: { webhookStatus: r.status, sessionId, paymentIntent: s.payment_intent } };
 }
 
+// Simulated failure: a declined card (payment_intent.payment_failed, delivered `repeat` times with the
+// SAME event id, like a Stripe retry) or an expiry (checkout.session.expired). Mirrors the real payload shape.
+async function deliver(event) {
+  const payload = JSON.stringify(event);
+  const r = await fetch(`${APP}/api/stripe/webhook`, { method: "POST", headers: { "Content-Type": "application/json", "stripe-signature": await stripeSign(payload) }, body: payload });
+  return r.status;
+}
+async function failPayment(q) {
+  const s = stripe.sessions.get(q.get("session"));
+  if (!s) return { status: 404, body: { error: "unknown session" } };
+  s.payment_intent ??= `pi_test_${rand(24)}`;
+  const intent = { id: s.payment_intent, object: "payment_intent", status: "requires_payment_method", livemode: false, last_payment_error: {
+    type: "card_error", code: q.get("code") || "card_declined", decline_code: q.get("decline") || undefined,
+    payment_method: { id: `pm_test_${rand(14)}`, type: "card", card: { brand: q.get("brand") || "visa", country: q.get("country") || "IN", funding: "debit", last4: "0002" } } } };
+  const event = { id: q.get("evt") || `evt_test_${rand(20)}`, object: "event", type: "payment_intent.payment_failed", livemode: false, api_version: "2025-01-01", created: Math.floor(Date.now() / 1000), data: { object: intent } };
+  const statuses = [];
+  for (let i = 0; i < Number(q.get("repeat") || 1); i += 1) statuses.push(await deliver(event));
+  return { status: 200, body: { webhookStatuses: statuses, eventId: event.id, paymentIntent: s.payment_intent } };
+}
+async function expireSession(q) {
+  const s = stripe.sessions.get(q.get("session"));
+  if (!s) return { status: 404, body: { error: "unknown session" } };
+  s.status = "expired";
+  const event = { id: `evt_test_${rand(20)}`, object: "event", type: "checkout.session.expired", livemode: false, api_version: "2025-01-01", created: Math.floor(Date.now() / 1000) + 86400, data: { object: s } };
+  return { status: 200, body: { webhookStatus: await deliver(event) } };
+}
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (process.env.MOCK_LOG && !url.pathname.startsWith("/__")) { const t0 = Date.now(); res.on("finish", () => console.log(`${req.method} ${url.pathname}${url.search.slice(0, 90)} -> ${res.statusCode} ${Date.now() - t0}ms`)); }
@@ -286,6 +320,8 @@ http.createServer(async (req, res) => {
     if (url.pathname.includes("/sendMessage")) { const b = JSON.parse(await read(req)); outbox.telegram.push({ at: new Date().toISOString(), text: b.text }); return send(res, 200, { ok: true, result: {} }); }
     if (url.pathname === "/__outbox") return send(res, 200, outbox);
     if (url.pathname === "/__state") return send(res, 200, { db, stripeSessions: [...stripe.sessions.values()], stripeViolations: stripe.violations, eventList });
+    if (url.pathname === "/__stripe/fail") { const r = await failPayment(url.searchParams); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
+    if (url.pathname === "/__stripe/expire") { const r = await expireSession(url.searchParams); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
     if (url.pathname === "/__stripe/pay") { const r = await pay(url.searchParams.get("session")); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
     return send(res, 404, { message: `mock: ${url.pathname}` });
   } catch (e) { console.error("mock error", req.method, url.pathname, e.message); send(res, 500, { message: e.message }); }

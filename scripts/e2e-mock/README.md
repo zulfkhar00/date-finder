@@ -21,3 +21,10 @@ node --conditions=react-server --import tsx scripts/e2e-mock/classify.ts   # doe
 `--webpack` is only needed when `node_modules` is a symlink (Turbopack refuses it). With
 `SITE_URL=http://localhost:3000` the funnel events are recorded (see `isNonProductionOrigin`); without
 it `/api/event` drops localhost traffic with a 204.
+
+Checkout diagnostics scenarios: `drive.mjs <out> <desktop|mobile> "" <pay|decline-then-pay|decline|leave>` (add `GEO=IN` to send the
+geo header). `decline` fires a signed `payment_intent.payment_failed` twice with one event id (a Stripe retry) via
+`/__stripe/fail`. `seed-checkout-panel.mjs` loads synthetic checkouts for the admin Checkout panel. The env file is
+KEY=VALUE lines, not shell: load it with a `while read` + `export` loop (`source` chokes on `NODE_OPTIONS=--require ...`
+and the `EMAIL_FROM` angle brackets). `/api/event` allows 30 events per minute per address, so restart `next dev` between back-to-back runs.
+Admin: create the user with `POST /auth/v1/admin/users {"email":"admin@example.test"}`, start Next with `ADMIN_EMAILS=admin@example.test`.

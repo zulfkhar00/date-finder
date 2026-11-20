@@ -19,14 +19,14 @@ export function CheckoutPanelCard({ panel }: { panel: CheckoutPanel }) {
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
-          <thead><tr><th>Step</th><th className={styles.num}>Checkouts</th><th className={styles.num}>Of opened</th><th className={styles.num}>Of previous step</th></tr></thead>
+          <thead><tr><th>Step</th><th className={styles.num}>Checkouts</th><th className={styles.num}>Of opened</th><th className={`${styles.num} ${styles.hideSm}`}>Of previous step</th></tr></thead>
           <tbody>
             {steps.map((s) => (
               <tr key={s.key}>
-                <td className={styles.cellKey}>{s.label}</td>
+                <td className={styles.cellKey} style={{ overflowWrap: "normal" }}>{s.label}</td>
                 <td className={styles.num}>{formatInt(s.count)}</td>
                 <td className={styles.num}>{pct(s.pctOfOpened)}</td>
-                <td className={styles.num}>{pct(s.pctOfPrevious)}</td>
+                <td className={`${styles.num} ${styles.hideSm}`}>{pct(s.pctOfPrevious)}</td>
               </tr>
             ))}
           </tbody>
@@ -41,13 +41,13 @@ export function CheckoutPanelCard({ panel }: { panel: CheckoutPanel }) {
       {panel.failures.length === 0 ? <div className={styles.empty}>No failures recorded in this range.</div> : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
-            <thead><tr><th>Code / decline code</th><th>Source</th><th className={styles.num}>Attempts</th><th className={styles.num}>Checkouts</th><th className={styles.num}>Paid later</th></tr></thead>
+            <thead><tr><th>Code / decline code</th><th className={styles.hideSm}>Source</th><th className={`${styles.num} ${styles.hideSm}`}>Attempts</th><th className={styles.num}>Checkouts</th><th className={styles.num}>Paid later</th></tr></thead>
             <tbody>
               {panel.failures.map((f) => (
                 <tr key={`${f.source}|${f.reason}`}>
-                  <td className={styles.cellKey}>{f.reason}</td>
-                  <td>{f.source === "stripe" ? "Stripe" : "Browser"}</td>
-                  <td className={styles.num}>{formatInt(f.attempts)}</td>
+                  <td className={styles.cellKey}>{f.source === "browser" ? `${f.reason} (browser)` : f.reason}</td>
+                  <td className={styles.hideSm}>{f.source === "stripe" ? "Stripe" : "Browser"}</td>
+                  <td className={`${styles.num} ${styles.hideSm}`}>{formatInt(f.attempts)}</td>
                   <td className={styles.num}>{formatInt(f.checkouts)}</td>
                   <td className={styles.num}>{formatInt(f.recovered)}</td>
                 </tr>

@@ -3,12 +3,13 @@
 // a clearly labelled stub; the server-side Checkout Session, webhook signature check, finalize RPC and
 // confirmation polling all run the app's real code.
 //
-//   PW_CORE=/path/to/playwright-core node scripts/e2e-mock/drive.mjs <outDir> [desktop|mobile] [email]
+//   PW_CORE=/path/to/playwright-core node scripts/e2e-mock/drive.mjs <outDir> [desktop|mobile] [email] [pay|decline-then-pay|decline|leave]
+//   GEO=IN sends x-vercel-ip-country on every request (what Vercel adds in production).
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 
-const [outDir, kind = "desktop", emailArg] = process.argv.slice(2);
+const [outDir, kind = "desktop", emailArg, scenario = "pay"] = process.argv.slice(2);
 if (!outDir) { console.error("usage: drive.mjs <outDir> [desktop|mobile] [email]"); process.exit(2); }
 const require = createRequire(import.meta.url);
 const pw = require(process.env.PW_CORE || "playwright-core");
@@ -24,13 +25,25 @@ window.Stripe = function (key) {
   return { createEmbeddedCheckoutPage: async function (o) {
     return {
       mount(el) {
+        const emit = (eventType, details) => o.onAnalyticsEvent && o.onAnalyticsEvent({ eventType, details: details || {}, checkoutSession: o.clientSecret.split('_secret_')[0], clientMetadata: {}, timestamp: Date.now() / 1000 });
+        setTimeout(() => emit('checkoutRendered'), 0);
         el.innerHTML = '<div style="font:16px system-ui;border:2px dashed #b45309;border-radius:12px;padding:20px;margin:16px;background:#fffbeb;color:#111">' +
           '<b style="color:#b45309">MOCK STRIPE EMBEDDED CHECKOUT - stub, not Stripe.js</b>' +
           '<p>noswipe - reserve early access</p><p style="font-size:28px;margin:8px 0">$1.00</p>' +
           '<p>Card 4242 4242 4242 4242 (simulated)</p>' +
-          '<button id="stub-pay" style="padding:12px 20px;font-size:16px;border-radius:8px;background:#111;color:#fff">Pay $1.00 (simulated)</button></div>';
+          '<button id="stub-pay" style="padding:12px 20px;font-size:16px;border-radius:8px;background:#111;color:#fff">Pay $1.00 (simulated)</button> ' +
+          '<button id="stub-decline" style="padding:12px 20px;font-size:16px;border-radius:8px;background:#7f1d1d;color:#fff">Pay with a card that declines (simulated)</button></div>';
+        el.querySelector('#stub-decline').onclick = async () => {
+          const sid = o.clientSecret.split('_secret_')[0];
+          emit('checkoutSubmitted', { paymentMethodType: 'card' });
+          const r = await fetch('${MOCK}/__stripe/fail?session=' + sid + '&code=card_declined&decline=do_not_honor&country=IN&brand=visa&repeat=2');
+          window.__failResult = await r.json();
+          emit('checkoutSubmitFailed', { paymentMethodType: 'card', failureReason: 'api_error' });
+          document.body.setAttribute('data-declined', '1');
+        };
         el.querySelector('#stub-pay').onclick = async () => {
           const sid = o.clientSecret.split('_secret_')[0];
+          emit('checkoutSubmitted', { paymentMethodType: 'card' });
           const r = await fetch('${MOCK}/__stripe/pay?session=' + sid);
           window.__payResult = await r.json();
           o.onComplete();
@@ -42,7 +55,9 @@ window.Stripe = function (key) {
 window.Stripe.version = 3;`;
 
 const browser = await pw.chromium.launch({ executablePath: process.env.PW_CHROMIUM_PATH });
-const context = await browser.newContext(kind === "mobile" ? { ...pw.devices["iPhone 14"] } : { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+// Headless Chrome announces itself as HeadlessChrome, which the app (correctly) classifies as a bot.
+const geo = process.env.GEO ? { extraHTTPHeaders: { "x-vercel-ip-country": process.env.GEO } } : {};
+const context = await browser.newContext({ ...(kind === "mobile" ? { ...pw.devices["iPhone 14"] } : { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" }), ...geo });
 const page = await context.newPage();
 const log = { email, kind, console: [], failed: [], externalAborted: [], steps: [] };
 page.on("console", (m) => { if (["error", "warning"].includes(m.type())) log.console.push(`${m.type()}: ${m.text().slice(0, 200)}`); });
@@ -110,20 +125,37 @@ await shot("7-pay-step");
 await page.getByRole("button", { name: /Continue to checkout/ }).click();
 await page.locator("#stub-pay").waitFor({ timeout: 15000 });
 await shot("8-pay-embedded-checkout-MOCK");
-await page.locator("#stub-pay").click();
-await page.waitForURL("**/confirmation?session_id=cs_test_*", { timeout: 15000 });
-log.steps.push(`confirmation url ${page.url().replace(/cs_test_\w+/, "cs_test_…")}`);
-await page.getByText("your spot is reserved").waitFor({ timeout: 20000 });
-await shot("9-confirmation");
+if (scenario === "leave") {
+  await page.getByRole("button", { name: "Back to your answers" }).click();
+  await page.waitForTimeout(1500);
+} else {
+  if (scenario.startsWith("decline")) {
+    await page.locator("#stub-decline").click();
+    await page.locator("body[data-declined]").waitFor({ timeout: 10000 });
+    await shot("8b-after-decline-MOCK");
+  }
+  if (scenario !== "decline") await page.locator("#stub-pay").click();
+}
+const pays = scenario !== "leave" && scenario !== "decline";
+if (pays) {
+  await page.waitForURL("**/confirmation?session_id=cs_test_*", { timeout: 15000 });
+  log.steps.push(`confirmation url ${page.url().replace(/cs_test_\w+/, "cs_test_…")}`);
+  await page.getByText("your spot is reserved").waitFor({ timeout: 20000 });
+  await shot("9-confirmation");
+} else if (scenario === "decline") {
+  // The visitor gives up on the declined card and navigates away: pagehide / visibilitychange -> checkout_closed.
+  await page.goto(`${APP}/`);
+  await page.waitForTimeout(1500);
+}
 
 const state = await (await fetch(`${MOCK}/__state`)).json();
 const res = state.db.reservations.filter((r) => r.email === email);
 const sess = state.stripeSessions.filter((s) => s.customer_email === email);
 log.result = {
-  reservations: res.map((r) => ({ status: r.status, queue_position: r.queue_position, sessionIsTest: r.stripe_checkout_session_id?.startsWith("cs_test_"), pi: r.stripe_payment_intent_id?.slice(0, 8) })),
+  reservations: res.map((r) => ({ status: r.status, queue_position: r.queue_position, sessionIsTest: r.stripe_checkout_session_id?.startsWith("cs_test_"), pi: r.stripe_payment_intent_id?.slice(0, 8), last_payment_error: r.last_payment_error ?? null })),
   stripeSessions: sess.map((s) => ({ livemode: s.livemode, ui_mode: s.ui_mode, amount_total: s.amount_total, status: s.status, payment_status: s.payment_status })),
   stripeViolations: state.stripeViolations,
-  funnelEvents: state.db.funnel_events.map((e) => ({ event: e.event, session: e.session_id?.slice(0, 9), dedupe: e.dedupe_key ? e.dedupe_key.split(":")[0] : null })),
+  funnelEvents: state.db.funnel_events.map((e) => ({ event: e.event, session: e.session_id?.slice(0, 9), device: e.device ?? null, country: e.country ?? null, dedupe: e.dedupe_key ? e.dedupe_key.slice(0, 22) : null, detail: e.detail ?? null })),
   profile: state.db.profiles.map((p) => ({ internal: p.internal, step: p.onboarding_step, done: !!p.onboarding_done_at, name: p.first_name })),
   outbox: await (await fetch(`${MOCK}/__outbox`)).json()
 };
