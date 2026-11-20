@@ -203,3 +203,16 @@ no dating app is touched: the user copies the text and pastes it into their own 
 5. SLA breach sweep: `GET /api/cron/report-sla` (`Authorization: Bearer $CRON_SECRET`). `vercel.json` runs it daily (Hobby limit); for
    10-minute coverage call it from a founders' server: `*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://noswipe.app/api/cron/report-sla`.
    Opening `/admin/reports` runs the same sweep. Each breach is announced once.
+
+## Owner preview (`/app`)
+
+A clickable walkthrough of the whole product (onboarding, Home, Chats with reply drafts, Dates, Profile) on sample data, for the founders only.
+It lives under `/app`, is never indexed or in the sitemap, and keeps all its state in the browser (localStorage): it reads and writes no Supabase
+rows except the sign-in session, and sends nothing.
+
+- **Access:** `/app/login` (email + password, Supabase Auth, same `ns-session` cookie as the app, 30-day session, Profile → Sign out). The signed-in,
+  confirmed email must be in `ADMIN_EMAILS` (optionally also `OWNER_APP_EMAILS`, read only here). Every other visitor, signed in or not, gets the normal 404 on
+  every `/app/*` page; the login form gives the same generic error for a wrong password and for an address that is not allowed.
+- **Forgot password:** `/app/login` → "Forgot password?" emails a one-hour link (`/app/auth` → `/app/reset`) only to allowed addresses; the page says the same thing either way.
+- **Create or reset the login:** with the server-side `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the environment, run `node scripts/create-owner-login.mjs [file]`
+  (the file holds `email=` and `password=`, default `~/.config/noswipe/app-login.txt`, mode 600). Idempotent; never prints the password.

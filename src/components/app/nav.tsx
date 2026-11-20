@@ -18,7 +18,8 @@ export function BottomNav({ base = "", needsYou = 0 }: { base?: string; needsYou
     <nav className="app-nav" aria-label="Main">
       <ul>
         {TABS.map(({ href, label, Icon }) => {
-          const full = base === "/demo" && href === "/home" ? base : `${base}${href}`;
+          // With a base (the demo, the owner preview) Home is the base itself.
+          const full = base && href === "/home" ? base : `${base}${href}`;
           const active = pathname === full || (href !== "/home" && pathname.startsWith(`${full}/`));
           return (
             <li key={href}>

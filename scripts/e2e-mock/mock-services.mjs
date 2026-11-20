@@ -202,7 +202,7 @@ async function auth(req, res, url) {
   if (p === "/admin/users" && req.method === "GET") return send(res, 200, { users: [...users.values()].map(userJson), aud: "authenticated" });
   if (p === "/admin/users" && req.method === "POST") {
     if ([...users.values()].some((u) => u.email === body.email)) return send(res, 422, { code: 422, error_code: "email_exists", msg: "A user with this email address has already been registered" });
-    const u = { id: crypto.randomUUID(), email: body.email, created: new Date().toISOString() };
+    const u = { id: crypto.randomUUID(), email: body.email, password: body.password, created: new Date().toISOString() };
     users.set(u.id, u);
     return send(res, 200, userJson(u));
   }
@@ -229,6 +229,10 @@ async function auth(req, res, url) {
       if (!u) throw new Error("nouser");
       return send(res, 200, userJson(u));
     } catch { return send(res, 401, { code: 401, error_code: "bad_jwt", msg: "invalid JWT" }); }
+  }
+  if (p === "/token" && url.searchParams.get("grant_type") === "password") {
+    const u = [...users.values()].find((x) => x.email === body.email && x.password && x.password === body.password);
+    return u ? send(res, 200, sessionJson(u)) : send(res, 400, { code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials" });
   }
   if (p === "/token") {
     const u = users.get(String(body.refresh_token || "").replace(/^r-/, ""));

@@ -49,8 +49,10 @@ function NextGaps({ gaps }: { gaps: SetupItem[] }) {
 /** What the Home status rows need to say the truth about each app: paid or not, a report hold, and how long the client has waited. */
 export type HomeFulfilment = CopyContext;
 
-export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "", pack, fulfilment = { paid: true } }: {
+export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "", pack, fulfilment = { paid: true }, afterNeeds }: {
   name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string; pack?: HomePack; fulfilment?: HomeFulfilment;
+  /** Extra block right under "Needs you" (the owner preview puts dates waiting for an OK here). */
+  afterNeeds?: React.ReactNode;
 }) {
   const quiet = chats.length === 0 && upcoming.length === 0;
   const accounts = APPS.flatMap((app) => apps.filter((a) => a.app === app));
@@ -114,6 +116,8 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
           ))}
         </ul>
       )}
+
+      {afterNeeds}
 
       <h2 className="app-h2">Upcoming dates</h2>
       {upcoming.length === 0 ? (
@@ -229,13 +233,13 @@ export function DatesView({ dates, apps = [], gaps = [], base = "" }: { dates: D
   );
 }
 
-export function DateDetailView({ date, base = "" }: { date: DateRow & { match_id: string | null }; base?: string }) {
+export function DateDetailView({ date, base = "", tag, actions, hideIcs }: { date: DateRow & { match_id: string | null }; base?: string; tag?: string; actions?: React.ReactNode; hideIcs?: boolean }) {
   return (
     <>
       <Link href={`${base}/dates`} className="app-link" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none", marginLeft: -6 }}><ChevronLeft size={20} aria-hidden /> Dates</Link>
       <div className="app-hero" style={{ marginTop: 6 }}>
         <div>
-          <span className="tag">{date.status === "cancelled" ? "Cancelled" : "Booked"}</span>
+          <span className="tag">{tag ?? (date.status === "cancelled" ? "Cancelled" : "Booked")}</span>
           <h1>Date with {date.who}</h1>
         </div>
       </div>
@@ -246,7 +250,8 @@ export function DateDetailView({ date, base = "" }: { date: DateRow & { match_id
         {date.summary ? <li className="app-detail"><MessageCircle size={22} aria-hidden /><div><small>What you talked about</small><strong style={{ fontWeight: 600 }}>{date.summary}</strong></div></li> : null}
       </ul>
       <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
-        <IcsButton date={{ id: date.id, who: date.who, venue: date.venue, address: date.address, starts_at: date.starts_at, summary: date.summary, status: date.status }} />
+        {hideIcs ? null : <IcsButton date={{ id: date.id, who: date.who, venue: date.venue, address: date.address, starts_at: date.starts_at, summary: date.summary, status: date.status }} />}
+        {actions}
         {date.match_id ? <Link href={`${base}/chats/${date.match_id}`} className="app-btn ghost">Open the chat</Link> : null}
       </div>
     </>
