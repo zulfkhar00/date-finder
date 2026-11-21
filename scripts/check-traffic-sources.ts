@@ -130,6 +130,7 @@ const events: TrafficEvent[] = [
   ev(sid(1), "page_view", { in_app_source: "instagram", device: "mobile", landing_path: "/", country: "US" }),
   ev(sid(1), "get_started", { in_app_source: "instagram", device: "mobile" }),
   ev(sid(2), "page_view", { device: "mobile", landing_path: "/", country: "IN" }),                                    // direct
+  ev(sid(2), "get_started", { device: "mobile" }),                                                                    // engaged: not an unengaged one-page-view direct visit
   ev(sid(3), "page_view", { utm_source: "reddit", in_app_source: null, device: "mobile", landing_path: "/guides/x", country: "US" }),
   ev(sid(4), "page_view", { referrer_host: "l.instagram.com", device: "mobile", landing_path: "/", country: "US" }),
   ev(sid(5), "page_view", { device: "bot", landing_path: "/", country: "US" }),                                      // crawler: excluded

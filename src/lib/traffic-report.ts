@@ -5,6 +5,7 @@
 // funnel session tied to them, plus our own probe sessions (internalSessionIds in real-funnel).
 // Importing real-funnel pulls in "server-only", so run the tests with --conditions=react-server.
 
+import { counts as qualityCounts, sessionQualities, type SessionQuality } from "@/lib/bot-quality";
 import { CHECKOUT_DIAGNOSTIC_EVENTS } from "@/lib/checkout-events";
 import { internalSessionIds, splitReservations, type ReservationRow } from "@/lib/real-funnel";
 import { DIRECT_CHANNEL, NOT_CAPTURED_CHANNEL, resolveChannel, normalizeChannel } from "@/lib/traffic";
@@ -31,6 +32,8 @@ export type TrafficEvent = {
   landing_path?: string | null;
   device?: string | null;
   country?: string | null;
+  /** human / suspect / bot (supabase/2026-11-22-session-quality.sql); null on rows from before it. */
+  quality?: string | null;
 };
 
 export type Session = {
@@ -62,16 +65,21 @@ export type TrafficModel = {
   captureSince: number | null;
   /** Stripe Checkout Session id -> first-touch source stored on the reservation (empty before the first-touch migration). */
   firstTouchByStripe: Map<string, string>;
+  /** Quality of every session seen (bots and suspects included), whether or not it is in `sessions`. */
+  qualities: Map<string, SessionQuality>;
+  includeSuspect: boolean;
 };
 
 const SERVER_EVENTS = new Set(["checkout_created", "paid", ...CHECKOUT_DIAGNOSTIC_EVENTS]);
 
 /** Groups raw events into one record per visit (tab session) and drops internal / test traffic. */
-export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[], firstTouchByStripe: Map<string, string> = new Map()): TrafficModel {
+export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[], firstTouchByStripe: Map<string, string> = new Map(), options: { includeSuspect?: boolean; nowMs?: number } = {}): TrafficModel {
+  const includeSuspect = options.includeSuspect ?? false;
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
   const internal = internalSessionIds(events, badStripeSessions);
   const sorted = [...events].sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
 
+  const qualities = sessionQualities(events.filter((e) => !(e.session_id && internal.has(e.session_id))), options.nowMs ?? Date.now());
   const stripeToSession = new Map<string, string>();
   const sessions = new Map<string, Session>();
   const raw = new Map<string, { utm: string | null; ref: string | null; app: string | null }>();
@@ -111,13 +119,13 @@ export function buildTrafficModel(events: TrafficEvent[], allReservations: Reser
     else if (e.event === "onboarding_complete") s.done = true;
   }
   for (const s of sessions.values()) {
-    // Crawlers that run JS (Lighthouse, site audits) are not visitors.
-    if (s.device === "bot") { sessions.delete(s.id); continue; }
+    // Crawlers that run JS (Lighthouse, site audits) are not visitors; suspect sessions are left out unless asked for.
+    if (s.device === "bot" || !qualityCounts(qualities.get(s.id)?.quality, { includeSuspect })) { sessions.delete(s.id); continue; }
     const r = raw.get(s.id)!;
     s.refHost = r.ref;
     if (s.captured) s.channel = resolveChannel(r.utm, r.ref, r.app);
   }
-  return { sessions, reservations: real, stripeToSession, captureSince, firstTouchByStripe };
+  return { sessions, reservations: real, stripeToSession, captureSince, firstTouchByStripe, qualities, includeSuspect };
 }
 
 // ---------- Periods ----------
