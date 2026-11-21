@@ -190,6 +190,23 @@ no dating app is touched: the user copies the text and pastes it into their own 
 4. Backfill by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "https://noswipe.app/api/cron/starter-packs?limit=5"` (repeat until
    `considered` is 0), or for one user `...?userId=<uuid>`. Admin: /admin/clients/<id> has "Write the pack now".
 
+
+## 11b. Reply helper (Chats tab)
+
+A signed-in user shows a Hinge/Tinder/Bumble conversation (1-4 screenshots or pasted text) at `/chats/reply` and gets three replies in
+their own voice, a one-line read, and a date suggestion with two plans when it is time. `claude-sonnet-5-5`, server only. Open to every
+signed-in user in every country (no payment or country gate). Nothing is sent to anyone.
+
+1. Run `supabase/2026-11-21-reply-helper.sql` (idempotent; tables `reply_threads`, `reply_helper_runs`; RLS on, browser roles revoked,
+   users can only SELECT their own threads; also adds `reply_helper_used` and `reply_copied` to the funnel event check). Until it is
+   applied the helper fails closed before any model call (the ledger is read first) and shows a friendly error.
+2. Env (optional, defaults in brackets): `REPLY_HELPER_DAILY_CAP` [150 model runs per UTC day], `REPLY_HELPER_DAILY_TOKEN_CAP`
+   [2500000 input-token equivalents], `REPLY_HELPER_PER_USER_PER_DAY` [20 sessions per user]. A rewrite (more playful, shorter, write
+   again) counts as a run. Failed runs are not refunded.
+3. Privacy: screenshots are shrunk in the browser, read in memory by `POST /api/app/reply`, sent to the model and dropped; no bucket, no
+   disk, no log. The thread keeps the model's output and the last <= 14 lines it read (so rewrites need no new upload); the user can delete it
+   (`DELETE /api/app/reply?id=`), and deleting the account cascades. The admin client page shows counts only.
+
 ## Takedown process (reports, appeals)
 
 1. Run `supabase/2026-11-20-reports.sql` (idempotent; after `2026-11-04-app.sql` and `2026-11-20-photo-flags.sql`). It adds `reports`,

@@ -5,6 +5,7 @@ import { AppBadge, Avatar, Empty, ModePill, RowLink } from "@/components/app/ui"
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
 import { StarterPack } from "@/components/app/starter-pack";
+import { ReplyHelperCard } from "@/components/app/reply-helper-card";
 import type { ChatSummary, SetupItem } from "@/lib/app/data";
 import { APP_LABELS, APPS, splitDates, type AppAccountRow, type DateRow } from "@/lib/app/domain";
 import { appCopy, type CopyContext } from "@/lib/app/status-copy";
@@ -169,6 +170,7 @@ export function ChatsView({ chats, apps = [], gaps = [], base = "" }: { chats: C
     <>
       <h1 className="app-h1">Chats</h1>
       <p className="app-sub">Your conversations, as they happen. Open one to read along or take over.</p>
+      {base ? null : <div style={{ marginTop: 18 }}><ReplyHelperCard empty={chats.length === 0} /></div>}
       <div style={{ marginTop: 18 }}>
         {chats.length === 0 ? (
           <>

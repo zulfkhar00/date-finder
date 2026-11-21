@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { USER_FLAG_NOTICE } from "@/lib/starter-pack/photo-flags-core";
-import { CalendarClock, Camera, MessageCircle, PenLine, Sparkles } from "lucide-react";
+import { CalendarClock, Camera, ChevronRight, MessageCircle, PenLine, Sparkles } from "lucide-react";
 import { CopyButton, PackPoller, RegenerateButton } from "@/components/app/starter-pack-client";
 import type { StarterPackView } from "@/lib/app/data";
 import type { AppAccountRow } from "@/lib/app/domain";
@@ -154,6 +154,7 @@ export function StarterPack({ pack, apps, photoUrls, hasCity, regenLeft, photoFl
             <section className="app-card sp-card" aria-label="Reply templates">
               <div className="sp-head"><MessageCircle size={18} aria-hidden /><h3>3 replies for common moments</h3></div>
               <ol className="sp-items">{content.replies.map((r) => <li key={r.situation}><strong>{r.situation}</strong><Line text={r.template} /></li>)}</ol>
+              <Link href="/chats/reply" className="app-link" data-testid="pack-reply-helper-link">In a real chat right now? Get replies for it<ChevronRight size={16} aria-hidden /></Link>
             </section>
             <DatePlan content={content} />
           </div>
