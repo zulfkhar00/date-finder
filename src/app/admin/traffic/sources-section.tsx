@@ -31,7 +31,7 @@ function StepTable({ dimension, rows, limit = 10 }: { dimension: string; rows: D
   if (shown.length === 0) return <div className={styles.empty}>No visitors in this window yet.</div>;
   return (
     <div className={styles.tableWrap}>
-      <table className={styles.table}>
+      <table className={`${styles.table} ${styles.stepTable}`}>
         <thead>
           <tr>
             <th>{dimension}</th>
@@ -121,7 +121,7 @@ export function SourcesSection({ data, range }: { data: SourcesData; range: Rang
       <StepTable dimension="Source" rows={c.channels} limit={12} />
 
       <h3 className={styles.subHead}>By landing page</h3>
-      <StepTable dimension="Landing page" rows={c.landing} />
+      <StepTable dimension="Page" rows={c.landing} />
 
       <div className={styles.grid2}>
         <div>
