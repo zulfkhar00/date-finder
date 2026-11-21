@@ -1,4 +1,5 @@
 import "server-only";
+import { describeFiltered } from "@/lib/bot-quality";
 import { computeRealFunnel, type RealFunnel } from "@/lib/real-funnel";
 import { buildTrafficModel, computeAlarms, DAY, periodStats, type Alarm, type DimRow } from "@/lib/traffic-report";
 import { loadTrafficRows } from "./traffic-data";
@@ -60,12 +61,17 @@ export type OverviewData = {
   alarms: Alarm[];
   trafficCaptured: boolean;
   excluded: { founder: number; test_email: number; stripe_test: number; internalSessions: number };
+  includeSuspect: boolean;
+  /** "N sessions left out (why)" for the selected range; null when nothing was filtered. */
+  filteredNote: string | null;
+  suspectSessions: number;
+  qualityColumn: boolean;
 };
 
 const toOverviewTotals = (f: RealFunnel): OverviewTotals => ({ visitors: f.visitors, getStarted: f.getStarted, reserveStarts: f.reserveStarts, onboardingComplete: f.onboardingComplete, checkouts: f.checkouts, paid: f.paid });
 
 /** sinceDays = null means all time. Internal and test traffic is excluded (see lib/real-funnel). */
-export async function getOverview(sinceDays: number | null, days = 30): Promise<OverviewData> {
+export async function getOverview(sinceDays: number | null, days = 30, includeSuspect = false): Promise<OverviewData> {
   const now = new Date();
   const nowMs = now.getTime();
   // Enough history for the previous period AND the alarms (24 h, and 7 d vs the 7 d before).
@@ -76,10 +82,10 @@ export async function getOverview(sinceDays: number | null, days = 30): Promise<
   } catch {
     throw new AdminDataError("real_funnel", undefined);
   }
-  const current = computeRealFunnel(rows.events, rows.reservations, sinceDays, now);
-  const previous = sinceDays === null ? null : computeRealFunnel(rows.events, rows.reservations, sinceDays * 2, now, nowMs - sinceDays * DAY);
+  const current = computeRealFunnel(rows.events, rows.reservations, sinceDays, now, undefined, { includeSuspect });
+  const previous = sinceDays === null ? null : computeRealFunnel(rows.events, rows.reservations, sinceDays * 2, now, nowMs - sinceDays * DAY, { includeSuspect });
 
-  const model = buildTrafficModel(rows.events, rows.reservations);
+  const model = buildTrafficModel(rows.events, rows.reservations, undefined, { includeSuspect, nowMs });
   let fromMs = nowMs - (sinceDays ?? 30) * DAY;
   if (sinceDays === null) for (const s of model.sessions.values()) fromMs = Math.min(fromMs, s.firstAt);
   const range = periodStats(model, fromMs, nowMs + 1);
@@ -104,7 +110,11 @@ export async function getOverview(sinceDays: number | null, days = 30): Promise<
     topChannels: range.channels.slice(0, 5),
     alarms,
     trafficCaptured: rows.trafficColumns && model.captureSince !== null,
-    excluded: current.excluded
+    excluded: current.excluded,
+    includeSuspect,
+    filteredNote: describeFiltered(current.qualityFiltered),
+    suspectSessions: current.suspectSessions,
+    qualityColumn: rows.qualityColumn
   };
 }
 

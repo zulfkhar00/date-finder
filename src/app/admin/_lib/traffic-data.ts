@@ -18,6 +18,8 @@ export type TrafficRows = {
   firstTouchByStripe: Map<string, string>;
   /** false until supabase/2026-11-21-first-touch.sql is applied. */
   inAppColumn: boolean;
+  /** false until supabase/2026-11-22-session-quality.sql is applied: only device = 'bot' and behaviour classify sessions. */
+  qualityColumn: boolean;
   reservations: ReservationRow[];
   /** false until supabase/2026-11-03-traffic.sql is applied (the columns do not exist yet). */
   trafficColumns: boolean;
@@ -46,7 +48,12 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   const sinceIso = sinceMs === null ? null : new Date(sinceMs).toISOString();
   let trafficColumns = true;
   let inAppColumn = true;
-  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source`, sinceIso);
+  let qualityColumn = true;
+  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, quality`, sinceIso);
+  if (undefinedColumn(result.error)) {
+    qualityColumn = false;
+    result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source`, sinceIso);
+  }
   if (undefinedColumn(result.error)) {
     inAppColumn = false;
     result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}`, sinceIso);
@@ -61,7 +68,7 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   }
   // All reservations: a paid_at inside the window can belong to an older row.
   const reservations = await fetchAllRows<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at");
-  return { events: result.rows, reservations, trafficColumns, inAppColumn, firstTouchByStripe: await loadFirstTouch(supabase) };
+  return { events: result.rows, reservations, trafficColumns, inAppColumn, qualityColumn, firstTouchByStripe: await loadFirstTouch(supabase) };
 }
 
 /** Best effort: the first-touch columns may not exist yet, and a failure here must never blank the page. */
