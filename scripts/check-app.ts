@@ -81,7 +81,7 @@ assert.deepEqual([...APPS], ["tinder", "hinge", "bumble"]);
 assert.equal(initials("Maya Chen"), "MC");
 
 // --- consent wording (fixed text: it is what the user agrees to) ------------------------------
-assert.equal(CONSENT_STATEMENT, "NoSwipe creates and runs dating profiles for you on the apps you picked, using these photos, and chats as you. You can pause or take over any chat at any time.");
+assert.equal(CONSENT_STATEMENT, "NoSwipe runs your profile, swipes and chats as you on the apps you picked, using these photos. You can pause, take over or resume any app, and take over any chat, at any time.");
 
 // --- .ics -------------------------------------------------------------------------------------
 const ics = buildIcs({ id: "abc", who: "Maya", venue: "Taco place, 5th", address: "500 5th St; Austin", starts_at: "2027-01-14T19:00:00Z", summary: "Creek story,\nand dogs", status: "booked" }, 90, now);

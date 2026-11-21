@@ -67,7 +67,7 @@ assert.equal(countrySupport("USA"), "unknown");
 }
 
 // ---------- status workflow rules ----------
-assert.deepEqual([...WORKFLOW_STATUSES], ["setting_up", "needs_client_action", "active", "paused", "closed"]);
+assert.deepEqual([...WORKFLOW_STATUSES], ["awaiting_login", "setting_up", "needs_client_action", "active", "paused", "closed"]);
 for (const legacy of ["setting_up", "live", "paused"]) assert.ok((APP_STATUSES as readonly string[]).includes(legacy), `the migration check stays a superset: ${legacy}`);
 assert.deepEqual(parseStatusChange({ status: "needs_client_action", reason: "  Add 2 more   photos " }), { ok: true, change: { status: "needs_client_action", reason: "Add 2 more photos" } });
 assert.equal(parseStatusChange({ status: "needs_client_action" }).ok, false, "a reason is required");
@@ -95,8 +95,8 @@ assert.equal(effectiveStatus({ status: "active", user_paused: true }), "paused")
   assert.match(need.text, /^We need something from you: Add 2 more photos\./);
   assert.match(appCopy(acct("needs_client_action", { client_action_reason: "Log in on a fresh browser profile." }), paid).text, /fresh browser profile\. We continue/, "no double full stop");
   assert.match(appCopy(acct("needs_client_action"), paid).text, /open Profile/, "a missing reason still reads sensibly");
-  assert.equal(appCopy(acct("active"), paid).label, "Active");
-  assert.equal(appCopy(acct("live"), paid).label, "Active");
+  assert.equal(appCopy(acct("active"), paid).label, "Running");
+  assert.equal(appCopy(acct("live"), paid).label, "Running");
   assert.equal(appCopy(acct("paused"), paid).label, "Paused");
   assert.equal(appCopy(acct("closed"), paid).label, "Closed");
   assert.match(appCopy(acct("setting_up"), { paid: false }).text, /Waiting for you to activate NoSwipe/);
