@@ -4,7 +4,7 @@ import { CHECKOUT_CLIENT_EVENTS, clientDedupeKey, type CheckoutClientEvent } fro
 import { insertClientFunnelEvent } from "@/lib/funnel";
 import { isNonProductionOrigin } from "@/lib/internal-traffic";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { trafficFromRequest } from "@/lib/traffic";
+import { FIRST_TOUCH_COOKIE, FIRST_TOUCH_MAX_AGE, firstTouchFromTraffic, serializeFirstTouch, shouldSetFirstTouch, trafficFromRequest } from "@/lib/traffic";
 
 export const runtime = "nodejs";
 
@@ -58,6 +58,10 @@ export async function POST(request: Request) {
   const parsed = clientEventSchema.safeParse(payload);
   if (!parsed.success) return new NextResponse(null, { status: 400 });
 
+  // Reduced here and nowhere else: the UA and geo headers are read, then dropped.
+  const selfHost = process.env.SITE_URL ? new URL(process.env.SITE_URL).hostname : undefined;
+  const traffic = trafficFromRequest(parsed.data, request.headers, selfHost);
+
   let supabase;
   try {
     supabase = getSupabaseAdmin();
@@ -76,10 +80,18 @@ export async function POST(request: Request) {
     variant: parsed.data.variant,
     utmCampaign: parsed.data.utmCampaign,
     ref: parsed.data.ref,
-    // Reduced here and nowhere else: the UA and geo headers are read, then dropped.
-    traffic: trafficFromRequest(parsed.data, request.headers, process.env.SITE_URL ? new URL(process.env.SITE_URL).hostname : undefined)
+    traffic
   });
   // A rejected insert used to look identical to success, which hid a missing migration for days.
   if (!result.ok) return new NextResponse(null, { status: 503, headers: { "X-Funnel-Error": result.code } });
-  return new NextResponse(null, { status: 204 });
+  const response = new NextResponse(null, { status: 204 });
+  // First touch: remembered once, on the first real page_view, in a first-party cookie for 90 days. An existing
+  // cookie is never overwritten (the later visit is the "last touch", which the funnel rows already carry).
+  // Not set for crawlers, our own probe sessions, or when the browser sends Do-Not-Track / Global Privacy Control.
+  if (shouldSetFirstTouch({ event: parsed.data.event, sessionId: parsed.data.sessionId, device: traffic.device, cookieHeader: request.headers.get("cookie"), headers: request.headers })) {
+    response.cookies.set(FIRST_TOUCH_COOKIE, serializeFirstTouch(firstTouchFromTraffic(traffic, parsed.data.utmCampaign)), {
+      maxAge: FIRST_TOUCH_MAX_AGE, path: "/", sameSite: "lax", httpOnly: true, secure: process.env.NODE_ENV === "production"
+    });
+  }
+  return response;
 }
