@@ -30,6 +30,13 @@ export function buildLoginEmail(link: string, code: string): AppEmail {
   return { subject: "Your NoSwipe sign-in", text, html };
 }
 
+export function buildResetEmail(link: string): AppEmail {
+  const footer = "You're getting this because a password reset was requested for this address. If it wasn't you, ignore this email.";
+  const text = ["Reset your NoSwipe password.", "", "Open this link:", link, "", "It works once and expires in 1 hour.", "", "--", footer].join("\n");
+  const html = shell("Reset your password.", `${button(link, "Choose a new password")}<p style="margin:0;color:#444444;">The link works once and expires in 1 hour.</p>`, footer);
+  return { subject: "Reset your NoSwipe password", text, html };
+}
+
 const NOTIFY_FOOTER = "You can turn these emails off any time in Profile → Notifications.";
 
 export function formatWhen(iso: string, timeZone = "UTC"): string {
