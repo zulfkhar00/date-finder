@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { readAppConfig } from "@/lib/app/config";
 import { createAppClient } from "@/lib/app/session";
+import { recordFirstConfirmation } from "@/lib/signups";
 
 export const runtime = "nodejs";
 
@@ -14,11 +15,12 @@ export async function GET(request: NextRequest) {
   if (!tokenHash || (type !== "email" && type !== "magiclink")) return fail();
   try {
     const supabase = await createAppClient();
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     if (error) {
       console.error("Sign-in link failed", error.code ?? error.status ?? "unknown");
       return fail();
     }
+    if (data.user) await recordFirstConfirmation(data.user); // first confirmation via the emailed link; never blocks sign-in
   } catch {
     return fail();
   }

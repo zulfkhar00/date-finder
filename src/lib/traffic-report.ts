@@ -24,6 +24,8 @@ export type TrafficEvent = {
   utm_campaign: string | null;
   dedupe_key: string | null;
   ref?: string | null;
+  user_id?: string | null;
+  account_internal?: boolean | null;
   in_app_source?: string | null;
   utm_source?: string | null;
   utm_medium?: string | null;
@@ -73,10 +75,10 @@ export type TrafficModel = {
 const SERVER_EVENTS = new Set(["checkout_created", "paid", ...CHECKOUT_DIAGNOSTIC_EVENTS]);
 
 /** Groups raw events into one record per visit (tab session) and drops internal / test traffic. */
-export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[], firstTouchByStripe: Map<string, string> = new Map(), options: { includeSuspect?: boolean; nowMs?: number } = {}): TrafficModel {
+export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[], firstTouchByStripe: Map<string, string> = new Map(), options: { includeSuspect?: boolean; nowMs?: number; internalUserIds?: ReadonlySet<string> } = {}): TrafficModel {
   const includeSuspect = options.includeSuspect ?? false;
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
-  const internal = internalSessionIds(events, badStripeSessions);
+  const internal = internalSessionIds(events, badStripeSessions, options.internalUserIds);
   const sorted = [...events].sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
 
   const qualities = sessionQualities(events.filter((e) => !(e.session_id && internal.has(e.session_id))), options.nowMs ?? Date.now());
