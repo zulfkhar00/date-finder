@@ -5,6 +5,7 @@
 // a landing PATH (no query), and a 2-letter country if the proxy already sent one. The full user
 // agent and the IP address are read, reduced, and dropped; neither is stored or logged.
 
+import { classifyRequest, isBotUserAgent, type Quality } from "@/lib/bot-quality";
 import { PRODUCTION_HOSTS, PROBE_SESSION_PREFIX } from "@/lib/internal-traffic";
 
 export const DEVICES = ["mobile", "tablet", "desktop", "bot"] as const;
@@ -14,7 +15,6 @@ export const REFERRER_RAW_MAX = 512;
 export const REFERRER_HOST_MAX = 100;
 export const LANDING_PATH_MAX = 120;
 
-const BOT_PATTERN = /bot\b|bot\/|crawler|spider|crawling|headless|lighthouse|slurp|facebookexternalhit|ahrefs|semrush|mj12|dataprovider|pingdom|uptime|python-requests|curl\/|wget\/|pagespeed|prerender|bingpreview|inspectiontool|node-fetch|axios\/|go-http-client|okhttp\/|scrapy/i;
 const TABLET_PATTERN = /ipad|tablet|kindle|silk\/|playbook|(android(?!.*mobile))/i;
 const MOBILE_PATTERN = /mobi|iphone|ipod|android|windows phone|blackberry|opera mini/i;
 
@@ -22,7 +22,7 @@ const MOBILE_PATTERN = /mobi|iphone|ipod|android|windows phone|blackberry|opera 
 export function parseDevice(userAgent: string | null | undefined): Device | null {
   const ua = (userAgent ?? "").trim();
   if (!ua) return null;
-  if (BOT_PATTERN.test(ua)) return "bot";
+  if (isBotUserAgent(ua)) return "bot";
   if (TABLET_PATTERN.test(ua)) return "tablet";
   if (MOBILE_PATTERN.test(ua)) return "mobile";
   return "desktop";
@@ -86,7 +86,7 @@ const IN_APP_RULES: [RegExp, string][] = [
 /** The app whose in-app browser sent this User-Agent, as a channel name. Crawlers are never an app. null = none recognised. */
 export function inAppSource(userAgent: string | null | undefined): string | null {
   const ua = (userAgent ?? "").trim();
-  if (!ua || BOT_PATTERN.test(ua)) return null;
+  if (!ua || isBotUserAgent(ua)) return null;
   for (const [pattern, name] of IN_APP_RULES) if (pattern.test(ua)) return name;
   return null;
 }
@@ -101,9 +101,11 @@ export type TrafficFields = {
   landing_path: string | null;
   device: Device | null;
   country: string | null;
+  /** human / suspect / bot from the request signals (supabase/2026-11-22-session-quality.sql). Behavioural "unengaged" is derived at read time. */
+  quality: Quality;
 };
 
-export const TRAFFIC_COLUMNS = ["in_app_source", "utm_source", "utm_medium", "utm_content", "referrer_host", "landing_path", "device", "country"] as const;
+export const TRAFFIC_COLUMNS = ["in_app_source", "utm_source", "utm_medium", "utm_content", "referrer_host", "landing_path", "device", "country", "quality"] as const;
 
 /** Everything the server derives from one /api/event request. UTM inputs are already cleaned; referrer and path are raw. */
 export function trafficFromRequest(
@@ -113,6 +115,7 @@ export function trafficFromRequest(
 ): TrafficFields {
   const userAgent = headers.get("user-agent");
   const refHost = referrerHost(input.referrer, [selfHost]);
+  const { quality } = classifyRequest(headers);
   return {
     // utm and a real referrer both beat the UA guess.
     in_app_source: input.utmSource || refHost ? null : inAppSource(userAgent),
@@ -121,8 +124,10 @@ export function trafficFromRequest(
     utm_content: input.utmContent ?? null,
     referrer_host: refHost,
     landing_path: cleanLandingPath(input.landingPath),
-    device: parseDevice(userAgent),
-    country: countryFromHeaders(headers)
+    // A certain bot is stored as device 'bot' (every report already drops that); a missing UA is one too.
+    device: quality === "bot" ? "bot" : parseDevice(userAgent),
+    country: countryFromHeaders(headers),
+    quality
   };
 }
 

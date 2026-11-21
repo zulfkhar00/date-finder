@@ -108,7 +108,7 @@ const events: EventRow[] = [
 ];
 const reservations: ReservationRow[] = [];
 const internalUsers = new Set([U_FLAGGED]);
-const funnel = computeRealFunnel(events, reservations, 1, new Date(NOW), undefined, internalUsers);
+const funnel = computeRealFunnel(events, reservations, 1, new Date(NOW), undefined, { internalUserIds: internalUsers });
 assert.equal(funnel.visitors, 2, "only the external signed-in session and the external guest are visitors");
 assert.equal(funnel.getStarted, 1);
 assert.equal(funnel.reserveStarts, 1);
@@ -119,13 +119,13 @@ const before = computeRealFunnel(events.map((e) => ({ ...e, user_id: undefined, 
 assert.equal(before.visitors, 5, "pre-fix behaviour: founder/flagged/guest-then-founder sessions leak in (probe and test checkout were already excluded)");
 assert.equal(before.reserveStarts, 4);
 // 30-day view includes the historical row, which cannot be classified.
-const month = computeRealFunnel(events, reservations, 30, new Date(NOW), undefined, internalUsers);
+const month = computeRealFunnel(events, reservations, 30, new Date(NOW), undefined, { internalUserIds: internalUsers });
 assert.equal(month.visitors, 3, "30d: + the legacy session (unclassifiable, counted)");
 // Never inferred from shared fields: sessions with the same variant/campaign/time as an internal one stay as they are.
 assert.equal(internalSessionIds(events, new Set(), internalUsers).has(EXT_GUEST), false);
 assert.equal(internalSessionIds(events, new Set(), internalUsers).has(EXT), false);
 // The admin traffic model uses the same exclusion.
-const model = buildTrafficModel(events, reservations, undefined, internalUsers);
+const model = buildTrafficModel(events, reservations, undefined, { internalUserIds: internalUsers });
 assert.equal(model.sessions.has(FOUNDER_S), false);
 assert.equal(model.sessions.has(FLAGGED_S), false);
 assert.equal(model.sessions.has(GUEST_THEN_FOUNDER), false);

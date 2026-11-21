@@ -3,7 +3,7 @@ import { internalEmailReason } from "@/lib/internal-traffic";
 // Who is behind a browser event, decided by the server from the sign-in cookie and nothing else:
 // never from an IP address, a device, a user agent or anything the browser sends in the body.
 // The email is read only to classify it (lib/internal-traffic) and is dropped; only the account id
-// and an internal flag are stored (supabase/2026-11-21-funnel-account-link.sql).
+// and an internal flag are stored (supabase/2026-11-22-funnel-account-link.sql).
 
 export type FunnelAccount = { userId: string; internal: boolean };
 

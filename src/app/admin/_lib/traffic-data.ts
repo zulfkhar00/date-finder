@@ -19,6 +19,8 @@ export type TrafficRows = {
   firstTouchByStripe: Map<string, string>;
   /** false until supabase/2026-11-21-first-touch.sql is applied. */
   inAppColumn: boolean;
+  /** false until supabase/2026-11-22-session-quality.sql is applied: only device = 'bot' and behaviour classify sessions. */
+  qualityColumn: boolean;
   reservations: ReservationRow[];
   /** Accounts flagged internal on their profile; with funnel_events.account_internal they drop signed-in internal sessions. */
   internalUserIds: Set<string>;
@@ -49,9 +51,14 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   const sinceIso = sinceMs === null ? null : new Date(sinceMs).toISOString();
   let trafficColumns = true;
   let inAppColumn = true;
-  // Newest shape first; each missing-column error falls to the next (in-app source, then account link, then traffic columns).
-  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, ${ACCOUNT_COLS}`, sinceIso);
-  if (undefinedColumn(result.error)) result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source`, sinceIso);
+  let qualityColumn = true;
+  // Newest shape first; each missing-column error falls to the next (account link, then quality, then in-app source, then traffic columns).
+  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, quality, ${ACCOUNT_COLS}`, sinceIso);
+  if (undefinedColumn(result.error)) result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, quality`, sinceIso);
+  if (undefinedColumn(result.error)) {
+    qualityColumn = false;
+    result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source`, sinceIso);
+  }
   if (undefinedColumn(result.error)) {
     inAppColumn = false;
     result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}`, sinceIso);
@@ -67,7 +74,7 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   // All reservations: a paid_at inside the window can belong to an older row.
   const reservations = await fetchAllRows<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at");
   const internalUserIds = await loadInternalUserIds(supabase);
-  return { events: result.rows, reservations, trafficColumns, inAppColumn, firstTouchByStripe: await loadFirstTouch(supabase), internalUserIds };
+  return { events: result.rows, reservations, trafficColumns, inAppColumn, qualityColumn, firstTouchByStripe: await loadFirstTouch(supabase), internalUserIds };
 }
 
 /** Best effort: the first-touch columns may not exist yet, and a failure here must never blank the page. */

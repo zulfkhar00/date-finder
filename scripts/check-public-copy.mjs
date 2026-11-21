@@ -17,6 +17,10 @@ const files = (await Promise.all(["src/app", "src/components", "src/content"].ma
 
 const contents = Object.fromEntries(await Promise.all(files.map(async (file) => [file, await readFile(file, "utf8")])));
 const publicCopy = Object.values(contents).join("\n");
+// 20 Nov 2026: the signed-in, noindex Reply helper (/chats/reply) is a screenshot-based tool by design. Only its own files may use
+// the screenshot concept; every other file, public page and /demo included, still may not.
+const conceptExempt = (file) => /reply-helper|[\\/]chats[\\/]reply[\\/]/.test(file);
+const strictCopy = Object.entries(contents).filter(([file]) => !conceptExempt(file)).map(([, text]) => text).join("\n");
 
 // Match account/profile interactions, not ordinary coaching conversations.
 const agency = String.raw`(?:we|our team|NoSwipe|(?:our )?AI)`;
@@ -101,7 +105,9 @@ function copyViolations(copy) {
   ));
 }
 
+const strictViolations = new Set(copyViolations(strictCopy));
 for (const pattern of copyViolations(publicCopy)) {
+  if (forbiddenConcepts.includes(pattern) && !strictViolations.has(pattern)) continue; // only the Reply helper's own files use it
   assert.fail(`public copy must not contain ${pattern}`);
 }
 

@@ -38,6 +38,13 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   // The new columns exist after supabase/2026-11-20-fulfilment.sql; before it, read the old ones so the page still works.
   const apps: { app: string; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null }[] | null = appsNew ?? ((await sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id)).data as never);
   const log = await listEvents(sb, id);
+  // Reply helper usage: counts only, never the chats or the drafts. Read separately so the page works before supabase/2026-11-21-reply-helper.sql is applied.
+  const [replyThreads, replyRuns, replyToday] = await Promise.all([
+    sb.from("reply_threads").select("id", { count: "exact", head: true }).eq("user_id", id),
+    sb.from("reply_helper_runs").select("id", { count: "exact", head: true }).eq("user_id", id),
+    sb.from("reply_helper_runs").select("id", { count: "exact", head: true }).eq("user_id", id).eq("day", new Date().toISOString().slice(0, 10))
+  ]);
+  const replyReady = !replyThreads.error && !replyRuns.error;
   const held = (profile?.report_hold as string | null | undefined) ?? null;
   if (!profile) notFound();
   const matchIds = (matches ?? []).map((m) => m.id);
@@ -87,6 +94,13 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         </p>
         <PackPreview content={pack?.content} />
         <OpForm action={generatePackAction.bind(null, id)} label={pack ? "Write the pack again" : "Write the pack now"}><span className={styles.muted}>Uses the daily pack budget. Reload the page after a minute.</span></OpForm>
+      </section>
+
+      <section className={styles.card} data-testid="reply-usage">
+        <h2 className={styles.subhead}>Reply helper</h2>
+        <p className={styles.sub}>
+          {replyReady ? <><strong>{replyThreads.count ?? 0}</strong> reply session{(replyThreads.count ?? 0) === 1 ? "" : "s"} saved · {replyRuns.count ?? 0} model run{(replyRuns.count ?? 0) === 1 ? "" : "s"} in total · {replyToday.count ?? 0} today. Counts only: the chats and drafts are the user&rsquo;s and are not shown here.</> : <span className={styles.muted}>Not enabled yet (run supabase/2026-11-21-reply-helper.sql).</span>}
+        </p>
       </section>
 
       <section className={styles.card}>

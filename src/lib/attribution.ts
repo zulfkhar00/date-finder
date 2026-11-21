@@ -18,7 +18,7 @@ export const REF_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 export const ONBOARDING_STEP_EVENTS = ["ob_code_sent", "ob_apps", "ob_about", "ob_type", "ob_photos", "ob_consent", "ob_pay"] as const;
 export const CLIENT_EVENTS = ["page_view", "get_started", "reserve_start", "reserve_step_2", "reserve_step_3", "onboarding_complete", "checkout_canceled", "resume_card_view", "resume_card_click", "checkout_blocked_country", ...ONBOARDING_STEP_EVENTS, ...CHECKOUT_CLIENT_EVENTS] as const;
 export type ClientEventName = (typeof CLIENT_EVENTS)[number];
-export const SERVER_EVENTS = ["checkout_created", "paid", "stripe_payment_failed", "stripe_session_expired", "paid_country_review", "signup_confirmed"] as const;
+export const SERVER_EVENTS = ["checkout_created", "paid", "stripe_payment_failed", "stripe_session_expired", "paid_country_review", "signup_confirmed", "reply_helper_used", "reply_copied"] as const;
 export type FunnelEventName = (typeof CLIENT_EVENTS)[number] | (typeof SERVER_EVENTS)[number];
 
 export function cleanUtm(value: unknown): string | undefined {

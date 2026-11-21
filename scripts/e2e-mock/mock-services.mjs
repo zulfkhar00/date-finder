@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // ---- schema facts copied from supabase/*.sql so the mock rejects what Postgres would reject ----
 const sqlDir = path.join(here, "../../supabase");
 const eventList = (() => {
-  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-20-checkout-forensics.sql"), "utf8");
+  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-21-reply-helper.sql"), "utf8"); // the newest migration that defines the event list
   const body = sql.slice(sql.indexOf("check (event in ("));
   return [...body.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]);
 })();
@@ -34,10 +34,10 @@ const CHECKS = {
   // supabase/2026-11-20-fulfilment.sql
   app_accounts: (r) => ["setting_up", "needs_client_action", "active", "live", "paused", "closed"].includes(r.status) && (r.client_action_reason == null || (r.client_action_reason.length >= 1 && r.client_action_reason.length <= 200))
 };
-const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], fulfilment_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [] };
+const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], fulfilment_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [], reply_threads: [], reply_helper_runs: [] };
 const PK = { profiles: "user_id", preferences: "user_id", photo_flags: "photo_id" };
 
-const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], photo_flags: [], reports: [], reports_events: [], fulfilment_events: [] };
+const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], reply_threads: [], reply_helper_runs: [], photo_flags: [], reports: [], reports_events: [], fulfilment_events: [] };
 let runSeq = 0;
 const users = new Map(); // id -> {id,email,otp,otp_hash}
 const outbox = { email: [], telegram: [] };
@@ -141,9 +141,11 @@ async function rest(req, res, url) {
     const inserted = [];
     for (const input of list) {
       const row = { ...input };
-      if (!(PK[table]) && !row.id) row.id = table === "starter_pack_runs" ? ++runSeq : crypto.randomUUID();
+      if (!(PK[table]) && !row.id) row.id = table === "starter_pack_runs" || table === "reply_helper_runs" ? ++runSeq : crypto.randomUUID();
       if (table === "starter_packs") Object.assign(row, { version: 1, status: "pending", content: null, attempts: 0, last_error: null, tokens: 0, model: null, lease_until: null, next_attempt_at: null, generated_at: null, updated_at: now, ...input });
       if (table === "starter_pack_runs") Object.assign(row, { day: now.slice(0, 10), kind: "auto", tokens: 0, ...input });
+      if (table === "reply_helper_runs") Object.assign(row, { day: now.slice(0, 10), kind: "new", tokens: 0, outcome: null, finished_at: null, ...input });
+      if (table === "reply_threads") Object.assign(row, { updated_at: now, runs: 1, ...input });
       row.created_at ??= now;
       if (table === "fulfilment_events") row.at ??= now;
       if (table === "reservations") { row.status ??= "pending"; row.stripe_checkout_session_id ??= null; row.stripe_payment_intent_id ??= null; row.queue_position ??= null; }
@@ -175,9 +177,10 @@ async function rest(req, res, url) {
   if (req.method === "DELETE") {
     const test = matcher(params);
     const keep = rows.filter((r) => !test(r));
+    const removed = rows.filter((r) => test(r));
     const gone = rows.length - keep.length;
     rows.length = 0; rows.push(...keep);
-    return send(res, prefer.includes("return=representation") ? 200 : 204, prefer.includes("return=representation") ? [] : undefined, { "x-deleted": String(gone) });
+    return send(res, prefer.includes("return=representation") ? 200 : 204, prefer.includes("return=representation") ? project(removed, params.get("select")) : undefined, { "x-deleted": String(gone) });
   }
   return send(res, 405, { message: "unsupported" });
 }
@@ -340,8 +343,8 @@ async function storage(req, res, url) {
 }
 
 // ---- Anthropic (stub model for the starter pack). Deterministic text; never the real API. ----
-// Control: GET /__anthropic?mode=ok|rate_limit|refuse|flag&delay=<ms> (flag: the photo call flags photo 2 for review). Request contents are never recorded, only counts.
-const anthropic = { mode: "ok", delayMs: 0, calls: 0, vision: 0 };
+// Control: GET /__anthropic?mode=ok|rate_limit|refuse|flag|unreadable&delay=<ms> (unreadable: the Reply helper answers 'unreadable', as for a blurry screenshot) (flag: the photo call flags photo 2 for review). Request contents are never recorded, only counts.
+const anthropic = { mode: "ok", delayMs: 0, calls: 0, vision: 0, reply: 0, replyImages: 0 };
 function stubPack(apps) {
   const bios = { hinge: "Night-shift nurse who climbs on weekends and has opinions about ramen.", tinder: "Night-shift nurse. Climbs on weekends, eats ramen after, replies faster than you would expect.", bumble: "Nurse, climber, ramen critic. Message me a place that deserves a second visit.", general: "Nurse who climbs and eats ramen. Ask me about either." };
   return {
@@ -362,6 +365,27 @@ function stubPack(apps) {
     datePlan: { headline: "Coffee and a short walk", venues: [{ type: "a quiet coffee place with outdoor seating", why: "Easy to hear each other, easy to leave." }, { type: "a short walk through a busy park", why: "Keeps it light if the coffee runs out." }], when: "Saturday, about 11am", budget: "$10-20 each", backup: "An indoor bookshop cafe if it rains.", tip: "Meet in public and tell a friend where you are." }
   };
 }
+function stubReply(prompt) {
+  const es = /jaja|¿/.test(prompt);
+  const tweak = /noticeably more playful/.test(prompt) ? "playful" : /more direct/.test(prompt) ? "direct" : /Make all three shorter/.test(prompt) ? "shorter" : /clearly different from the earlier drafts/.test(prompt) ? "again" : "first";
+  const sets = {
+    first: [["Answer + ask", "Sacrament, and I will defend it. What is your midnight food crime?"], ["Light tease", "Bold words from someone who has clearly never had good tonkotsu at 1am."], ["Sincere", "Honestly it is how I decompress after a long shift. What do you do to unwind?"]],
+    again: [["Curious", "Okay, now I need your ranking: ramen, pizza, or breakfast for dinner?"], ["Dry", "I respect the confidence. Wrong, but I respect it."], ["Warm", "Long shifts make everything taste better. Tell me your comfort meal and I will tell you mine."]],
+    playful: [["Playful", "A crime? Officer, I plead guilty and I want a second bowl."], ["Teasing", "You say crime like you have not already checked the ramen map near you."], ["Cheeky", "Fine, I will let you win this one. Only if you pick the place."]],
+    direct: [["Direct", "Ramen at midnight is great. What are you up to this week?"], ["Plain", "Agree to disagree on midnight ramen. Want to argue it over a meal?"], ["Straight", "I like talking to you. Free for coffee this week?"]],
+    shorter: [["Short", "Sacrament. Your turn."], ["Short tease", "Never had good tonkotsu, clearly."], ["Short sincere", "It helps after shifts. You?"]]
+  };
+  const set = es ? [["Pregunta", "Jaja, ¿y tú qué cenas a medianoche?"], ["Broma", "Eso es un crimen que acepto con gusto."], ["Sincera", "La verdad, me encanta cenar tarde después del turno."]] : sets[tweak];
+  return {
+    status: "ok", language: es ? "Spanish" : "English",
+    read: es ? "Ella es cálida y te hace preguntas. Buen ritmo." : "She is warm, joking back and asking you questions. Good momentum.",
+    transcript: [{ from: "them", text: es ? "jaja ¿qué haces?" : "ramen at midnight is a crime" }, { from: "me", text: es ? "nada, cenando ramen" : "Counterpoint: it is a sacrament" }],
+    replies: set.map(([angle, text]) => ({ angle, text })),
+    dateMove: { ready: true, line: es ? "Me gusta hablar contigo. ¿Un café esta semana, en un sitio fácil para irse?" : "I am enjoying this. Coffee this week, somewhere easy to leave if we hate each other?", plans: [
+      { title: es ? "Café y paseo" : "Coffee and a short walk", detail: es ? "Sábado a media mañana en una cafetería tranquila con terraza, luego un paseo corto." : "Saturday late morning at a quiet coffee place with outdoor seating, then a short walk. Public and easy to leave." },
+      { title: es ? "Ramen temprano" : "Early ramen counter", detail: es ? "Jueves sobre las 18:00 en un local informal de ramen. Corto y público." : "Thursday around 6pm at a casual ramen counter in the centre. Short, public, easy to wrap up." }] }
+  };
+}
 async function anthropicApi(req, res, url) {
   if (url.pathname !== "/anthropic/v1/messages") return send(res, 404, { type: "error", error: { type: "not_found_error", message: "not mocked" } });
   const body = JSON.parse((await read(req)) || "{}");
@@ -373,6 +397,11 @@ async function anthropicApi(req, res, url) {
   const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");
   const reply = (text, stop = "end_turn") => send(res, 200, { id: `msg_mock_${rand(8)}`, type: "message", role: "assistant", model: body.model, content: [{ type: "text", text }], stop_reason: stop, stop_sequence: null, usage: { input_tokens: 1500 + images * 1500, output_tokens: 900 } });
   if (anthropic.mode === "refuse") return reply("", "refusal");
+  if (typeof body.system === "string" && body.system.includes("reply helper inside NoSwipe")) {
+    anthropic.reply += 1; anthropic.replyImages += images;
+    if (anthropic.mode === "unreadable") return reply(JSON.stringify({ status: "unreadable" }));
+    return reply(JSON.stringify(stubReply(prompt)));
+  }
   if (images > 0) {
     anthropic.vision += 1;
     const roles = ["keep", "lead", "drop", "keep", "keep", "keep"];
@@ -423,7 +452,7 @@ http.createServer(async (req, res) => {
     if (url.pathname.startsWith("/anthropic/")) return await anthropicApi(req, res, url);
     if (url.pathname === "/__anthropic") { Object.assign(anthropic, { mode: url.searchParams.get("mode") || "ok", delayMs: Number(url.searchParams.get("delay") || 0) }); return send(res, 200, anthropic); }
     if (url.pathname === "/__outbox") return send(res, 200, outbox);
-    if (url.pathname === "/__state") return send(res, 200, { anthropic: { calls: anthropic.calls, vision: anthropic.vision, mode: anthropic.mode }, db, stripeSessions: [...stripe.sessions.values()], stripeViolations: stripe.violations, eventList });
+    if (url.pathname === "/__state") return send(res, 200, { anthropic: { calls: anthropic.calls, vision: anthropic.vision, reply: anthropic.reply, replyImages: anthropic.replyImages, mode: anthropic.mode }, db, stripeSessions: [...stripe.sessions.values()], stripeViolations: stripe.violations, eventList });
     if (url.pathname === "/__stripe/fail") { const r = await failPayment(url.searchParams); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
     if (url.pathname === "/__stripe/expire") { const r = await expireSession(url.searchParams); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
     if (url.pathname === "/__stripe/pay") { const r = await pay(url.searchParams.get("session")); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }

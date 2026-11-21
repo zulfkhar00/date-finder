@@ -60,12 +60,13 @@ function StepTable({ dimension, rows, limit = 10 }: { dimension: string; rows: D
   );
 }
 
-export function SourcesSection({ data, range }: { data: SourcesData; range: RangeKey }) {
+export function SourcesSection({ data, range, includeSuspect = false }: { data: SourcesData; range: RangeKey; includeSuspect?: boolean }) {
   const { stats: c, window } = data;
   const href = (w: SourceWindow) => {
     const q = new URLSearchParams();
     if (range !== "7d") q.set("range", range);
     if (w !== "30d") q.set("sources", w);
+    if (includeSuspect) q.set("suspect", "1");
     const qs = q.toString();
     return `/admin/traffic${qs ? `?${qs}` : ""}#sources`;
   };

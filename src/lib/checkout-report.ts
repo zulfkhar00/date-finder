@@ -7,11 +7,12 @@
 // (00000000-...), bot devices, and webhook rows from Stripe test mode (detail.test).
 
 import { checkoutIdFromKey, failureLabel, type CheckoutDetail } from "@/lib/checkout-events";
+import { counts as qualityCounts, sessionQualities, summariseFiltered, type FilteredSessions, type QualityEvent } from "@/lib/bot-quality";
 import { internalSessionIds, splitReservations, type ReservationRow } from "@/lib/real-funnel";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export type CheckoutEventRow = {
+export type CheckoutEventRow = Partial<Pick<QualityEvent, "quality" | "utm_source" | "referrer_host" | "in_app_source" | "landing_path">> & {
   created_at: string;
   event: string;
   session_id: string | null;
@@ -41,7 +42,11 @@ export type CheckoutReport = {
   paidWithoutBrowserEvents: number;
   /** Failure rows Stripe sent that could not be tied to a Checkout Session. */
   unlinkedFailures: number;
-  excluded: { bots: number; internal: number; stripeTest: number };
+  excluded: { bots: number; internal: number; stripeTest: number; /** Distinct unpaid checkouts from suspect sessions (0 when suspect sessions are included). */ suspect: number };
+  /** Sessions left out as bots / suspect in the window, with reasons (for the admin note). */
+  filteredSessions: FilteredSessions;
+  /** Suspect sessions in the window that the toggle would add back (0 when already included). */
+  suspectSessions: number;
 };
 
 type Failure = { source: "stripe" | "browser"; reason: string; cardCountry: string | null };
@@ -66,12 +71,15 @@ const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 :
 /** Reservations our own integration runs left behind: city "Integration test". Treated like any example.test address. */
 const INTEGRATION_CITY = /integration test/i;
 
-export function computeCheckoutReport(events: CheckoutEventRow[], reservationRows: (ReservationRow & { city?: string | null })[], now = new Date(), sinceDays = 30, internalUserIds: ReadonlySet<string> = new Set()): CheckoutReport {
+export function computeCheckoutReport(events: CheckoutEventRow[], reservationRows: (ReservationRow & { city?: string | null })[], now = new Date(), sinceDays = 30, options: { includeSuspect?: boolean; internalUserIds?: ReadonlySet<string> } = {}): CheckoutReport {
+  const includeSuspect = options.includeSuspect ?? false;
   const sinceMs = now.getTime() - sinceDays * DAY;
   const allReservations = reservationRows.map((r) => (r.city && INTEGRATION_CITY.test(r.city) ? { ...r, email: "integration-test@example.test" } : r));
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
-  const internal = internalSessionIds(events, badStripeSessions, internalUserIds);
-  const excluded = { bots: 0, internal: 0, stripeTest: 0 };
+  const internal = internalSessionIds(events, badStripeSessions, options.internalUserIds);
+  const excluded = { bots: 0, internal: 0, stripeTest: 0, suspect: 0 };
+  const qualities = sessionQualities(events.filter((e) => !(e.session_id && internal.has(e.session_id))), now.getTime());
+  const suspectIds = new Set<string>();
   // A checkout any of whose rows belongs to a probe session or a bot is not a real user's, even when
   // its reservation (which carries no device or session) looks ordinary.
   const excludedIds = new Set<string>();
@@ -98,6 +106,11 @@ export function computeCheckoutReport(events: CheckoutEventRow[], reservationRow
     if (e.device === "bot") { if (id) excludedIds.add(id); if (at >= sinceMs) excluded.bots += 1; continue; }
     if (e.detail?.test || (id && (id.startsWith("cs_test_") || badStripeSessions.has(id)))) { if (at >= sinceMs) excluded.stripeTest += 1; continue; }
 
+    if (e.session_id && !qualityCounts(qualities.get(e.session_id)?.quality, { includeSuspect })) {
+      // Bots were already dropped by device above; this catches suspect sessions (and bots the device check missed).
+      if (id) { excludedIds.add(id); if (at >= sinceMs) suspectIds.add(id); }
+      continue;
+    }
     if (e.event === "stripe_payment_failed") {
       const failure: Failure = { source: "stripe", reason: failureLabel(e.detail ?? {}), cardCountry: e.detail?.card_country ?? null };
       if (!id) { if (at >= sinceMs) unlinked.push(failure); continue; }
@@ -187,6 +200,8 @@ export function computeCheckoutReport(events: CheckoutEventRow[], reservationRow
     return [...rows.values()].sort((a, b) => b.opened - a.opened || a.key.localeCompare(b.key));
   };
 
+  excluded.suspect = suspectIds.size;
+  const inWindowSession = (firstAt: number) => firstAt >= sinceMs;
   return {
     sinceDays,
     steps,
@@ -197,7 +212,9 @@ export function computeCheckoutReport(events: CheckoutEventRow[], reservationRow
     failedCardCountries: [...cardCountries].map(([key, attempts]) => ({ key, attempts })).sort((a, b) => b.attempts - a.attempts || a.key.localeCompare(b.key)),
     paidWithoutBrowserEvents: inWindow.filter((c) => c.paid && !c.browserEvents).length,
     unlinkedFailures: unlinked.length,
-    excluded
+    excluded,
+    filteredSessions: summariseFiltered(qualities, { includeSuspect }, inWindowSession),
+    suspectSessions: includeSuspect ? 0 : summariseFiltered(qualities, { includeSuspect }, inWindowSession).suspect
   };
 }
 

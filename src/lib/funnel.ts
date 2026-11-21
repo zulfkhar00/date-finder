@@ -16,7 +16,7 @@ type FunnelEvent = {
   firstTouch?: FirstTouch | null;
   /** Checkout diagnostics (supabase/2026-11-20-checkout-forensics.sql): short whitelisted tokens only. */
   detail?: CheckoutDetail;
-  /** Signed-in account behind the event (supabase/2026-11-21-funnel-account-link.sql). Never an email. */
+  /** Signed-in account behind the event (supabase/2026-11-22-funnel-account-link.sql). Never an email. */
   account?: { userId: string; internal: boolean } | null;
   /** When set, a repeated insert with the same key is ignored (e.g. Stripe webhook retries, double fires). */
   dedupeKey?: string;
@@ -37,11 +37,13 @@ export function funnelRowAttempts(input: FunnelEvent): Record<string, unknown>[]
   };
   const allTraffic = Object.fromEntries(Object.entries({ ...(input.traffic ?? {}), ...firstTouchColumns(input.firstTouch ?? null) }).filter(([, value]) => value !== null && value !== undefined));
   // Columns from 2026-11-21-first-touch.sql: dropped first, so the older traffic columns keep flowing before it is applied.
-  const traffic = Object.fromEntries(Object.entries(allTraffic).filter(([key]) => key !== "in_app_source" && !key.startsWith("first_touch_")));
+  // quality (2026-11-22-session-quality.sql) is the newest column: it goes first when the migration is not in.
+  const withoutQuality = Object.fromEntries(Object.entries(allTraffic).filter(([key]) => key !== "quality"));
+  const traffic = Object.fromEntries(Object.entries(withoutQuality).filter(([key]) => key !== "in_app_source" && !key.startsWith("first_touch_")));
   const detail = input.detail && Object.keys(input.detail).length > 0 ? { detail: input.detail } : {};
   const ref = input.ref ? { ref: input.ref } : {};
   const account = input.account ? { user_id: input.account.userId, account_internal: input.account.internal } : {};
-  const shapes = [{ ...base, ...ref, ...allTraffic, ...detail, ...account }, { ...base, ...ref, ...allTraffic, ...detail }, { ...base, ...ref, ...traffic, ...detail }, { ...base, ...ref, ...traffic }, { ...base, ...ref }, base];
+  const shapes = [{ ...base, ...ref, ...allTraffic, ...detail, ...account }, { ...base, ...ref, ...allTraffic, ...detail }, { ...base, ...ref, ...withoutQuality, ...detail }, { ...base, ...ref, ...traffic, ...detail }, { ...base, ...ref, ...traffic }, { ...base, ...ref }, base];
   return shapes.filter((row, i) => i === 0 || Object.keys(row).length !== Object.keys(shapes[i - 1]).length);
 }
 

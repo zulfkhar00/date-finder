@@ -11,7 +11,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 // the emailed link) so every path counts once, and a repeat login never counts again.
 // Separate from "Get started clicks": a click is intent, a confirmation is a real mailbox.
 // External only: internal accounts (founder / test emails, profiles.internal) are dropped by the same
-// classification the funnel uses. Rows before supabase/2026-11-21-funnel-account-link.sql do not exist,
+// classification the funnel uses. Rows before supabase/2026-11-22-funnel-account-link.sql do not exist,
 // so counts start at `captureSince`; nothing is backfilled or guessed.
 
 const DAY = 24 * 60 * 60 * 1000;

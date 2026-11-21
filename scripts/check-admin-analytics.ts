@@ -61,9 +61,9 @@ assert.equal(normalizeChannel("TikTok"), "tiktok");
 // ---- server-side capture drops everything but the reduced fields ----
 const fields = trafficFromRequest(
   { utmSource: "instagram", utmMedium: "social", referrer: "https://l.instagram.com/x?secret=1", landingPath: "/?email=a@b.c" },
-  h({ "user-agent": IPHONE, "cf-ipcountry": "DE" })
+  h({ "user-agent": IPHONE, "cf-ipcountry": "DE", "accept-language": "de-DE,de;q=0.9" })
 );
-assert.deepEqual(fields, { in_app_source: null, utm_source: "instagram", utm_medium: "social", utm_content: null, referrer_host: "l.instagram.com", landing_path: "/", device: "mobile", country: "DE" });
+assert.deepEqual(fields, { in_app_source: null, utm_source: "instagram", utm_medium: "social", utm_content: null, referrer_host: "l.instagram.com", landing_path: "/", device: "mobile", country: "DE", quality: "human" });
 assert.equal(JSON.stringify(fields).includes("Mozilla"), false, "no UA stored");
 
 // ---- period deltas ----
@@ -103,6 +103,7 @@ const events: TrafficEvent[] = [
   ev(A, "checkout_created", t0 + 60_000, { dedupe_key: "checkout_created:cs_live_A" }),
   ev(A, "paid", t0 + 600_000, { dedupe_key: "paid:cs_live_A" }),
   ev(B, "page_view", t0 + HOUR / 2, { landing_path: "/guides/tinder-bio", device: "desktop" }),
+  ev(B, "page_view", t0 + HOUR / 2 + 20_000, { landing_path: "/guides/tinder-bio", device: "desktop" }), // second page: engaged, so not an unengaged one-view direct visit
   ev(C, "page_view", t0, { landing_path: "/", device: "desktop", utm_source: "instagram" }),
   ev(C, "checkout_created", t0 + 5_000, { dedupe_key: "checkout_created:cs_live_C" }),
   ev(PROBE, "page_view", t0, { landing_path: "/", device: "desktop" }),

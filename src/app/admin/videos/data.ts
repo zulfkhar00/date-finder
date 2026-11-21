@@ -89,7 +89,7 @@ async function getInstagramVisits(days: number): Promise<InstagramVisits | null>
   try {
     const nowMs = Date.now();
     const rows = await loadTrafficRows(nowMs - (days + 1) * DAY);
-    const model = buildTrafficModel(rows.events, rows.reservations, undefined, rows.internalUserIds);
+    const model = buildTrafficModel(rows.events, rows.reservations, undefined, { internalUserIds: rows.internalUserIds });
     const counts = new Map<string, number>();
     const byShortcode = new Map<string, number>();
     let total = 0;

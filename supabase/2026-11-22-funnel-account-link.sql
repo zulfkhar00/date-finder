@@ -1,6 +1,6 @@
 -- Funnel account link + confirmed signups. Idempotent and additive: nothing is dropped or rewritten,
--- existing rows keep NULL in the new columns. Run after 2026-11-20-paid-country-gate.sql (the event list
--- below is its list plus signup_confirmed). The app keeps working before this is applied: inserts fall back
+-- existing rows keep NULL in the new columns. Run after 2026-11-21-reply-helper.sql (the event list
+-- below is its list plus signup_confirmed; it must keep reply_helper_used / reply_copied or applying this would drop them). The app keeps working before this is applied: inserts fall back
 -- to the older row shapes, the funnel keeps its old (session-only) exclusions, and the digest shows
 -- "Confirmed signups: n/a" instead of a made-up zero.
 --
@@ -31,5 +31,6 @@ alter table public.funnel_events add constraint funnel_events_event_check
     'checkout_form_ready', 'checkout_form_error', 'payment_submit', 'payment_error', 'checkout_closed',
     'stripe_payment_failed', 'stripe_session_expired',
     'checkout_blocked_country', 'paid_country_review',
+    'reply_helper_used', 'reply_copied',
     'signup_confirmed'
   ));

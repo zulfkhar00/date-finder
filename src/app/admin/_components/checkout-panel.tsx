@@ -14,6 +14,12 @@ export function CheckoutPanelCard({ panel }: { panel: CheckoutPanel }) {
       <p className={`${styles.sub} ${styles.noteTight}`}>
         Per Checkout Session, real users only (founders, test emails, &ldquo;Integration test&rdquo; rows, Stripe test mode, probe sessions and bots excluded). Opened and paid come from reservations; the rest from the payment form and Stripe&rsquo;s webhook.
       </p>
+      <p className={styles.sub}>
+        {panel.includeSuspect ? "Includes checkouts from suspect sessions. " : "Human sessions only: unpaid checkouts from suspect sessions are left out; a paid checkout is always counted. "}
+        {panel.filteredNote ?? "No bots or suspect sessions in this range."}
+        {panel.excluded.suspect > 0 ? ` ${formatInt(panel.excluded.suspect)} unpaid checkout(s) hidden.` : ""}
+        {!panel.qualityCaptured ? " Request checks (language, network) start once supabase/2026-11-22-session-quality.sql is applied." : ""}
+      </p>
       {!panel.diagnosticsCaptured ? <p className={styles.sub}>Payment-form and Stripe failure events are not captured yet (apply supabase/2026-11-20-checkout-forensics.sql); only opened and paid are real.</p> : null}
       {panel.diagnosticsCaptured && !panel.geoCaptured ? <p className={styles.sub}>No country or device captured yet.</p> : null}
 

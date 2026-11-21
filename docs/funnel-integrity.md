@@ -23,7 +23,7 @@ on reservations, `cs_test_` Stripe test mode, probe session ids (`00000000-`, se
 Never inferred from IP, device or user agent.
 
 ## Unclassifiable data (documented gaps)
-- Rows written before `supabase/2026-11-21-funnel-account-link.sql` have no account. A founder session from then that
+- Rows written before `supabase/2026-11-22-funnel-account-link.sql` have no account. A founder session from then that
   never reached a checkout still counts and cannot be recovered.
 - A founder browsing as a guest in a tab that never signs in has no account link; only `?internal=1` or a checkout
   excludes it.
