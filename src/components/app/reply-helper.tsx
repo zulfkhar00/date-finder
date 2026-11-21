@@ -28,6 +28,17 @@ async function shrink(file: File): Promise<Blob> {
   return file;
 }
 
+/** Identifies a chosen file by its content, so picking the same screenshot twice (even a re-saved copy) counts once. */
+async function fingerprint(file: File): Promise<string> {
+  try {
+    const head = await file.slice(0, 65536).arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", head);
+    return `${file.size}:${Array.from(new Uint8Array(digest).slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  } catch {
+    return `${file.name}:${file.size}:${file.lastModified}`;
+  }
+}
+
 const when = (iso: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
 
 export function ReplyHelper({ threads: initial, activeId = null }: { threads: ThreadView[]; activeId?: string | null }) {
@@ -50,8 +61,9 @@ export function ReplyHelper({ threads: initial, activeId = null }: { threads: Th
     setNotice(null); setFailure(null);
     const fresh: { file: File; key: string }[] = [];
     for (const f of Array.from(list)) {
-      const key = `${f.name}:${f.size}:${f.lastModified}`;
-      if (seen.current.has(key) || !f.type.startsWith("image/")) continue; // the same screenshot twice counts once
+      if (!f.type.startsWith("image/")) continue;
+      const key = await fingerprint(f);
+      if (seen.current.has(key)) continue; // the same screenshot twice counts once
       seen.current.add(key);
       fresh.push({ file: f, key });
     }

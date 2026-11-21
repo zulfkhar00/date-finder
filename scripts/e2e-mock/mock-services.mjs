@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // ---- schema facts copied from supabase/*.sql so the mock rejects what Postgres would reject ----
 const sqlDir = path.join(here, "../../supabase");
 const eventList = (() => {
-  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-20-checkout-forensics.sql"), "utf8");
+  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-21-reply-helper.sql"), "utf8"); // the newest migration that defines the event list
   const body = sql.slice(sql.indexOf("check (event in ("));
   return [...body.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]);
 })();
@@ -177,9 +177,10 @@ async function rest(req, res, url) {
   if (req.method === "DELETE") {
     const test = matcher(params);
     const keep = rows.filter((r) => !test(r));
+    const removed = rows.filter((r) => test(r));
     const gone = rows.length - keep.length;
     rows.length = 0; rows.push(...keep);
-    return send(res, prefer.includes("return=representation") ? 200 : 204, prefer.includes("return=representation") ? [] : undefined, { "x-deleted": String(gone) });
+    return send(res, prefer.includes("return=representation") ? 200 : 204, prefer.includes("return=representation") ? project(removed, params.get("select")) : undefined, { "x-deleted": String(gone) });
   }
   return send(res, 405, { message: "unsupported" });
 }

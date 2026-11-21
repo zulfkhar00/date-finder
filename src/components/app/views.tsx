@@ -5,6 +5,7 @@ import { AppBadge, Avatar, Empty, ModePill, RowLink } from "@/components/app/ui"
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
 import { StarterPack } from "@/components/app/starter-pack";
+import { ReplyHelperCard } from "@/components/app/reply-helper-card";
 import type { ChatSummary, SetupItem } from "@/lib/app/data";
 import { APP_LABELS, APPS, splitDates, type AppAccountRow, type DateRow } from "@/lib/app/domain";
 import { appCopy, type CopyContext } from "@/lib/app/status-copy";
@@ -161,17 +162,6 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
         </>
       ) : null}
     </>
-  );
-}
-
-/** The Reply helper entry point: one line on what it does and one button. Real app only (not /demo). */
-export function ReplyHelperCard({ empty }: { empty?: boolean }) {
-  return (
-    <section className="app-card rh-cta" aria-label="Reply helper" data-testid="reply-helper-cta" data-empty={empty ? "true" : undefined}>
-      <div className="sp-head"><Sparkles size={18} aria-hidden /><h2>Reply helper</h2></div>
-      <p>{empty ? "No chats here yet, but you can use this today: upload a screenshot of any chat and get three replies in your own voice." : "Stuck on what to say? Upload a screenshot of any chat and get three replies in your voice."}</p>
-      <Link href="/chats/reply" className="app-btn">Get replies<ChevronRight size={18} aria-hidden /></Link>
-    </section>
   );
 }
 

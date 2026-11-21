@@ -173,6 +173,7 @@ await shot(page, "08-reply-spanish");
 // A blurry or unrelated screenshot: asks for a clearer one
 await mock("/__anthropic?mode=unreadable&delay=0");
 await page.getByRole("button", { name: "Start another chat" }).click();
+await page.getByRole("tab", { name: "Screenshots" }).click();
 await page.getByTestId("rh-file").setInputFiles([SHOTS[2]]);
 await page.getByTestId("rh-submit").click();
 await page.getByTestId("rh-error").waitFor({ timeout: 20000 });
@@ -201,7 +202,7 @@ log.checks.funnelHasNoContent = state.db.funnel_events.filter((e) => /^reply_/.t
 
 // Delete one thread
 await page.locator(".rh-del").first().click();
-await page.waitForFunction((n) => document.querySelectorAll(".rh-saved-row").length === n, log.checks.savedThreads - 1, null, { timeout: 8000 });
+await page.waitForFunction((n) => document.querySelectorAll(".rh-saved-row").length === n, log.checks.savedThreads - 1, { timeout: 8000 });
 log.checks.deleteWorks = true;
 await ctx.close();
 
@@ -209,12 +210,17 @@ await ctx.close();
 {
   const actx = await newContext(); const admin = await open(actx);
   await admin.goto(`${APP}/admin/login`);
-  for (let i = 0; i < 6; i++) { await admin.locator('input[name="email"]').fill(ADMIN); await admin.getByRole("button", { name: /code|Continue|Sign in/i }).first().click(); if (await admin.locator('input[name="code"]').waitFor({ timeout: 5000 }).then(() => true, () => false)) break; }
+  await admin.locator('input[name="email"]').fill(ADMIN);
+  for (let i = 0; i < 4; i++) {
+    await admin.getByRole("button", { name: /Email me a sign-in link/ }).click({ timeout: 3000 }).catch(() => {});
+    if (await admin.locator('input[name="code"]').waitFor({ timeout: 5000 }).then(() => true, () => false)) break;
+  }
   const mail = await mock("/__outbox");
   const code = [...mail.email].reverse().find((m) => m.to.includes(ADMIN))?.text.match(/\b(\d{6,10})\b/)?.[1];
+  if (!code) throw new Error("no admin code in the mock outbox");
   await admin.locator('input[name="code"]').fill(code);
-  await admin.getByRole("button", { name: /Sign in|Verify|Continue/i }).first().click();
-  await admin.waitForURL("**/admin**", { timeout: 20000 });
+  await admin.getByRole("button", { name: "Sign in" }).click();
+  await admin.waitForURL("**/admin", { timeout: 20000 });
   await admin.goto(`${APP}/admin/clients/${user.id}`);
   await admin.getByTestId("reply-usage").waitFor({ timeout: 20000 });
   log.checks.adminUsage = await admin.getByTestId("reply-usage").innerText();
