@@ -125,7 +125,7 @@ assert.equal(month.visitors, 3, "30d: + the legacy session (unclassifiable, coun
 assert.equal(internalSessionIds(events, new Set(), internalUsers).has(EXT_GUEST), false);
 assert.equal(internalSessionIds(events, new Set(), internalUsers).has(EXT), false);
 // The admin traffic model uses the same exclusion.
-const model = buildTrafficModel(events, reservations, internalUsers);
+const model = buildTrafficModel(events, reservations, undefined, internalUsers);
 assert.equal(model.sessions.has(FOUNDER_S), false);
 assert.equal(model.sessions.has(FLAGGED_S), false);
 assert.equal(model.sessions.has(GUEST_THEN_FOUNDER), false);

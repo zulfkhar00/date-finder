@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FunnelEventName } from "@/lib/attribution";
 import type { CheckoutDetail } from "@/lib/checkout-events";
-import type { TrafficFields } from "@/lib/traffic";
+import { firstTouchColumns, type FirstTouch, type TrafficFields } from "@/lib/traffic";
 
 type FunnelEvent = {
   event: FunnelEventName;
@@ -12,6 +12,8 @@ type FunnelEvent = {
   ref?: string | null;
   /** Source, landing page, device, country (supabase/2026-11-03-traffic.sql). */
   traffic?: Partial<TrafficFields>;
+  /** First-touch source/medium/campaign/landing (supabase/2026-11-21-first-touch.sql); sent on checkout_created and paid. */
+  firstTouch?: FirstTouch | null;
   /** Checkout diagnostics (supabase/2026-11-20-checkout-forensics.sql): short whitelisted tokens only. */
   detail?: CheckoutDetail;
   /** Signed-in account behind the event (supabase/2026-11-21-funnel-account-link.sql). Never an email. */
@@ -33,11 +35,13 @@ export function funnelRowAttempts(input: FunnelEvent): Record<string, unknown>[]
     utm_campaign: input.utmCampaign ?? null,
     dedupe_key: input.dedupeKey ?? null
   };
-  const traffic = Object.fromEntries(Object.entries(input.traffic ?? {}).filter(([, value]) => value !== null && value !== undefined));
+  const allTraffic = Object.fromEntries(Object.entries({ ...(input.traffic ?? {}), ...firstTouchColumns(input.firstTouch ?? null) }).filter(([, value]) => value !== null && value !== undefined));
+  // Columns from 2026-11-21-first-touch.sql: dropped first, so the older traffic columns keep flowing before it is applied.
+  const traffic = Object.fromEntries(Object.entries(allTraffic).filter(([key]) => key !== "in_app_source" && !key.startsWith("first_touch_")));
   const detail = input.detail && Object.keys(input.detail).length > 0 ? { detail: input.detail } : {};
   const ref = input.ref ? { ref: input.ref } : {};
   const account = input.account ? { user_id: input.account.userId, account_internal: input.account.internal } : {};
-  const shapes = [{ ...base, ...ref, ...traffic, ...detail, ...account }, { ...base, ...ref, ...traffic, ...detail }, { ...base, ...ref, ...traffic }, { ...base, ...ref }, base];
+  const shapes = [{ ...base, ...ref, ...allTraffic, ...detail, ...account }, { ...base, ...ref, ...allTraffic, ...detail }, { ...base, ...ref, ...traffic, ...detail }, { ...base, ...ref, ...traffic }, { ...base, ...ref }, base];
   return shapes.filter((row, i) => i === 0 || Object.keys(row).length !== Object.keys(shapes[i - 1]).length);
 }
 
@@ -100,13 +104,16 @@ export async function insertClientFunnelEvent(supabase: SupabaseClient, input: F
   }
 }
 
-export type CheckoutOrigin = { session_id: string | null; variant: string | null; utm_campaign: string | null; ref?: string | null; device?: string | null; country?: string | null };
+export type CheckoutOrigin = {
+  session_id: string | null; variant: string | null; utm_campaign: string | null; ref?: string | null; device?: string | null; country?: string | null;
+  first_touch_source?: string | null; first_touch_medium?: string | null; first_touch_campaign?: string | null; first_touch_landing?: string | null;
+};
 
 /** The checkout_created row of a Checkout Session: which funnel session, campaign, device and country it belongs to. Never throws. */
 export async function lookupCheckoutOrigin(supabase: SupabaseClient, checkoutSessionId: string): Promise<CheckoutOrigin | null> {
   const key = `checkout_created:${checkoutSessionId}`;
   try {
-    for (const columns of ["session_id, variant, utm_campaign, ref, device, country", "session_id, variant, utm_campaign, ref", "session_id, variant, utm_campaign"]) {
+    for (const columns of ["session_id, variant, utm_campaign, ref, device, country, first_touch_source, first_touch_medium, first_touch_campaign, first_touch_landing", "session_id, variant, utm_campaign, ref, device, country", "session_id, variant, utm_campaign, ref", "session_id, variant, utm_campaign"]) {
       const { data, error } = await supabase.from("funnel_events").select(columns).eq("dedupe_key", key).maybeSingle();
       if (error && isUndefinedColumn(error)) continue;
       if (error) { console.error("Funnel checkout lookup failed", error.code); return null; }
@@ -116,6 +123,10 @@ export async function lookupCheckoutOrigin(supabase: SupabaseClient, checkoutSes
     console.error("Funnel checkout lookup failed", error instanceof Error ? error.name : "unknown error");
   }
   return null;
+}
+
+function originFirstTouch(origin: CheckoutOrigin | null): FirstTouch | null {
+  return origin?.first_touch_source ? { source: origin.first_touch_source, medium: origin.first_touch_medium ?? null, campaign: origin.first_touch_campaign ?? null, landing: origin.first_touch_landing ?? null } : null;
 }
 
 function originTraffic(origin: CheckoutOrigin | null): Partial<TrafficFields> {
@@ -136,6 +147,7 @@ export async function recordPaidEvent(supabase: SupabaseClient, checkoutSessionI
     utmCampaign: origin?.utm_campaign,
     ref: origin?.ref,
     traffic: originTraffic(origin),
+    firstTouch: originFirstTouch(origin),
     dedupeKey: `paid:${checkoutSessionId}`
   });
 }

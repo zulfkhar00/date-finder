@@ -15,6 +15,10 @@ const TRAFFIC_COLS = "utm_source, utm_medium, utm_content, referrer_host, landin
 
 export type TrafficRows = {
   events: TrafficEvent[];
+  /** Stripe Checkout Session id -> first-touch source (empty until 2026-11-21-first-touch.sql is applied). */
+  firstTouchByStripe: Map<string, string>;
+  /** false until supabase/2026-11-21-first-touch.sql is applied. */
+  inAppColumn: boolean;
   reservations: ReservationRow[];
   /** Accounts flagged internal on their profile; with funnel_events.account_internal they drop signed-in internal sessions. */
   internalUserIds: Set<string>;
@@ -44,9 +48,14 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   const supabase = getSupabaseAdmin();
   const sinceIso = sinceMs === null ? null : new Date(sinceMs).toISOString();
   let trafficColumns = true;
-  // Newest shape first; each missing-column error falls to the next (account link, then traffic columns).
-  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, ${ACCOUNT_COLS}`, sinceIso);
-  if (undefinedColumn(result.error)) result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}`, sinceIso);
+  let inAppColumn = true;
+  // Newest shape first; each missing-column error falls to the next (in-app source, then account link, then traffic columns).
+  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, ${ACCOUNT_COLS}`, sinceIso);
+  if (undefinedColumn(result.error)) result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source`, sinceIso);
+  if (undefinedColumn(result.error)) {
+    inAppColumn = false;
+    result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}`, sinceIso);
+  }
   if (undefinedColumn(result.error)) {
     trafficColumns = false;
     result = await pageEvents(supabase, BASE_COLUMNS, sinceIso);
@@ -58,5 +67,26 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   // All reservations: a paid_at inside the window can belong to an older row.
   const reservations = await fetchAllRows<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at");
   const internalUserIds = await loadInternalUserIds(supabase);
-  return { events: result.rows, reservations, trafficColumns, internalUserIds };
+  return { events: result.rows, reservations, trafficColumns, inAppColumn, firstTouchByStripe: await loadFirstTouch(supabase), internalUserIds };
+}
+
+/** Best effort: the first-touch columns may not exist yet, and a failure here must never blank the page. */
+async function loadFirstTouch(supabase: SupabaseClient): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  try {
+    for (let from = 0; from < MAX_ROWS; from += PAGE) {
+      const { data, error } = await supabase.from("reservations").select("stripe_checkout_session_id, first_touch_source").not("first_touch_source", "is", null).order("created_at", { ascending: true }).order("id", { ascending: true }).range(from, from + PAGE - 1);
+      if (error) {
+        if (!undefinedColumn(error)) console.error("Admin traffic query failed", "reservations first touch", error.code ?? "unknown");
+        return out;
+      }
+      for (const r of (data ?? []) as { stripe_checkout_session_id: string | null; first_touch_source: string | null }[]) {
+        if (r.stripe_checkout_session_id && r.first_touch_source) out.set(r.stripe_checkout_session_id, r.first_touch_source);
+      }
+      if (!data || data.length < PAGE) break;
+    }
+  } catch {
+    console.error("Admin traffic query failed", "reservations first touch", "exception");
+  }
+  return out;
 }

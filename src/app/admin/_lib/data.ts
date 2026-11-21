@@ -79,7 +79,7 @@ export async function getOverview(sinceDays: number | null, days = 30): Promise<
   const current = computeRealFunnel(rows.events, rows.reservations, sinceDays, now, undefined, rows.internalUserIds);
   const previous = sinceDays === null ? null : computeRealFunnel(rows.events, rows.reservations, sinceDays * 2, now, nowMs - sinceDays * DAY, rows.internalUserIds);
 
-  const model = buildTrafficModel(rows.events, rows.reservations, rows.internalUserIds);
+  const model = buildTrafficModel(rows.events, rows.reservations, undefined, rows.internalUserIds);
   let fromMs = nowMs - (sinceDays ?? 30) * DAY;
   if (sinceDays === null) for (const s of model.sessions.values()) fromMs = Math.min(fromMs, s.firstAt);
   const range = periodStats(model, fromMs, nowMs + 1);
