@@ -147,3 +147,6 @@ export async function getStarterPack(sb: SupabaseClient, userId: string): Promis
   const content = parsed?.success ? parsed.data : null;
   return { status: content ? "ready" : data.status === "ready" ? "pending" : (data.status as PackStatus), content, last_error: data.last_error, generated_at: data.generated_at };
 }
+
+/** The server clock for a page render. A function of its own so pages read it without calling an impure global inside a component. */
+export const serverNow = (): number => Date.now();

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { adminEmailOrNull } from "@/lib/admin-auth";
 import * as core from "@/lib/automation/core";
+import { setRun } from "@/lib/activity/service";
 import { addNoteEvent } from "@/lib/fulfilment/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { startRegeneration } from "@/lib/starter-pack/service";
@@ -31,6 +32,31 @@ export async function setAppStatusAction(userId: string, _prev: OpState, formDat
   }
   revalidatePath("/admin/fulfilment");
   return done(result, userId, "Status saved");
+}
+
+/** The Run panel: which phone and internal account label run this client's app, and when their one-time login is scheduled. */
+export async function setRunAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const app = String(formData.get("app") ?? "");
+  const phoneId = String(formData.get("phoneId") ?? "").trim();
+  const accountRef = String(formData.get("accountRef") ?? "").trim();
+  const when = String(formData.get("loginAt") ?? "").trim();
+  const tz = Number(formData.get("tzOffset") ?? 0); // minutes behind UTC, from the admin's browser
+  let loginScheduledAt: string | null | undefined;
+  if (formData.get("clearLogin") === "1") loginScheduledAt = null;
+  else if (when) {
+    const t = new Date(`${when}:00Z`);
+    if (Number.isNaN(t.getTime())) return { error: "Pick a valid login time." };
+    loginScheduledAt = new Date(t.getTime() + (Number.isFinite(tz) ? tz : 0) * 60000).toISOString();
+  }
+  const sb = getSupabaseAdmin();
+  const result = await setRun(sb, admin, userId, app, { phoneId: phoneId || null, accountRef: accountRef || null, ...(loginScheduledAt !== undefined ? { loginScheduledAt } : {}) });
+  if (!result.ok) return { error: result.message };
+  await addNoteEvent(sb, admin, userId, `Run set: phone ${phoneId || "none"}, account ${accountRef || "none"}${loginScheduledAt ? `, login ${loginScheduledAt}` : loginScheduledAt === null ? ", login time cleared" : ""}.`, app);
+  revalidatePath(`/admin/clients/${userId}`);
+  revalidatePath("/admin/fulfilment");
+  return { ok: "Run saved" };
 }
 
 export async function addNoteAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {

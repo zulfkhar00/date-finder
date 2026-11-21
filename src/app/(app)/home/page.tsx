@@ -1,6 +1,6 @@
 import { ResumeSlot } from "@/components/app/resume-slot";
 import { HomeView } from "@/components/app/views";
-import { getHome, getPhotos, getProfile, getSetupGaps, getStarterPack } from "@/lib/app/data";
+import { getHome, getPhotos, serverNow, getProfile, getSetupGaps, getStarterPack } from "@/lib/app/data";
 import { getClientFulfilment } from "@/lib/app/fulfilment-view";
 import { createAppClient, requireUser } from "@/lib/app/session";
 import { paidAccessFor } from "@/lib/paid-access";
@@ -31,7 +31,7 @@ export default async function HomePage() {
       <ResumeSlot />
       <HomeView
         name={profile?.first_name ?? ""} apps={home.apps} chats={home.chats} upcoming={home.upcoming} needsYou={home.needsYou}
-        matchesThisWeek={home.matchesThisWeek} gaps={gaps} fulfilment={{ ...fulfilment, paidOffered }} activity={home.activity} nowMs={Date.now()}
+        matchesThisWeek={home.matchesThisWeek} gaps={gaps} fulfilment={{ ...fulfilment, paidOffered }} activity={home.activity} nowMs={serverNow()}
         pack={{ view, photoUrls, hasCity: Boolean(profile?.city), regenLeft, photoFlagged: photos.some((p) => flagged.has(p.id)) }}
       />
     </>
