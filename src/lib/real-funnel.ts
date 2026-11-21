@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { counts as qualityCounts, sessionQualities, summariseFiltered, type FilteredSessions, type QualityEvent } from "@/lib/bot-quality";
 import { CHECKOUT_DIAGNOSTIC_EVENTS, checkoutIdFromKey } from "@/lib/checkout-events";
 import { PROBE_SESSION_PREFIX, reservationExclusion } from "@/lib/internal-traffic";
 
@@ -17,7 +18,7 @@ const PAGE = 1000;
 const MAX_ROWS = 50_000;
 const DAY = 24 * 60 * 60 * 1000;
 
-type EventRow = { created_at: string; event: string; session_id: string | null; variant: string | null; utm_campaign: string | null; dedupe_key: string | null };
+type EventRow = Partial<Pick<QualityEvent, "device" | "quality" | "utm_source" | "referrer_host" | "in_app_source" | "landing_path" | "country">> & { created_at: string; event: string; session_id: string | null; variant: string | null; utm_campaign: string | null; dedupe_key: string | null };
 type ReservationRow = {
   created_at: string; email: string; status: string; paid_at: string | null;
   stripe_checkout_session_id: string | null; variant: string | null; utm_campaign: string | null;
@@ -36,6 +37,10 @@ export type RealFunnel = {
   rows: RealFunnelRow[];
   daily: { day: string; pageViews: number; visitors: number; paid: number }[];
   excluded: Exclusions;
+  /** Sessions left out as bots / suspect in the window, with reasons. Bots are never counted; suspect only when asked for. */
+  qualityFiltered: FilteredSessions;
+  /** Suspect sessions in the window that including them would add back (0 when they are already in). */
+  suspectSessions: number;
   /** Real paid reservations by paid_at, for "today" and "last 7 days" tiles. */
   paidToday: number;
   paid7d: number;
@@ -60,14 +65,29 @@ async function fetchAll<T>(table: string, columns: string, supabase: SupabaseCli
 const utcDay = (iso: string) => iso.slice(0, 10);
 
 /** `sinceDays` null = all time. Throws if a table cannot be read (callers show "n/a", never a made-up zero). */
-export async function getRealFunnel(supabase: SupabaseClient, sinceDays: number | null, now = new Date()): Promise<RealFunnel> {
+export async function getRealFunnel(supabase: SupabaseClient, sinceDays: number | null, now = new Date(), options: { includeSuspect?: boolean } = {}): Promise<RealFunnel> {
   const since = sinceDays === null ? null : new Date(now.getTime() - sinceDays * DAY).toISOString();
   const [events, allReservations] = await Promise.all([
-    fetchAll<EventRow>("funnel_events", "id, created_at, event, session_id, variant, utm_campaign, dedupe_key", supabase, since, "created_at"),
+    fetchEventsWithQuality(supabase, since),
     // All reservations, not just the window: a paid_at inside the window can belong to an older row.
     fetchAll<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at")
   ]);
-  return computeRealFunnel(events, allReservations, sinceDays, now);
+  return computeRealFunnel(events, allReservations, sinceDays, now, undefined, options);
+}
+
+const EVENT_COLUMNS = "id, created_at, event, session_id, variant, utm_campaign, dedupe_key";
+// The quality columns exist only after supabase/2026-11-22-session-quality.sql (quality) and 2026-11-03 / 2026-11-21 (traffic).
+const QUALITY_EVENT_COLUMNS = [`${EVENT_COLUMNS}, device, country, utm_source, referrer_host, in_app_source, landing_path, quality`, `${EVENT_COLUMNS}, device, country, utm_source, referrer_host, landing_path`];
+
+async function fetchEventsWithQuality(supabase: SupabaseClient, since: string | null): Promise<EventRow[]> {
+  for (const columns of QUALITY_EVENT_COLUMNS) {
+    try {
+      return await fetchAll<EventRow>("funnel_events", columns, supabase, since, "created_at");
+    } catch {
+      // a missing column: fall back to fewer
+    }
+  }
+  return fetchAll<EventRow>("funnel_events", EVENT_COLUMNS, supabase, since, "created_at");
 }
 
 export const RESERVATION_COLUMNS = "id, created_at, email, status, paid_at, stripe_checkout_session_id, variant, utm_campaign";
@@ -112,7 +132,8 @@ export function splitReservations(all: ReservationRow[], since: string | null, u
  * The pure half of getRealFunnel: takes rows already fetched (events may cover more than the window)
  * and computes the window [now - sinceDays, untilMs). `untilMs` is how the previous period is built.
  */
-export function computeRealFunnel(allEvents: EventRow[], allReservations: ReservationRow[], sinceDays: number | null, now = new Date(), untilMs?: number): RealFunnel {
+export function computeRealFunnel(allEvents: EventRow[], allReservations: ReservationRow[], sinceDays: number | null, now = new Date(), untilMs?: number, options: { includeSuspect?: boolean } = {}): RealFunnel {
+  const includeSuspect = options.includeSuspect ?? false;
   const since = sinceDays === null ? null : new Date(now.getTime() - sinceDays * DAY).toISOString();
   const untilIso = untilMs === undefined ? null : new Date(untilMs).toISOString();
   const events = allEvents.filter((e) => (!since || e.created_at >= since) && (!untilIso || e.created_at < untilIso));
@@ -122,10 +143,12 @@ export function computeRealFunnel(allEvents: EventRow[], allReservations: Reserv
   const windowSessions = new Set(events.map((e) => e.session_id));
   excluded.internalSessions = [...internalSessions].filter((id) => windowSessions.has(id)).length;
 
+  const qualities = sessionQualities(allEvents.filter((e) => !(e.session_id && internalSessions.has(e.session_id))), now.getTime());
   const sessions = new Map<string, { variant: string; campaign: string; pageView: boolean; getStarted: boolean; started: boolean; done: boolean }>();
   const daily = new Map<string, { pageViews: number; visitors: Set<string> }>();
   for (const e of events) {
     if (!e.session_id || internalSessions.has(e.session_id)) continue;
+    if (!qualityCounts(qualities.get(e.session_id)?.quality, { includeSuspect })) continue;
     if (e.event === "checkout_created" || e.event === "paid" || CHECKOUT_DIAGNOSTIC_EVENTS.has(e.event)) continue; // server events: reservations are the source of truth; diagnostics only feed the Checkout panel
     let s = sessions.get(e.session_id);
     if (!s) { s = { variant: e.variant ?? "premium", campaign: e.utm_campaign ?? "(none)", pageView: false, getStarted: false, started: false, done: false }; sessions.set(e.session_id, s); }
@@ -139,6 +162,7 @@ export function computeRealFunnel(allEvents: EventRow[], allReservations: Reserv
     if (e.event === "onboarding_complete") s.done = true;
   }
 
+  const inRangeMs = (ms: number) => (!since || ms >= Date.parse(since)) && (!untilIso || ms < Date.parse(untilIso));
   const rows = new Map<string, RealFunnelRow>();
   const rowFor = (variant: string, campaign: string) => {
     const key = `${variant}\u0000${campaign}`;
@@ -179,6 +203,8 @@ export function computeRealFunnel(allEvents: EventRow[], allReservations: Reserv
     sinceDays, visitors, getStarted, reserveStarts, onboardingComplete, checkouts, paid,
     rows: [...rows.values()].filter((r) => r.visitors + r.reserve_starts + r.checkouts + r.paid > 0),
     daily: series, excluded,
+    qualityFiltered: summariseFiltered(qualities, { includeSuspect }, inRangeMs),
+    suspectSessions: includeSuspect ? 0 : summariseFiltered(qualities, { includeSuspect }, inRangeMs).suspect,
     paidToday: paidRows.filter((r) => r.paid_at && Date.parse(r.paid_at) >= todayStart).length,
     paid7d: paidRows.filter((r) => r.paid_at && Date.parse(r.paid_at) >= now.getTime() - 7 * DAY).length
   };
