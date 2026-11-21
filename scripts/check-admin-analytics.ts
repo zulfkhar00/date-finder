@@ -63,7 +63,7 @@ const fields = trafficFromRequest(
   { utmSource: "instagram", utmMedium: "social", referrer: "https://l.instagram.com/x?secret=1", landingPath: "/?email=a@b.c" },
   h({ "user-agent": IPHONE, "cf-ipcountry": "DE" })
 );
-assert.deepEqual(fields, { utm_source: "instagram", utm_medium: "social", utm_content: null, referrer_host: "l.instagram.com", landing_path: "/", device: "mobile", country: "DE" });
+assert.deepEqual(fields, { in_app_source: null, utm_source: "instagram", utm_medium: "social", utm_content: null, referrer_host: "l.instagram.com", landing_path: "/", device: "mobile", country: "DE" });
 assert.equal(JSON.stringify(fields).includes("Mozilla"), false, "no UA stored");
 
 // ---- period deltas ----

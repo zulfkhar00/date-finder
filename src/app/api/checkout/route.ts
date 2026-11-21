@@ -6,7 +6,7 @@ import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding }
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { internalEmailReason } from "@/lib/internal-traffic";
-import { trafficFromRequest } from "@/lib/traffic";
+import { firstTouchColumns, parseFirstTouch, trafficFromRequest } from "@/lib/traffic";
 import { reuseOpenCheckout } from "@/lib/checkout-reuse";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
 import { paidAccessFor } from "@/lib/paid-access";
@@ -89,7 +89,10 @@ export async function POST(request: Request) {
   // anything else (constraint, network, auth) falls through to the 500 below.
   // Newest first: `ref` (2026-10-28), then `onboarding`, then the UTM columns.
   const withOnboarding = onboarding ? { onboarding } : {};
+  // First touch comes from the server-set ns_ft cookie (absent for DNT/GPC visitors, crawlers and cookie-less browsers).
+  const firstTouch = parseFirstTouch(request.headers.get("cookie"));
   const rows = [
+    ...(firstTouch ? [{ ...baseRow, ...attributionColumns(attribution), ...refColumn(attribution), ...withOnboarding, ...firstTouchColumns(firstTouch) }] : []),
     { ...baseRow, ...attributionColumns(attribution), ...refColumn(attribution), ...withOnboarding },
     ...(attribution?.ref ? [{ ...baseRow, ...attributionColumns(attribution), ...withOnboarding }] : []),
     ...(onboarding ? [{ ...baseRow, ...attributionColumns(attribution) }] : []),
@@ -137,7 +140,7 @@ export async function POST(request: Request) {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
       throw updateError ?? new Error("Reservation was not attached to checkout");
     }
-    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref,
+    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref, firstTouch,
       // Country (geo header) and device (UA) of the person opening checkout, so drop-offs can be split by them.
       traffic: (({ device, country }) => ({ device, country }))(trafficFromRequest({}, request.headers)),
       dedupeKey: `checkout_created:${session.id}` });

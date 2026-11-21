@@ -17,7 +17,7 @@ for (const body of [email.text, email.html]) {
   assert.ok(body.includes("reply to this email"));
   assert.ok(body.includes("early-access"));
 }
-assert.ok(email.html.includes('href="https://noswipe.app"'));
+assert.ok(email.html.includes('href="https://noswipe.app/?utm_source=email&utm_medium=email&utm_campaign=confirmation"'), "email link is UTM-tagged");
 assert.ok(email.html.includes('src="https://www.noswipe.app/brand/email-logo.png"'), "logo in the header");
 
 // Founder sign-in email (/admin/login): NoSwipe-branded, link + code, nothing from Supabase.

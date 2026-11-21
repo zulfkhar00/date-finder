@@ -13,19 +13,24 @@ export type TrafficPageData = {
   /** First moment source/landing/device data exists; null if none yet. */
   captureSince: number | null;
   hasCountry: boolean;
+  /** "Where people come from": its own 7 d / 30 d window, independent of the page range. */
+  sources: { window: SourceWindow; stats: PeriodStats; inAppColumn: boolean; hasFirstTouch: boolean };
   nowMs: number;
 };
 
-export async function getTrafficPage(range: RangeKey): Promise<TrafficPageData> {
+export type SourceWindow = "7d" | "30d";
+
+export async function getTrafficPage(range: RangeKey, sourceWindow: SourceWindow = "30d"): Promise<TrafficPageData> {
   const nowMs = Date.now();
-  const since = range === "all" ? null : nowMs - 2 * RANGE_MS[range];
+  // The sources section always needs a full 30 days, whatever the page range is.
+  const since = range === "all" ? null : nowMs - Math.max(2 * RANGE_MS[range], RANGE_MS["30d"]);
   let rows;
   try {
     rows = await loadTrafficRows(since);
   } catch {
     throw new AdminDataError("traffic", undefined);
   }
-  const model = buildTrafficModel(rows.events, rows.reservations);
+  const model = buildTrafficModel(rows.events, rows.reservations, rows.firstTouchByStripe);
   let earliest: number | null = null;
   for (const s of model.sessions.values()) earliest = earliest === null ? s.firstAt : Math.min(earliest, s.firstAt);
   const w = rangeWindows(range, nowMs, earliest);
@@ -37,6 +42,7 @@ export async function getTrafficPage(range: RangeKey): Promise<TrafficPageData> 
     trafficColumns: rows.trafficColumns,
     captureSince: model.captureSince,
     hasCountry: [...model.sessions.values()].some((s) => s.country),
+    sources: { window: sourceWindow, stats: periodStats(model, nowMs - RANGE_MS[sourceWindow], nowMs + 1), inAppColumn: rows.inAppColumn, hasFirstTouch: rows.firstTouchByStripe.size > 0 },
     nowMs
   };
 }

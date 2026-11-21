@@ -16,7 +16,7 @@ function ShareButton() {
     setState("copying");
     track("share_copy");
     try {
-      await navigator.clipboard.writeText(window.location.origin);
+      await navigator.clipboard.writeText(`${window.location.origin}/?utm_source=share&utm_medium=referral&utm_campaign=confirmation_copy`);
       setState("copied");
       setTimeout(() => setState("idle"), 2200);
     } catch {
