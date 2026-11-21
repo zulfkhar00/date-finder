@@ -151,21 +151,33 @@ export async function setNeedsYou(sb: SupabaseClient, matchId: string, input: un
   return { ok: true, needsUser: p.data.needsUser };
 }
 
-export async function bookDate(sb: SupabaseClient, userId: string, input: unknown): Promise<Result<{ dateId: string }>> {
+export async function bookDate(sb: SupabaseClient, userId: string, input: unknown, externalId?: string): Promise<Result<{ dateId: string; created: boolean }>> {
   const p = schemas.date.safeParse(input);
   if (!p.success) return fail(400, "invalid", "Invalid date.");
   const d = p.data;
+  // The rig's own id for the date: a replayed event returns the date it already booked and sends nothing again.
+  if (externalId) {
+    const { data: existing, error: existingError } = await sb.from("dates").select("id").eq("user_id", userId).eq("external_id", externalId).maybeSingle();
+    if (!existingError && existing) return { ok: true, dateId: existing.id, created: false };
+  }
   if (d.matchId) {
     const { data: match } = await sb.from("matches").select("user_id").eq("id", d.matchId).maybeSingle();
     if (!match || match.user_id !== userId) return fail(404, "not_found", "Unknown chat for this client.");
   }
   const { data, error } = await sb.from("dates").insert({
-    user_id: userId, match_id: d.matchId ?? null, who: d.who, venue: d.venue, address: d.address ?? null, starts_at: d.startsAt, summary: d.summary ?? null
+    user_id: userId, match_id: d.matchId ?? null, who: d.who, venue: d.venue, address: d.address ?? null, starts_at: d.startsAt, summary: d.summary ?? null,
+    ...(externalId ? { external_id: externalId } : {})
   }).select("id").single();
+  if (error?.code === "23505" && externalId) {
+    // Two copies of the same event raced: the other one booked it.
+    const { data: won } = await sb.from("dates").select("id").eq("user_id", userId).eq("external_id", externalId).maybeSingle();
+    if (won) return { ok: true, dateId: won.id, created: false };
+  }
+  if (error?.code === "42703" && externalId) return fail(503, "migration", "Run supabase/2026-11-21-account-runs.sql first.");
   if (error || !data) return fail(500, "db", "Could not book the date.");
   if (d.matchId) await addSystemEvent(sb, d.matchId, userId, { kind: "date_booked", startsAt: d.startsAt, venue: d.venue });
   await notifyUser(sb, userId, "date", { who: d.who, venue: d.venue, startsAt: d.startsAt, path: `/dates/${data.id}` });
-  return { ok: true, dateId: data.id };
+  return { ok: true, dateId: data.id, created: true };
 }
 
 /** User-typed messages that the worker still has to send inside the dating app. */

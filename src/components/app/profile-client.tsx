@@ -80,7 +80,7 @@ function AppRow({ account, api }: { account: AppAccountRow; api: ProfileApi }) {
       <AppBadge app={account.app} />
       <div className="app-row-body">
         <div className="app-row-title">{APP_LABELS[account.app]} <StatusPill account={{ status: account.status, user_paused: paused }} /></div>
-        <div className="app-row-sub" style={{ whiteSpace: "normal" }}>{error || (s === "needs_client_action" ? appCopy({ ...account, user_paused: paused }, { paid: true }).text : s === "paused" ? "Paused. Nothing is sent for you." : s === "closed" ? "Closed. Nothing runs on this app." : isActiveStatus(s) ? "Running." : "We're setting it up.")}</div>
+        <div className="app-row-sub" style={{ whiteSpace: "normal" }}>{error || (s === "needs_client_action" ? appCopy({ ...account, user_paused: paused }, { paid: true }).text : s === "paused" ? "Paused. Nothing is sent for you." : s === "closed" ? "Closed. Nothing runs on this app." : isActiveStatus(s) ? "NoSwipe is running this app." : s === "awaiting_login" ? "Waiting for your one-time login." : "We're setting it up.")}</div>
       </div>
       <Toggle on={!paused} onChange={(on) => change(!on)} disabled={busy} label={`${APP_LABELS[account.app]} ${paused ? "paused, turn on" : "running, pause"}`} />
     </li>
@@ -129,8 +129,8 @@ export function ProfileClient({ email, age, draft, photos, flaggedPhotoIds = [],
           <dl className="app-kv"><dt>City</dt><dd>{draft.city || "—"}</dd><dt>Ages</dt><dd>{draft.ageMin && draft.ageMax ? `${draft.ageMin}–${draft.ageMax}` : "—"}</dd><dt>Distance</dt><dd>{draft.distanceKm ? `${draft.distanceKm} km` : "—"}</dd>
             <dt>Looking for</dt><dd>{GOAL_LABELS[draft.lookingFor as keyof typeof GOAL_LABELS] ?? "—"}</dd><dt>Dealbreakers</dt><dd>{draft.dealbreakers.filter(Boolean).join(", ") || "—"}</dd></dl>} />
 
-        <EditCard api={api} title="Add an app" steps={["apps"]} draft={draft} note="New apps start in setting up. Apps already running stay on; use the switch below to pause one." summary={
-          <p className="app-fine" style={{ margin: 0 }}>{draft.apps.length ? `On ${draft.apps.map((a) => APP_LABELS[a]).join(", ")}. Want Hinge, Bumble or Tinder too? Add it here.` : "Pick the apps you want us to run."}</p>} />
+        <EditCard api={api} title="Connect an app" steps={["apps"]} draft={draft} note="A new app starts with a one-time login we arrange with you. Apps already connected stay as they are; pause, take over or resume them from Home." summary={
+          <p className="app-fine" style={{ margin: 0 }}>{draft.apps.length ? `NoSwipe runs ${draft.apps.map((a) => APP_LABELS[a]).join(", ")} for you. Want Hinge, Bumble or Tinder too? Connect it here.` : "Pick the apps you want NoSwipe to run for you."}</p>} />
 
         <section aria-label="Connected apps">
           <h2 className="app-h2" style={{ marginTop: 10 }}>Connected apps</h2>
@@ -140,7 +140,7 @@ export function ProfileClient({ email, age, draft, photos, flaggedPhotoIds = [],
 
         <section className="app-card" aria-label="Voice and notifications">
           <h2 style={{ fontSize: 17, fontWeight: 800 }}>How you sound</h2>
-          <p className="app-fine" style={{ marginTop: 4 }}>The tone we use when we chat as you.</p>
+          <p className="app-fine" style={{ marginTop: 4 }}>The tone we use when we chat as you. Change it any time and new messages follow.</p>
           <div className="app-chips" style={{ marginTop: 12 }} role="group" aria-label="Tone">
             {VOICES.map((x) => <button key={x} type="button" className="app-chip" aria-pressed={v === x} onClick={() => { setV(x); void persist(x, notify); }}>{VOICE_LABELS[x]}</button>)}
           </div>

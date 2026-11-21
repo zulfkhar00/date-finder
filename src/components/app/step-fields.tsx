@@ -1,13 +1,12 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { APPS, APP_LABELS, GENDERS, GOALS, GOAL_LABELS, INTERESTED_IN, type App, type StepName } from "@/lib/app/domain";
-import type { Draft } from "@/lib/app/draft";
+import { APPS, APP_LABELS, GENDERS, GOALS, GOAL_LABELS, HANDOFF_LABELS, HANDOFF_METHODS, INTERESTED_IN, appConsentLine, type App, type StepName } from "@/lib/app/domain";
+import { DEFAULT_HANDOFF, type Connection, type Draft } from "@/lib/app/draft";
 
 export const GENDER_LABELS: Record<string, string> = { man: "Man", woman: "Woman", nonbinary: "Non-binary" };
 export const INTEREST_LABELS: Record<string, string> = { men: "Men", women: "Women", nonbinary: "Non-binary people" };
 const APP_NOTES: Record<App, string> = { tinder: "Swipe-first", hinge: "Prompts and conversation", bumble: "Her move, or yours" };
-
 export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" className="app-chip" aria-pressed={on} onClick={onClick}>{on ? <Check size={16} strokeWidth={3} aria-hidden /> : null}{children}</button>;
 }
@@ -63,15 +62,57 @@ export function StepFields({ step, d, set, compact }: Props) {
       <List3 label="Three dealbreakers" values={d.dealbreakers} onChange={(dealbreakers) => set({ dealbreakers })} placeholders={["Smokes", "Doesn't want kids", "Rude to waiters"]} />
     </div>
   );
+  return <ConnectApps d={d} set={set} compact={compact} />;
+}
+
+/**
+ * "Connect your apps": per app, the client says yes to NoSwipe running it and picks how they hand it over. Nothing here asks for a
+ * password or any login detail: the handoff happens later, with a person on our team, on a phone we set aside for them.
+ */
+export function ConnectApps({ d, set, compact }: { d: Draft; set: (patch: Partial<Draft>) => void; compact?: boolean }) {
+  const conn = (a: App): Connection => d.connections?.[a] ?? { handoff: DEFAULT_HANDOFF, consent: false };
+  const patchConn = (a: App, p: Partial<Connection>) => set({ connections: { ...d.connections, [a]: { ...conn(a), ...p } } });
+  function toggleApp(a: App) {
+    if (d.apps.includes(a)) {
+      const rest = { ...d.connections };
+      delete rest[a];
+      set({ apps: d.apps.filter((x) => x !== a), connections: rest });
+    } else set({ apps: [...d.apps, a], connections: { ...d.connections, [a]: { handoff: DEFAULT_HANDOFF, consent: false } } });
+  }
   return (
-    <div style={{ display: "grid", gap: 10, marginTop: compact ? 0 : 20 }}>
-      {APPS.map((a) => (
-        <button type="button" key={a} className="app-choice" aria-pressed={d.apps.includes(a)} onClick={() => set({ apps: toggle(d.apps, a) })}>
-          <span className="app-badge" data-app={a} aria-hidden="true">{APP_LABELS[a][0]}</span>
-          <span style={{ flex: 1 }}>{APP_LABELS[a]}<small>{APP_NOTES[a]}</small></span>
-          {d.apps.includes(a) ? <Check size={22} strokeWidth={3} aria-hidden /> : null}
-        </button>
-      ))}
+    <div style={{ display: "grid", gap: 12, marginTop: compact ? 0 : 20 }} data-testid="connect-apps">
+      {APPS.map((a) => {
+        const on = d.apps.includes(a);
+        const c = conn(a);
+        return (
+          <div key={a} className="app-connect" data-on={on ? "true" : undefined} data-app-card={a}>
+            <button type="button" className="app-choice" aria-pressed={on} onClick={() => !c.locked && toggleApp(a)} disabled={on && c.locked === true} aria-label={`${APP_LABELS[a]}${on ? ", connected" : ""}`}>
+              <span className="app-badge" data-app={a} aria-hidden="true">{APP_LABELS[a][0]}</span>
+              <span style={{ flex: 1 }}>{APP_LABELS[a]}<small>{APP_NOTES[a]}</small></span>
+              {on ? <Check size={22} strokeWidth={3} aria-hidden /> : null}
+            </button>
+            {on ? (
+              <div className="app-connect-body">
+                {c.locked ? <p className="app-fine" style={{ margin: 0 }}>Connected. You agreed that NoSwipe runs this app. Pause or resume it from Home.</p> : (
+                  <>
+                    <fieldset style={{ border: 0, padding: 0, margin: 0, display: "grid", gap: 8 }}>
+                      <legend className="app-legend" style={{ marginBottom: 8 }}>How do we get in?</legend>
+                      {HANDOFF_METHODS.map((m) => (
+                        <button type="button" key={m} className="app-choice app-handoff" aria-pressed={c.handoff === m} onClick={() => patchConn(a, { handoff: m })}>
+                          <span style={{ flex: 1 }}>{HANDOFF_LABELS[m].title}<small>{HANDOFF_LABELS[m].note}</small></span>
+                          {c.handoff === m ? <Check size={20} strokeWidth={3} aria-hidden /> : null}
+                        </button>
+                      ))}
+                    </fieldset>
+                    <label className="ob-check"><input type="checkbox" checked={c.consent} onChange={(e) => patchConn(a, { consent: e.target.checked })} /><span>{appConsentLine(a)}</span></label>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+      <p className="app-fine" style={{ margin: 0 }}>We never ask for your password on this site. You can pause an app, take it over or disconnect it any time from Home.</p>
     </div>
   );
 }

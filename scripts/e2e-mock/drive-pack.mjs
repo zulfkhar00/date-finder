@@ -135,7 +135,7 @@ if (scenario === "before") {
   await browser.close();
   process.exit(0);
 }
-const waitReady = () => page.getByText("5 opening lines").waitFor({ timeout: 90000 });
+const waitReady = () => page.getByText("Our opening lines for you").waitFor({ timeout: 90000 });
 if (scenario === "happy" || scenario === "nophotos") {
   await page.getByText("We’re writing your pack").waitFor({ timeout: 10000 });
   await shot("1-home-preparing", true);
@@ -199,7 +199,7 @@ if (scenario === "happy") {
   log.checks.cron = { wrongSecret: bad.status, rightSecret: good.status, body: await good.json() };
 }
 
-log.checks.pageText = (await page.locator("body").innerText()).includes("Use this on Hinge");
+log.checks.pageText = (await page.locator("body").innerText()).includes("Your Hinge profile");
 fs.writeFileSync(path.join(shots, "run.json"), JSON.stringify(log, null, 2));
 console.log(JSON.stringify(log, null, 2));
 await browser.close();

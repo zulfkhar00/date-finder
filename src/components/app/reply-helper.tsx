@@ -185,7 +185,7 @@ export function ReplyHelper({ threads: initial, activeId = null }: { threads: Th
           ) : null}
 
           {failure ? <p role="alert" className="app-error rh-error" data-testid="rh-error">{failure.message}</p> : null}
-          <p className="app-fine">You send everything yourself. NoSwipe never logs in to your dating apps, and your screenshots weren&rsquo;t kept.</p>
+          <p className="app-fine">This is how we&rsquo;d write as you. Nothing is sent from this page, and your screenshots weren&rsquo;t kept. Tweak the tone until it sounds like you.</p>
           <button type="button" className="app-btn ghost" onClick={reset} disabled={isWorking}>Start another chat</button>
         </section>
       ) : (

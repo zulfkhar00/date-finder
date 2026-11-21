@@ -37,7 +37,7 @@ export default async function OnboardingPage() {
       key="member"
       guest={false}
       email={user.email ?? ""}
-      draft={draftFrom(profile, prefs, apps.map((a) => a.app))}
+      draft={draftFrom(profile, prefs, apps.map((a) => a.app), apps)}
       photos={photos}
       startStep={done ? PAY_STEP : Math.min(profile?.onboarding_step ?? 0, CONSENT_STEP)}
       paid={paid}

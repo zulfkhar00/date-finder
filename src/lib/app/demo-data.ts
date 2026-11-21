@@ -3,6 +3,7 @@
 // Matches only ever see ordinary texting from the user, so no message mentions NoSwipe, AI or bots.
 import type { ChatSummary } from "@/lib/app/data";
 import type { Draft } from "@/lib/app/draft";
+import type { ActivityRow } from "@/lib/app/activity";
 import type { AppAccountRow, DateRow, Sender } from "@/lib/app/domain";
 import { encodeSystemEvent } from "@/lib/app/domain";
 
@@ -60,19 +61,26 @@ export function buildDemo(now = Date.now()) {
   ].sort((a, b) => Date.parse(b.last?.sent_at ?? b.matched_at) - Date.parse(a.last?.sent_at ?? a.matched_at));
 
   const dates: (DateRow & { match_id: string | null })[] = [
-    { id: "d-maya", who: "Maya", venue: "Taco place on 5th", address: "512 5th St", starts_at: thu, summary: "The creek story, her dog, and a shared love of mexican food.", status: "booked", match_id: "maya" },
-    { id: "d-lin", who: "Lin", venue: "Blue Bottle Coffee", address: "66 Mint St", starts_at: sat, summary: "Pasta from scratch, and the great pecorino incident.", status: "booked", match_id: "lin" }
+    { id: "d-maya", who: "Maya", venue: "Taco place on 5th", address: "512 5th St", starts_at: thu, summary: "The creek story, her dog, and a shared love of mexican food.", status: "booked", match_id: "maya", client_response: "pending" as const },
+    { id: "d-lin", who: "Lin", venue: "Blue Bottle Coffee", address: "66 Mint St", starts_at: sat, summary: "Pasta from scratch, and the great pecorino incident.", status: "booked", match_id: "lin", client_response: "confirmed" as const }
   ].sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
 
   const apps: AppAccountRow[] = [
-    { app: "tinder", status: "live", user_paused: false },
-    { app: "hinge", status: "live", user_paused: false },
-    { app: "bumble", status: "live", user_paused: false }
+    { app: "tinder", status: "active", user_paused: false, handoff_method: "operator_session" },
+    { app: "hinge", status: "active", user_paused: false, handoff_method: "invite" },
+    { app: "bumble", status: "needs_client_action", user_paused: false, client_action_reason: "Bumble asked for a quick selfie to verify the profile. Open the app on your phone and finish it", handoff_method: "operator_session" }
+  ];
+  // Sample feed rows from the last hours, so "today" has numbers to show. Invented, like everything in /demo.
+  const row = (app: "tinder" | "hinge" | "bumble", kind: ActivityRow["kind"], count: number, msAgo: number, ref: string | null = null): ActivityRow => ({ app, kind, count, match_ref: ref, occurred_at: at(msAgo) });
+  const activity: ActivityRow[] = [
+    row("tinder", "swipes", 38, 3 * MIN), row("tinder", "swipes", 41, 25 * MIN), row("tinder", "match", 1, 11 * MIN, "t-jess"), row("tinder", "match", 1, 40 * MIN, "t-ana"),
+    row("tinder", "chat", 1, 9 * MIN, "t-jess"),
+    row("hinge", "swipes", 22, 14 * MIN), row("hinge", "match", 1, 33 * MIN, "h-maya"), row("hinge", "chat", 1, 30 * MIN, "h-maya"), row("hinge", "chat", 1, 55 * MIN, "h-sam"), row("hinge", "date_booked", 1, 58 * MIN, "h-maya")
   ];
   const draft: Draft = {
     firstName: "Alex", birthday: "1996-05-14", gender: "man", interestedIn: ["women"], job: "Product designer", heightCm: "180", interests: ["Hiking", "Cooking", "Live music"],
     city: "Austin", ageMin: "25", ageMax: "33", distanceKm: "50", lookingFor: "meaningful", dealbreakers: ["Smokes", "Rude to waiters", "No sense of humor"], apps: ["tinder", "hinge", "bumble"]
   };
   const photos = [1, 2, 3].map((n) => ({ id: `alex-${n}`, path: `demo/alex-${n}`, position: n - 1, url: `/demo/alex-${n}.jpg` }));
-  return { chats, dates, apps, draft, photos, name: "Alex", age: 30, matchesThisWeek: 14 };
+  return { chats, dates, apps, draft, photos, activity, now, name: "Alex", age: 30, matchesThisWeek: 14 };
 }

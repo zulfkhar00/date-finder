@@ -14,6 +14,8 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 const UNAUTH: ActionResult = { ok: false, error: "Your session ended. Sign in again." };
 const DB_ERR: ActionResult = { ok: false, error: "Couldn't save. Try again." };
 const uuid = z.string().uuid();
+/** The database does not have the column, table or status value yet (the migration has not run). */
+const isSchemaGap = (error: { code?: string | null } | null | undefined) => ["42703", "42P01", "PGRST204", "PGRST205", "23514"].includes(error?.code ?? "");
 
 async function ctx() {
   const user = await userOrNull();
@@ -44,11 +46,22 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
   }
   if (step === "apps") {
     const chosen = v.apps as string[];
+    const connections = (v.connections ?? []) as { app: string; handoff: string; consent: boolean }[];
     const { data: existing } = await sb.from("app_accounts").select("app, status").eq("user_id", user.id);
     const have = new Set((existing ?? []).map((a) => a.app));
-    const add = chosen.filter((a) => !have.has(a)).map((app) => ({ user_id: user.id, app, status: "setting_up" }));
-    if (add.length) ({ error } = await sb.from("app_accounts").insert(add));
-    const drop = (existing ?? []).filter((a) => !chosen.includes(a.app) && a.status === "setting_up").map((a) => a.app);
+    const adding = chosen.filter((a) => !have.has(a));
+    // An app is only added with the client's own yes, recorded per app with the handoff method they picked.
+    if (adding.some((a) => !connections.some((c) => c.app === a && c.consent === true))) return { ok: false, error: "Agree for each app you want us to run." };
+    const add = adding.map((app) => ({
+      user_id: user.id, app, status: "awaiting_login", handoff_method: connections.find((c) => c.app === app)?.handoff ?? "operator_session",
+      consented_at: now, consent_version: CONSENT_VERSION
+    }));
+    if (add.length) {
+      ({ error } = await sb.from("app_accounts").insert(add));
+      // Before supabase/2026-11-21-account-runs.sql is applied the new columns and the new status do not exist: save the old shape.
+      if (error && isSchemaGap(error)) ({ error } = await sb.from("app_accounts").insert(add.map((r) => ({ user_id: r.user_id, app: r.app, status: "setting_up" }))));
+    }
+    const drop = (existing ?? []).filter((a) => !chosen.includes(a.app) && (a.status === "setting_up" || a.status === "awaiting_login")).map((a) => a.app);
     if (!error && drop.length) ({ error } = await sb.from("app_accounts").delete().eq("user_id", user.id).in("app", drop));
   }
   if (error) return DB_ERR;
@@ -198,12 +211,75 @@ export async function sendMyMessage(matchId: string, body: string): Promise<Acti
   return { ok: true };
 }
 
+/** Pause (paused = true) or Resume (false). Resume also hands back any chats the client took over with "Take over" on that app. */
 export async function setAppPaused(app: string, paused: boolean): Promise<ActionResult> {
   const c = await ctx();
   if (!c || !z.enum(APPS).safeParse(app).success) return UNAUTH;
   const { error } = await c.sb.from("app_accounts").update({ user_paused: paused, updated_at: new Date().toISOString() }).eq("user_id", c.user.id).eq("app", app);
   if (error) return DB_ERR;
-  revalidatePath("/profile"); revalidatePath("/home");
+  if (!paused) await endAppTakeovers(c.sb, c.user.id, app);
+  revalidatePath("/profile"); revalidatePath("/home"); revalidatePath("/chats");
+  return { ok: true };
+}
+
+/** Matches of one app that belong to this user. */
+async function appMatchIds(sb: ReturnType<typeof getSupabaseAdmin>, userId: string, app: string): Promise<string[]> {
+  const { data } = await sb.from("matches").select("id").eq("user_id", userId).eq("app", app);
+  return (data ?? []).map((m) => m.id as string);
+}
+
+async function endAppTakeovers(sb: ReturnType<typeof getSupabaseAdmin>, userId: string, app: string) {
+  const ids = await appMatchIds(sb, userId, app);
+  if (!ids.length) return;
+  // `source` exists after supabase/2026-11-21-account-runs.sql; before it nothing was ever started from Home, so there is nothing to hand back.
+  const { data: ended, error } = await sb.from("takeovers").update({ ended_at: new Date().toISOString() }).eq("user_id", userId).eq("source", "app").in("match_id", ids).is("ended_at", null).select("match_id");
+  if (error) return;
+  await Promise.all((ended ?? []).map((t) => addSystemEvent(sb, t.match_id as string, userId, { kind: "handed_back" })));
+}
+
+/**
+ * "Take over" on an app card: the client drives this app themselves for now. Nothing is sent as them (the app is paused) and every
+ * open chat on it moves to "you took over", so what they type goes out and nothing is written over it. Resume hands those chats back.
+ */
+export async function takeOverApp(app: string): Promise<ActionResult> {
+  const c = await ctx();
+  if (!c || !z.enum(APPS).safeParse(app).success) return UNAUTH;
+  const { error } = await c.sb.from("app_accounts").update({ user_paused: true, updated_at: new Date().toISOString() }).eq("user_id", c.user.id).eq("app", app);
+  if (error) return DB_ERR;
+  const ids = await appMatchIds(c.sb, c.user.id, app);
+  if (ids.length) {
+    const { data: open } = await c.sb.from("takeovers").select("match_id").in("match_id", ids).is("ended_at", null);
+    const taken = new Set((open ?? []).map((t) => t.match_id as string));
+    for (const id of ids.filter((m) => !taken.has(m))) {
+      let r = await c.sb.from("takeovers").insert({ match_id: id, user_id: c.user.id, source: "app" });
+      if (r.error && isSchemaGap(r.error)) r = await c.sb.from("takeovers").insert({ match_id: id, user_id: c.user.id });
+      // 23505: the chat was taken over a moment ago by another tap; that is the state we want.
+      if (r.error && r.error.code !== "23505") return DB_ERR;
+      if (!r.error) await addSystemEvent(c.sb, id, c.user.id, { kind: "took_over" });
+      await c.sb.from("matches").update({ needs_user: false, needs_reason: null }).eq("id", id);
+    }
+  }
+  revalidatePath("/profile"); revalidatePath("/home"); revalidatePath("/chats");
+  return { ok: true };
+}
+
+/** The client's answer to a date the team booked: confirm it, or decline it (a declined date leaves Dates and the team sees it in the log). */
+export async function respondToDate(id: string, response: "confirmed" | "declined"): Promise<ActionResult> {
+  const c = await ctx();
+  if (!c || !uuid.safeParse(id).success || (response !== "confirmed" && response !== "declined")) return UNAUTH;
+  const { data: date } = await c.sb.from("dates").select("id, who, status").eq("id", id).eq("user_id", c.user.id).maybeSingle();
+  if (!date) return { ok: false, error: "Date not found." };
+  if (date.status === "cancelled") return { ok: false, error: "This date was cancelled." };
+  const nowIso = new Date().toISOString();
+  const { error } = await c.sb.from("dates").update({ client_response: response, responded_at: nowIso, ...(response === "declined" ? { status: "cancelled" } : {}) }).eq("id", id).eq("user_id", c.user.id);
+  if (error) {
+    if (response === "declined" && isSchemaGap(error)) {
+      const r = await c.sb.from("dates").update({ status: "cancelled" }).eq("id", id).eq("user_id", c.user.id);
+      if (r.error) return DB_ERR;
+    } else return DB_ERR;
+  }
+  await c.sb.from("fulfilment_events").insert({ user_id: c.user.id, actor: "client", action: "note", note: response === "declined" ? `Client declined the date with ${date.who}.` : `Client confirmed the date with ${date.who}.` });
+  revalidatePath("/dates"); revalidatePath("/home"); revalidatePath(`/dates/${id}`);
   return { ok: true };
 }
 

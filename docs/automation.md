@@ -92,6 +92,48 @@ Send each one in the dating app exactly as written, then `POST /outbox/{id}/ack`
 Book a date. Body `{"matchId":"…"?,"who":"Maya","venue":"Taqueria on 5th","address":"500 5th St"?,"startsAt":"2027-01-14T19:00:00Z","summary":"What they talked about, ≤ 600 chars"?}`.
 → `{"ok":true,"dateId":"…"}`. It appears on the user's Dates tab (with a calendar download) and a "date booked" email is sent unless the user turned notifications off.
 
+## Phone rig: runs and the activity feed
+
+The phone rig (repo `edge-phone-agent`: Android phones driven by a Raspberry Pi, one job per phone and account) runs the client's own
+Hinge / Tinder / Bumble, with the consent they gave per app in onboarding. It talks to NoSwipe only through this API. Credentials never
+reach NoSwipe: the client logs in once, themselves, on a phone we set aside (or accepts an invite). Needs `supabase/2026-11-21-account-runs.sql`.
+
+App states the client sees (`status` on the app account): `awaiting_login` (Waiting for login) -> `setting_up` (Setting up) -> `active`
+(Running) -> `paused` / `closed`; `needs_client_action` (Needs you, with a reason the client reads) at any point. The client's own pause
+(`userPaused`) wins over `status`. Move the state with `PUT /clients/{userId}/apps/{app}` (`{"status":"setting_up"|"active"|"paused"|"needs_client_action","reason":"…"}`).
+
+### `GET /runs?phoneId=<id>`
+The rig's job list: every app account with its phone assignment (set by an operator in the admin Run panel) and a plain `shouldRun`.
+```json
+{"ok":true,"runs":[{"userId":"…","app":"hinge","phoneId":"pi-rack-1-phone-3","accountRef":"hinge-017","status":"active","userPaused":false,
+  "effectiveStatus":"active","handoffMethod":"operator_session","loginScheduledAt":null,"consented":true,"held":false,"shouldRun":true}]}
+```
+`shouldRun` is true only when the client consented for that app, the app is `active`, nobody paused it, no report hold applies and a phone is
+assigned. Poll it (every minute or so) and stop work on an account the moment it turns false. `limit` (default 200, max 500).
+
+### `POST /activity`
+Report what the phone did. Body `{"userId":"…","events":[ … 1 to 200 events … ]}`. Every event has `kind`, `app`, `idempotencyKey` (your own
+id for the event, 8 to 200 chars, unique per client) and optional `occurredAt` (ISO 8601; not more than 5 minutes ahead, not older than 7 days).
+
+| kind | extra fields | shows up as |
+| --- | --- | --- |
+| `swipes` | `count` (1 to 10000, one batch) | Swipes today |
+| `match` | `matchRef?` (the app's match id) | New matches today |
+| `chat` | `matchRef` | Chats active today (distinct `matchRef`s) |
+| `date_booked` | `who` (first name), `venue`, `startsAt`, `address?`, `summary?`, `matchRef?` | Dates booked today, and a date on the Dates tab to confirm or decline (and the usual "date booked" email) |
+| `needs_you` | `reason` (3 to 200 chars, the client reads it) | the app goes to Needs you; a pause or closure is never overridden |
+
+Never send message text, names other than a match's first name on `date_booked`, photos or screenshots. `matchRef` is an opaque id.
+```json
+{"ok":true,"created":3,"duplicates":1,"rejected":1,"results":[
+  {"index":0,"idempotencyKey":"swp-20261121-0001","status":"created"},
+  {"index":1,"idempotencyKey":"swp-20261121-0001","status":"duplicate"},
+  {"index":2,"idempotencyKey":"x","status":"rejected","code":"invalid","message":"Invalid event."}]}
+```
+Idempotent: a repeated `idempotencyKey` for the same client is `duplicate` and changes nothing (no second count, no second date, no second email), so
+retry the whole batch after a timeout. Each event is judged alone; retry only the `rejected` ones that are not `invalid` / `no_account` / `bad_time`.
+Rejected codes: `invalid`, `no_account` (the client never connected that app), `bad_time`. Whole-request errors: 400 `invalid`, 401, 404 `not_found`, 503 `migration`.
+
 ## Error codes
 
 | HTTP | code | meaning |
@@ -103,7 +145,7 @@ Book a date. Body `{"matchId":"…"?,"who":"Maya","venue":"Taqueria on 5th","add
 | 500 | `db` | transient; retry with the same `externalId` |
 | 503 | `unconfigured` | `AUTOMATION_API_KEY` or Supabase env not set |
 
-## Not built yet (the worker's job)
+## Not built yet (the rig's job)
 
 Creating the accounts on each dating app from the onboarding data and photos, swiping by type and dealbreakers,
 generating and sending the chats, deciding when a chat becomes a date, and health checks. Known risk for all of it:
