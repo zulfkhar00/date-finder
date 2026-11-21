@@ -23,9 +23,9 @@ export function classifyModelError(error: unknown): PackError {
   return new PackError("model_error", true);
 }
 
-export function createAnthropicModel(apiKey: string | undefined = process.env.ANTHROPIC_API_KEY): PackModel | null {
+export function createAnthropicModel(apiKey: string | undefined = process.env.ANTHROPIC_API_KEY, timeoutMs: number = REQUEST_TIMEOUT_MS): PackModel | null {
   if (!apiKey?.trim()) return null;
-  const client = new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+  const client = new Anthropic({ apiKey, timeout: timeoutMs, maxRetries: 0 });
   return {
     async complete(request: ModelRequest): Promise<ModelResponse> {
       const content: Anthropic.ContentBlockParam[] = [];

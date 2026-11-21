@@ -54,5 +54,7 @@ export const EVENT_LABELS: Record<string, string> = {
   checkout_canceled: "Came back from Checkout without paying",
   resume_card_view: "Saw the finish-setting-up card",
   resume_card_click: "Tapped Activate on the card",
-  paid: "Payment confirmed by Stripe webhook"
+  paid: "Payment confirmed by Stripe webhook",
+  reply_helper_used: "Used the Reply helper (drafts written)",
+  reply_copied: "Copied a Reply helper draft"
 };

@@ -11,7 +11,7 @@ export const CLICHES = [
   "swipe right", "adventurous", "wanderlust", "foodie", "good vibes", "hopeless romantic", "life is short", "life's too short",
   "ask me anything", "netflix and chill", "here for a good time", "sapiosexual"
 ];
-const UNSAFE = /\b(sex|sexy|sexual|nude|nudes|naked|horny|hook ?up|dick|cock|pussy|boobs?|tits|ass|fuck\w*|blowjob|kinky|fetish|slut|teen|underage|schoolgirl|get drunk)\b/i;
+export const UNSAFE = /\b(sex|sexy|sexual|nude|nudes|naked|horny|hook ?up|dick|cock|pussy|boobs?|tits|ass|fuck\w*|blowjob|kinky|fetish|slut|teen|underage|schoolgirl|get drunk)\b/i;
 const OPENER_FLOOR = /^(hey|hi|hello|hola|sup|yo)\b[\s,!.?]*$/i;
 const EMOJI = /[\p{Extended_Pictographic}️‍]/gu;
 

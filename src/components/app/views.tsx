@@ -164,11 +164,23 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
   );
 }
 
+/** The Reply helper entry point: one line on what it does and one button. Real app only (not /demo). */
+export function ReplyHelperCard({ empty }: { empty?: boolean }) {
+  return (
+    <section className="app-card rh-cta" aria-label="Reply helper" data-testid="reply-helper-cta" data-empty={empty ? "true" : undefined}>
+      <div className="sp-head"><Sparkles size={18} aria-hidden /><h2>Reply helper</h2></div>
+      <p>{empty ? "No chats here yet, but you can use this today: upload a screenshot of any chat and get three replies in your own voice." : "Stuck on what to say? Upload a screenshot of any chat and get three replies in your voice."}</p>
+      <Link href="/chats/reply" className="app-btn">Get replies<ChevronRight size={18} aria-hidden /></Link>
+    </section>
+  );
+}
+
 export function ChatsView({ chats, apps = [], gaps = [], base = "" }: { chats: ChatSummary[]; apps?: AppAccountRow[]; gaps?: SetupItem[]; base?: string }) {
   return (
     <>
       <h1 className="app-h1">Chats</h1>
       <p className="app-sub">Your conversations, as they happen. Open one to read along or take over.</p>
+      {base ? null : <div style={{ marginTop: 18 }}><ReplyHelperCard empty={chats.length === 0} /></div>}
       <div style={{ marginTop: 18 }}>
         {chats.length === 0 ? (
           <>

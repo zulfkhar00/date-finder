@@ -32,7 +32,7 @@ async function writeClipboard(text: string): Promise<boolean> {
 }
 
 /** Copies one line. If the browser refuses (some in-app browsers do), the text is shown selected so a long-press copies it. */
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({ text, label = "Copy", onCopied }: { text: string; label?: string; onCopied?: () => void }) {
   const [state, setState] = useState<"idle" | "copied" | "manual">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -41,6 +41,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
   async function copy() {
     const ok = await writeClipboard(text);
     setState(ok ? "copied" : "manual");
+    if (ok) onCopied?.();
     if (timer.current) clearTimeout(timer.current);
     if (ok) timer.current = setTimeout(() => setState("idle"), 1800);
   }
