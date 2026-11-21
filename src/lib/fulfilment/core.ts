@@ -72,7 +72,7 @@ export function buildRow(input: QueueInput, now: Date, list?: readonly string[])
 export function isWaiting(row: Pick<QueueRow, "hold" | "apps">): boolean {
   if (row.hold) return false;
   if (row.apps.length === 0) return true;
-  return row.apps.some((a) => !a.userPaused && a.status === "setting_up");
+  return row.apps.some((a) => !a.userPaused && (a.status === "setting_up" || a.status === "awaiting_login"));
 }
 
 /**

@@ -6,7 +6,7 @@ import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import { PhotoManager } from "@/components/app/photo-manager";
 import { StepFields } from "@/components/app/step-fields";
-import { payloadFor, type Draft } from "@/lib/app/draft";
+import { connectionsReady, payloadFor, type Draft } from "@/lib/app/draft";
 import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } from "@/lib/app/actions";
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
@@ -27,7 +27,7 @@ type StepDef = { key: StepKey; title: string; sub?: string; event?: "ob_apps" | 
 // so nobody has to find photos before they have an account and a profile.
 const STEPS: StepDef[] = [
   { key: "basics", title: "A bit about you", sub: "NoSwipe is only for adults 18 or older. Your birthday is required; everything else is optional." },
-  { key: "apps", title: "Which apps?", sub: "Optional. We create and run your profile on each one you pick.", event: "ob_apps" },
+  { key: "apps", title: "Connect your apps", sub: "Optional. Pick the apps you want NoSwipe to run for you: your profile, your swipes, your chats, your dates. You just show up.", event: "ob_apps" },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this.", event: "ob_about" },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },
   { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile.", event: "ob_photos" },
@@ -217,7 +217,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   // Every screen has a working Back: the first leaves onboarding, the activation step (profile already saved) goes to Home.
   const canBack = !busy && !photoBusy;
   // Only the consent box is required. Every other step can be skipped.
-  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : true;
+  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : def.key === "apps" ? connectionsReady(d) : true;
   const isBlank =
     def.key === "basics" ? d.firstName.trim() === "" && d.birthday === "" && !d.gender && d.interestedIn.length === 0 :
     def.key === "photos" ? photoCount === 0 :

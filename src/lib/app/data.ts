@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PACK_VERSION, packContentSchema, type PackContent, type PackStatus } from "@/lib/starter-pack/types";
+import type { ActivityRow } from "./activity";
 import { chatMode, effectiveStatus, isHaltedStatus, splitDates, type App, type AppAccountRow, type ChatMode, type DateRow, type Sender } from "./domain";
 
 // Reads for the signed-in app. They run through the user's own session client, so Postgres RLS
@@ -26,6 +27,9 @@ export async function getPrefs(sb: SupabaseClient, userId: string) {
 }
 export async function getApps(sb: SupabaseClient) {
   // client_action_reason and status_changed_at come from supabase/2026-11-20-fulfilment.sql; before it is applied, read the old columns.
+  // handoff_method, login_scheduled_at and consented_at come from supabase/2026-11-21-account-runs.sql.
+  const richest = await sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at, handoff_method, login_scheduled_at, consented_at").order("app");
+  if (!richest.error) return (richest.data ?? []) as AppAccountRow[];
   const { data, error } = await sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").order("app");
   if (!error) return (data ?? []) as AppAccountRow[];
   const { data: legacy } = await sb.from("app_accounts").select("app, status, user_paused").order("app");
@@ -83,19 +87,34 @@ export async function getChat(sb: SupabaseClient, id: string) {
 }
 
 export async function listDates(sb: SupabaseClient): Promise<DateRow[]> {
+  // client_response comes from supabase/2026-11-21-account-runs.sql; before it, every booked date reads as pending.
+  const withResponse = await sb.from("dates").select("id, who, venue, address, starts_at, summary, status, client_response").neq("status", "cancelled").order("starts_at");
+  if (!withResponse.error) return (withResponse.data ?? []) as DateRow[];
   const { data } = await sb.from("dates").select("id, who, venue, address, starts_at, summary, status").neq("status", "cancelled").order("starts_at");
   return (data ?? []) as DateRow[];
 }
+
+/**
+ * The rig's activity for the last 48 hours (enough for "today" in any time zone), or null when the feed does not exist yet
+ * (migration not applied) or cannot be read. null reads as "no feed yet"; an empty list reads as "nothing reported today".
+ */
+export async function getRecentActivity(sb: SupabaseClient, nowMs = Date.now()): Promise<ActivityRow[] | null> {
+  const { data, error } = await sb.from("account_activity").select("app, kind, count, match_ref, occurred_at").gte("occurred_at", new Date(nowMs - 48 * 3600000).toISOString()).order("occurred_at", { ascending: false }).limit(2000);
+  if (error) return null;
+  return (data ?? []) as ActivityRow[];
+}
 export async function getDate(sb: SupabaseClient, id: string) {
+  const withResponse = await sb.from("dates").select("id, who, venue, address, starts_at, summary, status, match_id, client_response").eq("id", id).maybeSingle<DateRow & { match_id: string | null }>();
+  if (!withResponse.error) return withResponse.data;
   const { data } = await sb.from("dates").select("id, who, venue, address, starts_at, summary, status, match_id").eq("id", id).maybeSingle<DateRow & { match_id: string | null }>();
   return data;
 }
 
 export async function getHome(sb: SupabaseClient) {
-  const [apps, chats, dates] = await Promise.all([getApps(sb), listChats(sb), listDates(sb)]);
+  const [apps, chats, dates, activity] = await Promise.all([getApps(sb), listChats(sb), listDates(sb), getRecentActivity(sb)]);
   const weekAgo = Date.now() - 7 * 86400000;
   return {
-    apps, chats,
+    apps, chats, activity,
     matchesThisWeek: chats.filter((c) => Date.parse(c.matched_at) >= weekAgo).length,
     upcoming: splitDates(dates).upcoming,
     needsYou: chats.filter((c) => c.needs_user && c.mode === "ai")

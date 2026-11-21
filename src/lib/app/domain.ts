@@ -11,13 +11,24 @@ export const APP_LABELS: Record<App, string> = { tinder: "Tinder", hinge: "Hinge
  * operators follow (supabase/2026-11-20-fulfilment.sql). `live` is the older name for `active`; rows written before the
  * migration keep it and every reader treats the two the same.
  */
-export const APP_STATUSES = ["setting_up", "needs_client_action", "active", "live", "paused", "closed"] as const;
+export const APP_STATUSES = ["awaiting_login", "setting_up", "needs_client_action", "active", "live", "paused", "closed"] as const;
 export type AppStatus = (typeof APP_STATUSES)[number];
 /** The statuses the operator console offers (the legacy `live` is read, never written by a person). */
-export const WORKFLOW_STATUSES = ["setting_up", "needs_client_action", "active", "paused", "closed"] as const;
+export const WORKFLOW_STATUSES = ["awaiting_login", "setting_up", "needs_client_action", "active", "paused", "closed"] as const;
 export type Sender = "match" | "as_user_ai" | "user" | "system_internal";
 
-export type AppAccountRow = { app: App; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null };
+/** How the client hands the app over: a short login on our dedicated phone when an operator schedules it, or an invite they share. No password is ever typed into NoSwipe. */
+export const HANDOFF_METHODS = ["operator_session", "invite"] as const;
+export type HandoffMethod = (typeof HANDOFF_METHODS)[number];
+export const HANDOFF_LABELS: Record<HandoffMethod, { title: string; note: string }> = {
+  operator_session: { title: "Log in once on our phone", note: "Our operator schedules a few minutes with you. You log in yourself, on a phone we set aside for you. We never ask for your password." },
+  invite: { title: "Share an invite", note: "We email you an invite for your profile. You accept it on your own phone and we take it from there. No password involved." }
+};
+
+export type AppAccountRow = {
+  app: App; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null;
+  handoff_method?: HandoffMethod | null; login_scheduled_at?: string | null; consented_at?: string | null;
+};
 /** What the user sees: their own pause toggle wins over whatever the team set. */
 export function effectiveStatus(account: Pick<AppAccountRow, "status" | "user_paused">): AppStatus {
   return account.user_paused ? "paused" : account.status;
@@ -31,7 +42,7 @@ export function isHaltedStatus(status: AppStatus): boolean {
   return status === "paused" || status === "closed";
 }
 export const STATUS_LABELS: Record<AppStatus, string> = {
-  setting_up: "Setting up", needs_client_action: "Needs you", active: "Active", live: "Active", paused: "Paused", closed: "Closed"
+  awaiting_login: "Waiting for login", setting_up: "Setting up", needs_client_action: "Needs you", active: "Running", live: "Running", paused: "Paused", closed: "Closed"
 };
 export const REASON_MIN = 3;
 export const REASON_MAX = 200;
@@ -145,16 +156,23 @@ export const stepSchemas = {
     lookingFor: z.union([blank, z.enum(GOALS)]),
     dealbreakers: z.array(text(60).min(1)).max(3)
   }).refine((v) => v.ageMin === null || v.ageMax === null || v.ageMin <= v.ageMax, { path: ["ageMax"], message: "Youngest age first." }),
-  apps: z.object({ apps: z.array(z.enum(APPS)).max(3).transform((a) => [...new Set(a)]) })
+  // `connections` carries the per-app consent and handoff method. Only apps being added need one; saveStep enforces that.
+  apps: z.object({
+    apps: z.array(z.enum(APPS)).max(3).transform((a) => [...new Set(a)]),
+    connections: z.array(z.object({ app: z.enum(APPS), handoff: z.enum(HANDOFF_METHODS), consent: z.literal(true) })).max(3).optional()
+  })
 };
 export type StepName = keyof typeof stepSchemas;
 
-export const CONSENT_VERSION = "2026-11-04";
-export const CONSENT_STATEMENT = "NoSwipe creates and runs dating profiles for you on the apps you picked, using these photos, and chats as you. You can pause or take over any chat at any time.";
+export const CONSENT_VERSION = "2026-11-21";
+/** The final onboarding consent. The /terms page says the same thing in the same words. */
+export const CONSENT_STATEMENT = "NoSwipe runs your profile, swipes and chats as you on the apps you picked, using these photos. You can pause, take over or resume any app, and take over any chat, at any time.";
+/** The per-app line on the Connect your apps step (stored as the app's consent). */
+export const appConsentLine = (app: App) => `NoSwipe runs my ${APP_LABELS[app]} profile, swipes and chats as me.`;
 
 // --- dates ------------------------------------------------------------------------------------
 
-export type DateRow = { id: string; who: string; venue: string; address: string | null; starts_at: string; summary: string | null; status: string };
+export type DateRow = { id: string; who: string; venue: string; address: string | null; starts_at: string; summary: string | null; status: string; client_response?: "pending" | "confirmed" | "declined" | null };
 
 function icsEscape(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
