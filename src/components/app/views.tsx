@@ -67,6 +67,8 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
   return (
     <>
       <h1 className="app-h1">Hi {name || "there"}.</h1>
+      <p className="app-sub">We create your dating profiles and run them for you. You just show up.</p>
+
       <h2 className="app-h2">Your apps</h2>
       {accounts.length === 0 ? (
         <Empty title="No apps yet"><Link href={`${base}/profile`} className="app-link">Pick your apps</Link></Empty>
