@@ -235,12 +235,14 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       <div className="ob-top">
         <button type="button" className="ob-back" onClick={goBack} disabled={!canBack} aria-label="Back"><ArrowLeft size={24} /></button>
         <div className="ob-bar" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={step + 1} aria-label={`Step ${step + 1} of ${STEPS.length}`}><span style={{ width: `${progress}%` }} /></div>
+        {guest ? <a href="/login" className="ob-signin">Sign in</a> : null}
       </div>
       {accountStep ? (
         <div className="ob-body">
           <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>Where should we send your code?</h1>
           <p className="app-sub">Nice. Your answers are ready. Enter your email to save your profile. No password, just a code.</p>
           <AccountStep onSignedIn={signedIn} />
+          <p className="app-fine" style={{ marginTop: 16, textAlign: "center" }}>Already have an account? <a href="/login">Sign in</a></p>
         </div>
       ) : (
       <form className="ob-body" onSubmit={(e) => { e.preventDefault(); if (def.key === "pay") void openCheckout(); else if (canContinue) void next(); }}>
