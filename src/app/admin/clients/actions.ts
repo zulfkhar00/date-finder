@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { adminEmailOrNull } from "@/lib/admin-auth";
 import * as core from "@/lib/automation/core";
 import { setRun } from "@/lib/activity/service";
+import * as operator from "@/lib/operator/service";
 import { addNoteEvent } from "@/lib/fulfilment/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { startRegeneration } from "@/lib/starter-pack/service";
@@ -45,6 +46,7 @@ export async function setRunAction(userId: string, _prev: OpState, formData: For
   const result = await setRun(sb, admin, userId, app, { phoneId: phoneId || null, accountRef: accountRef || null });
   if (!result.ok) return { error: result.message };
   await addNoteEvent(sb, admin, userId, `Run set: phone ${phoneId || "none"}, account ${accountRef || "none"}.`, app);
+  await operator.syncPhoneStep(sb, admin, userId, app, Boolean(phoneId));
   revalidatePath(`/admin/clients/${userId}`);
   revalidatePath("/admin/fulfilment");
   return { ok: "Run saved" };
@@ -133,4 +135,63 @@ export async function decideFlaggedPhotoAction(userId: string, decision: "approv
   revalidatePath(`/admin/clients/${userId}`);
   revalidatePath("/admin/clients");
   return { ok: decision === "approve" ? "Approved. The photo can be used." : "Removed." };
+}
+
+// ---------- operator kit and creation checklist ----------
+
+function kitDone(result: { ok: boolean } | operator.Failure, userId: string, message: string): OpState {
+  if (!result.ok) return { error: (result as operator.Failure).message };
+  revalidatePath(`/admin/clients/${userId}/kit`);
+  revalidatePath(`/admin/clients/${userId}`);
+  revalidatePath("/admin/fulfilment");
+  return { ok: message };
+}
+
+export async function generateKitAction(userId: string, app: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.generateKit(getSupabaseAdmin(), admin, userId, app), userId, "Kit generated");
+}
+
+export async function regenerateSectionAction(userId: string, app: string, section: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.regenerateSection(getSupabaseAdmin(), admin, userId, app, section), userId, "Rebuilt");
+}
+
+export async function setTimezoneAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.setKitTimezone(getSupabaseAdmin(), admin, userId, String(formData.get("timezone") ?? "")), userId, "Time zone saved");
+}
+
+export async function tickStepAction(userId: string, app: string, step: string, done: boolean, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await operator.tickStep(getSupabaseAdmin(), admin, userId, app, step, done);
+  return kitDone(result, userId, result.ok && result.activated ? "Checklist complete: the app is now active" : done ? "Done" : "Undone");
+}
+
+export async function requestActionAction(userId: string, app: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.requestClientAction(getSupabaseAdmin(), admin, userId, app, String(formData.get("template") ?? ""), String(formData.get("custom") ?? "")), userId, "The client sees this on Home");
+}
+
+export async function clientActionDoneAction(userId: string, app: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await operator.clientActionDone(getSupabaseAdmin(), admin, userId, app);
+  return kitDone(result, userId, result.ok && result.activated ? "Back on track: the checklist was complete, so the app is active" : "Back to setting up");
+}
+
+export async function restartSetupAction(userId: string, app: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.restartSetup(getSupabaseAdmin(), admin, userId, app), userId, "Setup restarted");
 }

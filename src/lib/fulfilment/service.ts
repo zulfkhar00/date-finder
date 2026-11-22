@@ -7,6 +7,7 @@ import { opsConfigured, sendOps } from "@/lib/ops-notify";
 import { PACK_VERSION } from "@/lib/starter-pack/types";
 import { isUndefinedRelation, usersWithFlags } from "@/lib/starter-pack/photo-flags";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { needsSetupAlert, setupAlertKey, setupAlertLine } from "@/lib/operator/queue";
 import { alertKey, buildRow, needsAlert, opsLine, parseNote, parseStatusChange, type QueueApp, type QueueInput, type QueueRow } from "./core";
 
 // Server half of the fulfilment workflow (supabase/2026-11-20-fulfilment.sql). Service role only. Nothing here logs emails,
@@ -79,7 +80,7 @@ type ProfileRow = { user_id: string; first_name: string | null; internal: boolea
 type ReservationRow = { email: string; status: string; paid_at: string | null; created_at: string; stripe_checkout_session_id: string | null; billing_country?: string | null };
 type AppRow = { user_id: string; app: App; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null };
 
-export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new Date()): Promise<Queue> {
+export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new Date(), opts: { includeInternal?: boolean } = {}): Promise<Queue> {
   const setupNeeded = { events: false };
   // Onboarded users only. report_hold exists once supabase/2026-11-20-reports.sql is applied.
   let profiles: ProfileRow[] = [];
@@ -89,7 +90,7 @@ export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new 
     profiles = (data ?? []) as unknown as ProfileRow[];
     break;
   }
-  const real = profiles.filter((p) => !p.internal);
+  const real = opts.includeInternal ? profiles : profiles.filter((p) => !p.internal);
   if (!real.length) return { rows: [], setupNeeded, truncated: false };
 
   const emails = new Map<string, string>();
@@ -100,7 +101,7 @@ export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new 
     if (data.users.length < 1000) break;
   }
   // Same exclusion as the rest of admin: founders and test addresses are not customers.
-  const eligible = real.filter((p) => { const email = emails.get(p.user_id); return !email || !internalEmailReason(email); });
+  const eligible = real.filter((p) => { const email = emails.get(p.user_id); return p.internal || !email || !internalEmailReason(email); });
   const ids = eligible.map((p) => p.user_id);
   if (!ids.length) return { rows: [], setupNeeded, truncated: profiles.length >= PROFILE_LIMIT };
   const emailList = [...new Set(ids.flatMap((id) => (emails.get(id) ? [emails.get(id)!] : [])))];
@@ -119,13 +120,16 @@ export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new 
     if (!error) for (const r of data ?? []) if (r.country) funnelCountry.set(r.dedupe_key as string, r.country as string);
   }
 
-  const [appsRes, packsRes, photosRes, flags, eventsRes] = await Promise.all([
+  const [appsRes, packsRes, photosRes, flags, eventsRes, stepsRes] = await Promise.all([
     sb.from("app_accounts").select("user_id, app, status, user_paused, client_action_reason, status_changed_at").in("user_id", ids),
     sb.from("starter_packs").select("user_id, status").in("user_id", ids).eq("version", PACK_VERSION),
     sb.from("profile_photos").select("user_id").in("user_id", ids).is("deleted_at", null),
     usersWithFlags(sb),
-    sb.from("fulfilment_events").select("user_id, at").in("user_id", ids).neq("action", "alert").order("at", { ascending: false }).limit(5000)
+    sb.from("fulfilment_events").select("user_id, at").in("user_id", ids).neq("action", "alert").order("at", { ascending: false }).limit(5000),
+    sb.from("account_checklist").select("user_id, app").in("user_id", ids)
   ]);
+  const stepsDone = new Map<string, number>();
+  for (const r of stepsRes.data ?? []) { const k = `${r.user_id}:${r.app}`; stepsDone.set(k, (stepsDone.get(k) ?? 0) + 1); }
   let appRows = (appsRes.data ?? []) as unknown as AppRow[];
   if (appsRes.error) appRows = ((await sb.from("app_accounts").select("user_id, app, status, user_paused").in("user_id", ids)).data ?? []) as unknown as AppRow[];
   let photoRows = photosRes.data ?? [];
@@ -144,13 +148,13 @@ export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new 
     const countryOf = (r: ReservationRow) => r.billing_country ?? funnelCountry.get(`checkout_created:${r.stripe_checkout_session_id}`) ?? null;
     const country = (paidRes ? countryOf(paidRes) : null) ?? mine.map(countryOf).find(Boolean) ?? null;
     const apps: QueueApp[] = appRows.filter((a) => a.user_id === p.user_id).sort((a, b) => APPS.indexOf(a.app) - APPS.indexOf(b.app)).map((a) => ({
-      app: a.app, status: a.status, userPaused: a.user_paused, reason: a.client_action_reason ?? null, changedAt: a.status_changed_at ?? null
+      app: a.app, status: a.status, userPaused: a.user_paused, reason: a.client_action_reason ?? null, changedAt: a.status_changed_at ?? null, stepsDone: stepsDone.get(`${p.user_id}:${a.app}`) ?? 0
     }));
     const hold = p.report_hold === "paused" || p.report_hold === "closed" ? p.report_hold : null;
     const input: QueueInput = {
       userId: p.user_id, firstName: p.first_name, email, createdAt: p.created_at, onboardingDoneAt: p.onboarding_done_at,
       paid: !!paidRes, paidAt: paidRes?.paid_at ?? null, country, apps, packStatus: packStatus.get(p.user_id) ?? null,
-      photoCount: photoCount.get(p.user_id) ?? 0, flaggedPhotos: flags.get(p.user_id) ?? 0, hold, lastEventAt: lastEvent.get(p.user_id) ?? null
+      photoCount: photoCount.get(p.user_id) ?? 0, flaggedPhotos: flags.get(p.user_id) ?? 0, hold, lastEventAt: lastEvent.get(p.user_id) ?? null, internal: p.internal
     };
     return buildRow(input, now);
   });
@@ -159,7 +163,7 @@ export async function loadQueue(sb: Admin = getSupabaseAdmin(), now: Date = new 
 
 // ---------- ops alert ----------
 
-export type SweepResult = { checked: number; due: number; alerted: number; skipped?: "ops_not_configured" | "not_set_up" };
+export type SweepResult = { checked: number; due: number; alerted: number; setupDue?: number; setupAlerted?: number; skipped?: "ops_not_configured" | "not_set_up" };
 
 /**
  * One ops line per paid client the team has not touched for more than 24 h, at most one per client per UTC day (claimed in the
@@ -181,5 +185,16 @@ export async function runFulfilmentSweep(sb: Admin = getSupabaseAdmin(), now: Da
     if (sent) alerted += 1;
     else await sb.from("fulfilment_events").delete().eq("dedupe_key", key);
   }
-  return { checked: queue.rows.length, due: due.length, alerted };
+  // Paid and still setting up 48 h after activation: one line per client per 48 h window, claimed in the database like the alert above.
+  const setupDue = queue.rows.filter(needsSetupAlert);
+  let setupAlerted = 0;
+  for (const row of setupDue) {
+    const key = setupAlertKey(row.userId, row.hoursWaiting);
+    const claim = await logEvent(sb, { userId: row.userId, actor: "system", action: "alert", dedupeKey: key });
+    if (!claim.ok) continue;
+    const sent = await sendOps("signups", setupAlertLine(row, `${origin}/admin/clients/${row.userId}/kit`));
+    if (sent) setupAlerted += 1;
+    else await sb.from("fulfilment_events").delete().eq("dedupe_key", key);
+  }
+  return { checked: queue.rows.length, due: due.length, alerted, setupDue: setupDue.length, setupAlerted };
 }

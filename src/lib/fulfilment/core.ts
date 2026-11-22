@@ -14,7 +14,7 @@ export function slaTone(hours: number): SlaTone {
 }
 export const SLA_LABELS: Record<SlaTone, string> = { green: "Under 24 h", amber: "24 to 72 h", red: "Over 72 h" };
 
-export type QueueApp = { app: App; status: AppStatus; userPaused: boolean; reason: string | null; changedAt: string | null };
+export type QueueApp = { app: App; status: AppStatus; userPaused: boolean; reason: string | null; changedAt: string | null; /** Creation checklist steps ticked (0 to 6). */ stepsDone?: number };
 export type CountrySupport = "supported" | "unsupported" | "unknown";
 
 export type QueueInput = {
@@ -34,6 +34,8 @@ export type QueueInput = {
   /** A takedown report put the account on hold. It overrides every app status. */
   hold: "paused" | "closed" | null;
   lastEventAt: string | null;
+  /** An internal/test account: listed only on request, with a badge, and never counted or alerted. */
+  internal?: boolean;
 };
 
 export type QueueRow = QueueInput & {
