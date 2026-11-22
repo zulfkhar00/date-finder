@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, Sparkles, User } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, User } from "lucide-react";
 import { Avatar, Empty, ModePill, RowLink } from "@/components/app/ui";
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
@@ -69,9 +69,9 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
       <h1 className="app-h1">Hi {name || "there"}.</h1>
       <p className="app-sub">We create your dating profiles and run them for you. You just show up.</p>
 
-      <h2 className="app-h2">Your accounts, run by NoSwipe</h2>
+      <h2 className="app-h2">Your apps</h2>
       {accounts.length === 0 ? (
-        <Empty title="No apps yet">We create your dating profiles and run them for you. You just show up. <Link href={`${base}/profile`} className="app-link">Pick your apps</Link></Empty>
+        <Empty title="No apps yet"><Link href={`${base}/profile`} className="app-link">Pick your apps</Link></Empty>
       ) : (
         <AccountCards apps={accounts} ctx={fulfilment} activity={activity} nowMs={nowMs} base={base} api={accountApi} hasChatsByApp={hasChatsByApp} />
       )}
@@ -89,10 +89,8 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
         <div className="app-stat" data-c="lime"><span>Upcoming dates</span><strong>{upcoming.length}</strong></div>
       </div></>}
 
-      <h2 className="app-h2">Needs you</h2>
-      {needsYou.length === 0 ? (
-        <Empty title="Nothing needs you right now" icon={<Sparkles size={24} />}>If a chat needs your call, we flag it here.</Empty>
-      ) : (
+      {needsYou.length === 0 ? null : (<>
+        <h2 className="app-h2">Needs you</h2>
         <ul className="app-list">
           {needsYou.map((c) => (
             <li key={c.id}>
@@ -107,14 +105,12 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
             </li>
           ))}
         </ul>
-      )}
+      </>)}
 
       {afterNeeds}
 
-      <h2 className="app-h2">Upcoming dates</h2>
-      {upcoming.length === 0 ? (
-        <Empty title="No dates booked yet" icon={<CalendarDays size={24} />}>When we book you a date, it lands here with the place and time.</Empty>
-      ) : (
+      {upcoming.length === 0 ? null : (<>
+        <h2 className="app-h2">Upcoming dates</h2>
         <ul className="app-list">
           {upcoming.slice(0, 3).map((d) => (
             <li key={d.id}>
@@ -129,7 +125,7 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
             </li>
           ))}
         </ul>
-      )}
+      </>)}
 
       {!quiet && packNode ? <div style={{ marginTop: 26 }}>{packNode}</div> : null}
 

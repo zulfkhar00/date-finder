@@ -273,3 +273,8 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 
 .app-auth-links{display:flex;justify-content:center;gap:16px}
 .app-auth-links .app-link{font-weight:600;text-decoration:none;color:var(--ink-3)}
+details.sp-card>summary{list-style:none;cursor:pointer}
+details.sp-card>summary::-webkit-details-marker{display:none}
+details.sp-card>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--grape-3);border-bottom:2px solid var(--grape-3);transform:rotate(45deg);transition:transform .15s}
+details.sp-card[open]>summary::after{transform:rotate(-135deg)}
+details.sp-card:not([open]){gap:0}

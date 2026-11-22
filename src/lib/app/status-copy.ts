@@ -35,12 +35,12 @@ export function appCopy(account: Pick<AppAccountRow, "app" | "status" | "user_pa
     const reason = account.client_action_reason?.trim();
     return { label: "Needs you", tone: "coral", actor: "you", text: `We need something from you: ${reason || "open Profile to see what is missing"}${reason && /[.!?]$/.test(reason) ? "" : "."} We continue as soon as you have done it.` };
   }
-  if (isActiveStatus(status)) return { label: "Running", tone: "lime", actor: "us", text: `NoSwipe is running your ${name}. What happened today is below; matches and chats show up here as they happen.` };
+  if (isActiveStatus(status)) return { label: "Running", tone: "lime", actor: "us", text: `NoSwipe is running your ${name}.` };
   if (status === "paused") return { label: "Paused", tone: "grey", actor: "nobody", text: `Paused by our team. Nothing is sent for you on ${name}. Email support@noswipe.app if you did not expect this.` };
   if (status === "closed") return { label: "Closed", tone: "grey", actor: "nobody", text: `Closed. Nothing runs on your ${name}. Email support@noswipe.app if you want it opened again.` };
   // setting_up: nothing runs yet (the retired awaiting_login reads as setting_up)
   if (!ctx.paid && ctx.paidOffered === false) return { label: "Not available yet", tone: "grey", actor: "nobody", text: `Running your ${name} for you is a paid service and it isn't offered in your country yet, so nothing runs on it. Your starter pack and reply helper still work.` };
-  if (!ctx.paid) return { label: "Not started", tone: "coral", actor: "you", text: `Waiting for you to activate NoSwipe. We create your profile and nothing runs on your ${name} until then, and after you activate a person on our team starts within ${START_WITHIN_HOURS} hours.` };
+  if (!ctx.paid) return { label: "Not started", tone: "coral", actor: "you", text: `Waiting for you to activate NoSwipe. We start within ${START_WITHIN_HOURS} hours after.` };
   if ((ctx.hoursWaiting ?? 0) > START_WITHIN_HOURS) return { label: "Setting up", tone: "coral", actor: "us", text: `We're creating your ${name} profile. This is taking longer than the ${START_WITHIN_HOURS} hours we said. Email support@noswipe.app if you want an update.` };
   return { label: "Setting up", tone: "coral", actor: "us", text: `We're creating your ${name} profile. A person on our team will start within ${START_WITHIN_HOURS} hours.` };
 }
