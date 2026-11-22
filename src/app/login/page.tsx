@@ -16,13 +16,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="app-auth-card">
         <BrandMark className="app-auth-mark" />
         <h1 className="app-display">Welcome to NoSwipe.</h1>
-        <p className="app-sub">Enter your email. We send you a code, and set up your account if you&rsquo;re new.</p>
+        <p className="app-sub">Sign in with your email.</p>
         <LoginForm initialError={error === "link" ? "That sign-in link is invalid or has expired. Ask for a new one." : undefined} />
-        <div className="app-form">
-          <a href="/demo" className="app-btn ghost">Explore the demo</a>
-          <p className="app-fine" style={{ marginTop: 0 }}>Sample chats and date plans. No sign-in needed.</p>
-        </div>
-        <p className="app-fine">By continuing you agree to the <a href="/terms">terms</a> and <a href="/privacy">privacy note</a>. You must be 18 or older.</p>
+        <p className="app-fine">18+ · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
       </div>
     </main>
   );

@@ -270,3 +270,6 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .date-card>.app-row{border:0;padding:0;background:none;box-shadow:none}
 .date-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media (max-width:420px){.acct-stats{grid-template-columns:repeat(2,1fr)}}
+
+.app-auth-links{display:flex;justify-content:center;gap:16px}
+.app-auth-links .app-link{font-weight:600;text-decoration:none;color:var(--ink-3)}
