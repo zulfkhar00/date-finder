@@ -64,6 +64,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <h1>{profile.first_name || "Unnamed"} {profile.internal ? <span className={styles.badge}>internal</span> : null}</h1>
           <p className={styles.sub}>{auth.data.user?.email} · {profile.city ?? "no city"} · {profile.job ?? "no job"} · consent {consents?.[0] ? formatDateTime(consents[0].accepted_at) : "not given"}</p>
         </div>
+        <Link href={`/admin/clients/${id}/kit`} className={styles.button} data-testid="open-kit">Account kit and checklist</Link>
       </div>
 
       {flaggedPhotos.length ? (
