@@ -27,7 +27,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
     sb.from("starter_packs").select("status, content, attempts, last_error, tokens, model, generated_at, next_attempt_at, updated_at").eq("user_id", id).eq("version", PACK_VERSION).maybeSingle(),
     sb.from("profiles").select("*").eq("user_id", id).maybeSingle(),
     sb.from("preferences").select("*").eq("user_id", id).maybeSingle(),
-    sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at, handoff_method, login_scheduled_at, consented_at").eq("user_id", id),
+    sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").eq("user_id", id),
     sb.from("matches").select("*").eq("user_id", id).order("matched_at", { ascending: false }),
     sb.from("dates").select("*").eq("user_id", id).order("starts_at"),
     sb.from("takeovers").select("match_id, ended_at").eq("user_id", id),
@@ -37,7 +37,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
     sb.auth.admin.getUserById(id)
   ]);
   // The new columns exist after supabase/2026-11-20-fulfilment.sql; before it, read the old ones so the page still works.
-  const apps: { app: string; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null; handoff_method?: string | null; login_scheduled_at?: string | null; consented_at?: string | null }[] | null = appsNew ?? ((await sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id)).data as never);
+  const apps: { app: string; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null }[] | null = appsNew ?? ((await sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id)).data as never);
   const log = await listEvents(sb, id);
   const run = await getRunPanel(sb, id);
   // Reply helper usage: counts only, never the chats or the drafts. Read separately so the page works before supabase/2026-11-21-reply-helper.sql is applied.
@@ -64,6 +64,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <h1>{profile.first_name || "Unnamed"} {profile.internal ? <span className={styles.badge}>internal</span> : null}</h1>
           <p className={styles.sub}>{auth.data.user?.email} · {profile.city ?? "no city"} · {profile.job ?? "no job"} · consent {consents?.[0] ? formatDateTime(consents[0].accepted_at) : "not given"}</p>
         </div>
+        <Link href={`/admin/clients/${id}/kit`} className={styles.button} data-testid="open-kit">Account kit and checklist</Link>
       </div>
 
       {flaggedPhotos.length ? (
@@ -114,11 +115,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
 
       <section className={styles.card} data-testid="app-workflow">
         <h2 className={styles.subhead}>App accounts</h2>
-        <p className={styles.sub}>Waiting for login, then Setting up, then Running (Active), Paused or Closed; Needs client action whenever the client has to do something (they read your reason on their Home screen). Every change is logged with your email and the time. A report hold overrides all of this until it is lifted.</p>
+        <p className={styles.sub}>Setting up (we create the profile), then Running (Active), Paused or Closed; Needs client action whenever the client has to do something (they read your reason on their Home screen). Every change is logged with your email and the time. A report hold overrides all of this until it is lifted.</p>
         {held ? <div className={styles.notice}>A report put this account on hold ({held}). The client sees the hold, not the status below.</div> : null}
         {APPS.map((app) => {
           const row = (apps ?? []).find((a) => a.app === app);
-          const current = row?.status === "live" ? "active" : row?.status ?? "awaiting_login";
+          const current = row?.status === "live" ? "active" : row?.status === "awaiting_login" || !row?.status ? "setting_up" : row.status;
           return (
             <div key={app} style={{ borderTop: "1px solid var(--a-line)", padding: "12px 0" }}>
               <strong>{APP_LABELS[app]}</strong> {row ? <span className={styles.badge}>{row.user_paused ? "paused by user" : STATUS_LABELS[row.status]}</span> : <span className={styles.muted}>not chosen by the user</span>}
@@ -144,33 +145,24 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
 
       <section className={styles.card} data-testid="run-panel">
         <h2 className={styles.subhead}>Run</h2>
-        <p className={styles.sub}>Which phone and which internal account label run each app, when the client&rsquo;s one-time login is, and what the phone reported in the last 7 days. The client sees the login time and the activity counts, never the phone or the label. Set the state above (Waiting for login, Setting up, Running, Paused, Needs you).</p>
+        <p className={styles.sub}>Which phone and which internal account label run each app, and what the phone reported in the last 7 days. The client sees the activity counts, never the phone or the label. Set the state above (Setting up, Running, Paused, Needs you).</p>
         {run.setupNeeded ? <div className={styles.notice}>The Run panel is not set up yet. Apply <code>supabase/2026-11-21-account-runs.sql</code>.</div> : null}
         {APPS.map((app) => {
           const row = (apps ?? []).find((a) => a.app === app);
           if (!row) return null;
           const asg = run.assignments[app];
           const t = run.totals[app];
-          const handoff = (row as { handoff_method?: string | null }).handoff_method;
-          const loginAt = (row as { login_scheduled_at?: string | null }).login_scheduled_at;
-          const consentedAt = (row as { consented_at?: string | null }).consented_at;
           return (
             <div key={app} style={{ borderTop: "1px solid var(--a-line)", padding: "12px 0", display: "grid", gap: 8 }} data-testid={`run-${app}`}>
               <div><strong>{APP_LABELS[app]}</strong> <span className={styles.badge}>{row.user_paused ? "paused by user" : STATUS_LABELS[row.status]}</span> {asg?.phoneId ? <span className={styles.badge}>{asg.phoneId}</span> : <span className={styles.muted}>no phone assigned</span>}</div>
               <p className={styles.sub}>
-                Handoff: {handoff === "invite" ? "invite" : handoff === "operator_session" ? "login on our phone" : "not recorded"} · consent {consentedAt ? <>given <LocalTime iso={consentedAt} /></> : "not recorded for this app"}{loginAt ? <> · login <LocalTime iso={loginAt} /></> : " · no login scheduled"}
-              </p>
-              <p className={styles.sub}>
                 {t ? <>7 days: {t.swipes} swipes · {t.matches} matches · {t.chats} chat events · {t.dates} dates{t.lastAt ? <> · last report <LocalTime iso={t.lastAt} /></> : null}</> : "Nothing reported by the phone yet."}
               </p>
               <OpForm action={setRunAction.bind(null, id)} label="Save run" pendingLabel="Saving…">
-                <TzOffset />
                 <input type="hidden" name="app" value={app} />
                 <div className={styles.filters}>
                   <label className={styles.field}>Phone id<input className={styles.input} name="phoneId" maxLength={80} defaultValue={asg?.phoneId ?? ""} placeholder="pi-rack-1-phone-3" /></label>
                   <label className={styles.field}>Account label (internal)<input className={styles.input} name="accountRef" maxLength={120} defaultValue={asg?.accountRef ?? ""} placeholder="hinge-017" /></label>
-                  <label className={styles.field}>Login time (your time, empty keeps it)<input className={styles.input} type="datetime-local" name="loginAt" /></label>
-                  <label className={styles.field} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><input type="checkbox" name="clearLogin" value="1" /> Clear login time</label>
                 </div>
               </OpForm>
             </div>

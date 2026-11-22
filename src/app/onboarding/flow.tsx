@@ -6,7 +6,7 @@ import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import { PhotoManager } from "@/components/app/photo-manager";
 import { StepFields } from "@/components/app/step-fields";
-import { connectionsReady, payloadFor, type Draft } from "@/lib/app/draft";
+import { payloadFor, type Draft } from "@/lib/app/draft";
 import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } from "@/lib/app/actions";
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
@@ -27,7 +27,7 @@ type StepDef = { key: StepKey; title: string; sub?: string; event?: "ob_apps" | 
 // so nobody has to find photos before they have an account and a profile.
 const STEPS: StepDef[] = [
   { key: "basics", title: "A bit about you", sub: "NoSwipe is only for adults 18 or older. Your birthday is required; everything else is optional." },
-  { key: "apps", title: "Connect your apps", sub: "Optional. Pick the apps you want NoSwipe to run for you: your profile, your swipes, your chats, your dates. You just show up.", event: "ob_apps" },
+  { key: "apps", title: "Which apps?", sub: "Optional. We create your profile on each one you pick and run it for you. You just show up.", event: "ob_apps" },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this.", event: "ob_about" },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },
   { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile.", event: "ob_photos" },
@@ -217,7 +217,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   // Every screen has a working Back: the first leaves onboarding, the activation step (profile already saved) goes to Home.
   const canBack = !busy && !photoBusy;
   // Only the consent box is required. Every other step can be skipped.
-  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : def.key === "apps" ? connectionsReady(d) : true;
+  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : true;
   const isBlank =
     def.key === "basics" ? d.firstName.trim() === "" && d.birthday === "" && !d.gender && d.interestedIn.length === 0 :
     def.key === "photos" ? photoCount === 0 :
@@ -235,12 +235,14 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       <div className="ob-top">
         <button type="button" className="ob-back" onClick={goBack} disabled={!canBack} aria-label="Back"><ArrowLeft size={24} /></button>
         <div className="ob-bar" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={step + 1} aria-label={`Step ${step + 1} of ${STEPS.length}`}><span style={{ width: `${progress}%` }} /></div>
+        {guest ? <a href="/login" className="ob-signin">Sign in</a> : null}
       </div>
       {accountStep ? (
         <div className="ob-body">
           <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>Where should we send your code?</h1>
           <p className="app-sub">Nice. Your answers are ready. Enter your email to save your profile. No password, just a code.</p>
           <AccountStep onSignedIn={signedIn} />
+          <p className="app-fine" style={{ marginTop: 16, textAlign: "center" }}>Already have an account? <a href="/login">Sign in</a></p>
         </div>
       ) : (
       <form className="ob-body" onSubmit={(e) => { e.preventDefault(); if (def.key === "pay") void openCheckout(); else if (canContinue) void next(); }}>

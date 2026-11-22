@@ -45,7 +45,7 @@ function Card({ account, ctx, stats, feedReady, tzLabel, base, api, hasChats }: 
   const running = isActiveStatus(status);
   const needsYou = status === "needs_client_action" && !paused;
   const showToday = !held && (running || needsYou || (paused && hasActivity(stats)));
-  const canPause = !held && !paused && (running || needsYou || status === "setting_up" || status === "awaiting_login") && ctx.paid;
+  const canPause = !held && !paused && (running || needsYou || status === "setting_up") && ctx.paid;
   const canTakeOver = !held && !paused && (running || needsYou) && ctx.paid;
   const canResume = !held && paused;
 
@@ -71,9 +71,6 @@ function Card({ account, ctx, stats, feedReady, tzLabel, base, api, hasChats }: 
         </div>
       </div>
       <p className="acct-text">{copy.text}</p>
-      {status === "awaiting_login" && ctx.paid && account.login_scheduled_at && !paused ? (
-        <p className="acct-when" data-testid="login-scheduled">Your login is scheduled for <strong><When iso={account.login_scheduled_at} style="full" /></strong>.</p>
-      ) : null}
       {needsYou ? <p className="acct-action"><Link href={`${base}/profile`} className="app-link">Open Profile<ChevronRight size={16} aria-hidden /></Link> <a className="app-link" href="mailto:support@noswipe.app?subject=I%20did%20what%20you%20asked">Tell us it&rsquo;s done<ChevronRight size={16} aria-hidden /></a></p> : null}
 
       {showToday ? (

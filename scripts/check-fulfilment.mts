@@ -8,6 +8,9 @@ import { APP_STATUSES, WORKFLOW_STATUSES, canAiSend, effectiveStatus, isActiveSt
 import { RESUME_COPY, RESUME_FORBIDDEN } from "../src/lib/app/resume";
 import { appCopy, START_WITHIN_HOURS } from "../src/lib/app/status-copy";
 import { alertKey, applyFilters, buildRow, compareQueue, countrySupport, needsAlert, opsLine, parseFilters, parseStatusChange, slaTone, waitingSinceOf, type QueueInput, type QueueRow } from "../src/lib/fulfilment/core";
+import { needsSetupAlert, queueCounts } from "../src/lib/operator/queue";
+import { CHECKLIST_STEPS } from "../src/lib/operator/checklist";
+import { clientActionDone, reconcileChecklists, requestClientAction, restartSetup, tickStep } from "../src/lib/operator/service";
 import { addNoteEvent, changeAppStatus, listEvents, loadQueue, runFulfilmentSweep } from "../src/lib/fulfilment/service";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -67,7 +70,7 @@ assert.equal(countrySupport("USA"), "unknown");
 }
 
 // ---------- status workflow rules ----------
-assert.deepEqual([...WORKFLOW_STATUSES], ["awaiting_login", "setting_up", "needs_client_action", "active", "paused", "closed"]);
+assert.deepEqual([...WORKFLOW_STATUSES], ["setting_up", "needs_client_action", "active", "paused", "closed"]);
 for (const legacy of ["setting_up", "live", "paused"]) assert.ok((APP_STATUSES as readonly string[]).includes(legacy), `the migration check stays a superset: ${legacy}`);
 assert.deepEqual(parseStatusChange({ status: "needs_client_action", reason: "  Add 2 more   photos " }), { ok: true, change: { status: "needs_client_action", reason: "Add 2 more photos" } });
 assert.equal(parseStatusChange({ status: "needs_client_action" }).ok, false, "a reason is required");
@@ -89,7 +92,7 @@ assert.equal(effectiveStatus({ status: "active", user_paused: true }), "paused")
   const paid = { paid: true, hoursWaiting: 3 };
   const c = appCopy(acct("setting_up"), paid);
   assert.equal(c.label, "Setting up"); assert.equal(c.actor, "us");
-  assert.equal(c.text, "We're setting up your Hinge. A person on our team will start within 72 hours.");
+  assert.equal(c.text, "We're creating your Hinge profile. A person on our team will start within 72 hours.");
   const need = appCopy(acct("needs_client_action", { client_action_reason: "Add 2 more photos" }), paid);
   assert.equal(need.label, "Needs you"); assert.equal(need.actor, "you");
   assert.match(need.text, /^We need something from you: Add 2 more photos\./);
@@ -142,7 +145,7 @@ assert.equal(effectiveStatus({ status: "active", user_paused: true }), "paused")
 // ---------- in-memory Supabase ----------
 type R = Record<string, unknown>;
 class Fake {
-  tables: Record<string, R[]> = { profiles: [], app_accounts: [], reservations: [], funnel_events: [], starter_packs: [], profile_photos: [], photo_flags: [], fulfilment_events: [] };
+  tables: Record<string, R[]> = { profiles: [], app_accounts: [], reservations: [], funnel_events: [], starter_packs: [], profile_photos: [], photo_flags: [], fulfilment_events: [], account_checklist: [], account_runs: [] };
   users: { id: string; email: string }[] = [];
   missing: Record<string, string[]> = {};
   failInsert = new Set<string>();
@@ -325,13 +328,13 @@ process.env.NOSWIPE_OPS_BOT_TOKEN = "TOKEN-SECRET"; process.env.NOSWIPE_OPS_CHAT
   assert.equal(again.alerted, 0); assert.equal(sent.length, 3, "overlapping or repeated runs the same day never double-send");
   const tomorrow = await runFulfilmentSweep(sb(db), new Date(NOW.getTime() + 24 * H));
   assert.ok(tomorrow.alerted >= 3, "still untouched the next day: one more line per client");
-  assert.equal(sent.length, 3 + tomorrow.alerted);
+  assert.equal(sent.filter((x) => x.text.startsWith("⏳")).length, 3 + tomorrow.alerted, "24 h alerts only; the 48 h setup alert is its own line (scripts/check-operator.mts)");
 
   // a person touches client 1 -> no more alerts for them
   await changeAppStatus(sb(db), "miko@noswipe.app", U(1), "hinge", { status: "needs_client_action", reason: "Add 2 more photos" });
   sent.length = 0;
   await runFulfilmentSweep(sb(db), new Date(NOW.getTime() + 48 * H));
-  assert.ok(!sent.some((s) => s.text.includes(U(1))));
+  assert.ok(!sent.some((s) => s.text.startsWith("⏳") && s.text.includes(U(1))), "touched: no more 24 h alerts for them");
 
   // ops bot down: the claim is released so the next run retries
   const down = world();
@@ -351,6 +354,110 @@ process.env.NOSWIPE_OPS_BOT_TOKEN = "TOKEN-SECRET"; process.env.NOSWIPE_OPS_CHAT
   // migration not applied: no alerts (they could not be deduplicated)
   const bare = world(); delete (bare.tables as Record<string, unknown>).fulfilment_events;
   assert.equal((await runFulfilmentSweep(sb(bare), NOW)).skipped, "not_set_up");
+}
+
+// ---------- operator: checklist -> status, needs-you, restart, 48 h setup alert ----------
+{
+  const admin = "ops@noswipe.app";
+  const status = (db: Fake, n: number, app: string) => db.tables.app_accounts.find((a) => a.user_id === U(n) && a.app === app)!;
+  const ticksOf = (db: Fake, n: number, app: string) => db.tables.account_checklist.filter((t) => t.user_id === U(n) && t.app === app).length;
+  const tickAll = async (db: Fake, n: number, app: string) => { let last: Awaited<ReturnType<typeof tickStep>> | null = null; for (const step of CHECKLIST_STEPS) last = await tickStep(sb(db), admin, U(n), app, step, true); return last!; };
+
+  // the phone step needs a real phone; the last tick flips setting_up -> active by itself, other apps untouched
+  const db = world();
+  const early = await tickStep(sb(db), admin, U(1), "hinge", "assign_phone", true);
+  assert.ok(!early.ok && early.code === "precondition", "cannot tick the phone step without a phone");
+  db.tables.account_runs.push({ user_id: U(1), app: "hinge", phone_id: "phone-3", account_ref: "hinge-017" });
+  for (const step of CHECKLIST_STEPS.slice(0, 3)) { const r = await tickStep(sb(db), admin, U(1), "hinge", step, true); assert.ok(r.ok && !r.activated); }
+  assert.equal(status(db, 1, "hinge").status, "setting_up", "partway: still setting up");
+  const mid = db.tables.account_checklist.find((t) => t.step === "verify")!;
+  assert.equal(mid.done_by, admin); assert.ok(mid.done_at, "who and when are stored");
+  await tickStep(sb(db), admin, U(1), "hinge", "set_filters", true);
+  await tickStep(sb(db), admin, U(1), "hinge", "assign_phone", true);
+  const last = await tickStep(sb(db), admin, U(1), "hinge", "first_session", true);
+  assert.ok(last.ok && last.activated, "the last tick activates");
+  assert.equal(status(db, 1, "hinge").status, "active"); assert.equal(status(db, 1, "tinder").status, "setting_up", "a second app of the same client is untouched");
+  const flip = db.tables.fulfilment_events.find((e) => e.action === "status" && e.to_status === "active")!;
+  assert.equal(flip.actor, "checklist"); assert.equal(flip.from_status, "setting_up");
+  assert.ok(db.tables.fulfilment_events.some((e) => e.action === "note" && /verify done/.test(String(e.note))), "every tick is logged");
+  assert.ok((await tickStep(sb(db), admin, U(1), "hinge", "verify", true)).ok, "re-ticking is harmless");
+  assert.equal((await tickStep(sb(db), admin, U(1), "hinge", "nope", true)).ok, false);
+  assert.equal((await tickStep(sb(db), admin, U(1), "okcupid", "verify", true)).ok, false);
+  await tickStep(sb(db), admin, U(1), "hinge", "first_session", false);
+  assert.equal(status(db, 1, "hinge").status, "active", "unticking after activation does not pause the app");
+
+  // client paused mid-setup: ticks save, nothing activates; once they resume the sweep's reconcile activates it
+  const paused = world();
+  status(paused, 1, "hinge").user_paused = true;
+  paused.tables.account_runs.push({ user_id: U(1), app: "hinge", phone_id: "phone-1", account_ref: null });
+  const p1 = await tickAll(paused, 1, "hinge");
+  assert.ok(p1.ok && !p1.activated); assert.equal(status(paused, 1, "hinge").status, "setting_up");
+  assert.equal(await reconcileChecklists(sb(paused)), 0, "still paused by the client");
+  status(paused, 1, "hinge").user_paused = false;
+  assert.equal(await reconcileChecklists(sb(paused)), 1); assert.equal(status(paused, 1, "hinge").status, "active");
+  assert.equal(await reconcileChecklists(sb(paused)), 0, "idempotent");
+
+  // needs you: template reason goes to the client; a complete checklist does not override it; "client did it" resumes
+  const need = world();
+  need.tables.account_runs.push({ user_id: U(1), app: "hinge", phone_id: "phone-2", account_ref: null });
+  const ask = await requestClientAction(sb(need), admin, U(1), "hinge", "selfie", "");
+  assert.ok(ask.ok); assert.equal(status(need, 1, "hinge").status, "needs_client_action"); assert.match(String(status(need, 1, "hinge").client_action_reason), /selfie/i);
+  assert.equal(status(need, 1, "tinder").status, "setting_up", "only the asked app");
+  assert.ok((await requestClientAction(sb(need), admin, U(1), "tinder", "selfie", "Please send a clearer photo of your face")).ok);
+  assert.equal(status(need, 1, "tinder").client_action_reason, "Please send a clearer photo of your face", "own words replace the template");
+  const bad = await requestClientAction(sb(need), admin, U(1), "hinge", "nope", " ");
+  assert.ok(!bad.ok && bad.code === "invalid");
+  assert.equal(status(need, 1, "hinge").status, "needs_client_action");
+  assert.ok((await tickAll(need, 1, "hinge")).ok); assert.equal(status(need, 1, "hinge").status, "needs_client_action", "a ticked checklist never overrides needs-you");
+  const back = await clientActionDone(sb(need), admin, U(1), "hinge");
+  assert.ok(back.ok && back.activated, "checklist already complete: straight to active"); assert.equal(status(need, 1, "hinge").client_action_reason, null);
+  need.tables.app_accounts.push({ user_id: U(5), app: "hinge", status: "closed", user_paused: false, client_action_reason: null, status_changed_at: null });
+  const closed = await requestClientAction(sb(need), admin, U(5), "hinge", "selfie", "");
+  assert.ok(!closed.ok && closed.code === "closed", "a closed app is not asked anything");
+
+  // re-activation: restart clears the checklist, sets setting_up, and the phone step follows the existing assignment
+  const re = await restartSetup(sb(need), admin, U(1), "hinge");
+  assert.ok(re.ok); assert.equal(status(need, 1, "hinge").status, "setting_up"); assert.equal(ticksOf(need, 1, "hinge"), 1, "only the phone step is true again");
+  need.tables.account_runs.length = 0;
+  await restartSetup(sb(need), admin, U(1), "hinge"); assert.equal(ticksOf(need, 1, "hinge"), 0, "no phone, no phone step");
+
+  // 48 h setup alert: paid + still setting up, once per 48 h window, no PII, never for internal/held/needs-you/no-apps
+  const al = world();
+  const setupLines = () => sent.filter((x) => x.text.startsWith("Paid client still setting up"));
+  sent.length = 0;
+  const at = (h: number) => new Date(NOW.getTime() + h * H);
+  const s0 = await runFulfilmentSweep(sb(al), NOW);
+  assert.equal(s0.setupAlerted, 0, "nobody is past 48 h yet");
+  const s1 = await runFulfilmentSweep(sb(al), at(24));
+  assert.equal(s1.setupDue, 2); assert.equal(s1.setupAlerted, 2, "client 1 (54 h) and client 10 (50 h)");
+  for (const l of setupLines()) { assert.doesNotMatch(l.text, /@|Name\d|real\.org/); assert.equal(l.text.split("\n").length, 1); assert.match(l.text, /\/kit$/); }
+  assert.ok(setupLines().some((l) => l.text.includes(`/admin/clients/${U(1)}/kit`) && /Tinder, Hinge/.test(l.text)));
+  assert.equal((await runFulfilmentSweep(sb(al), at(24))).setupAlerted, 0, "same run again: deduped");
+  assert.equal((await runFulfilmentSweep(sb(al), at(24.2))).setupAlerted, 0, "ten minutes later: deduped");
+  assert.equal((await runFulfilmentSweep(sb(al), at(40))).setupAlerted, 0, "same 48 h window: deduped");
+  assert.equal((await runFulfilmentSweep(sb(al), at(48))).setupAlerted, 1, "client 9 (paid 2 h before) crosses 48 h");
+  assert.equal((await runFulfilmentSweep(sb(al), at(70))).setupAlerted, 2, "next 48 h window for clients 1 and 10: one more line each");
+  botOk = false;
+  const fresh = world();
+  const f1 = await runFulfilmentSweep(sb(fresh), at(24));
+  assert.equal(f1.setupAlerted, 0); assert.equal(fresh.tables.fulfilment_events.filter((e) => String(e.dedupe_key).startsWith("setup48:")).length, 0, "failed send releases the claim");
+  botOk = true;
+  assert.equal((await runFulfilmentSweep(sb(fresh), at(24))).setupAlerted, 2, "retried when the bot is back");
+  // the 48 h rule ignores a status touch (unlike the 24 h one) but stops once the app is active
+  const touch = world();
+  await changeAppStatus(sb(touch), admin, U(1), "hinge", { status: "active" });
+  await changeAppStatus(sb(touch), admin, U(1), "tinder", { status: "active" });
+  const t1 = await runFulfilmentSweep(sb(touch), at(24));
+  assert.equal(t1.setupDue, 1, "client 1 is fully active: only client 10 left");
+  // internal accounts can be listed but never alerted or counted
+  const inc = world();
+  inc.tables.reservations.push({ email: "internal@real.org", status: "paid", paid_at: ago(100), created_at: ago(101), stripe_checkout_session_id: "cs_live_i", billing_country: "US" });
+  inc.tables.app_accounts.push({ user_id: U(3), app: "hinge", status: "setting_up", user_paused: false, client_action_reason: null, status_changed_at: null });
+  const listedAll = await loadQueue(sb(inc), NOW, { includeInternal: true });
+  const internalRow = listedAll.rows.find((r) => r.userId === U(3))!;
+  assert.equal(internalRow.internal, true); assert.ok(!(await loadQueue(sb(inc), NOW)).rows.some((r) => r.userId === U(3)), "hidden by default");
+  assert.equal(needsSetupAlert(internalRow), false); assert.equal(queueCounts(listedAll.rows).waiting, queueCounts(listedAll.rows.filter((r) => !r.internal)).waiting);
+  assert.equal((await runFulfilmentSweep(sb(inc), at(24))).setupAlerted, 2, "internal never alerts");
 }
 
 // ---------- the cron route ----------

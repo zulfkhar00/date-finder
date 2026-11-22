@@ -1,33 +1,22 @@
 // Draft of the onboarding/profile answers as form strings, plus the mapping to what the server validates.
 import type { PrefRow, ProfileRow } from "@/lib/app/data";
-import { APPS, type App, type AppAccountRow, type HandoffMethod, type StepName } from "@/lib/app/domain";
+import { APPS, type App, type StepName } from "@/lib/app/domain";
 
 export type Draft = {
   firstName: string; birthday: string; gender: string; interestedIn: string[];
   job: string; heightCm: string; interests: string[];
   city: string; ageMin: string; ageMax: string; distanceKm: string; lookingFor: string; dealbreakers: string[];
   apps: App[];
-  /** Per app: how it is handed over and whether the client agreed that NoSwipe runs it. `locked` = already connected (consent on record). */
-  connections?: Partial<Record<App, Connection>>;
 };
-export type Connection = { handoff: HandoffMethod; consent: boolean; locked?: boolean };
 
-export const DEFAULT_HANDOFF: HandoffMethod = "operator_session";
-
-/** New apps can only be added with the client's agreement; apps that are already connected carry theirs on record. */
-export function connectionsReady(d: Pick<Draft, "apps" | "connections">): boolean {
-  return d.apps.every((a) => d.connections?.[a]?.locked || d.connections?.[a]?.consent === true);
-}
-
-export function draftFrom(profile: ProfileRow | null, prefs: PrefRow | null, apps: string[], accounts: Pick<AppAccountRow, "app" | "handoff_method">[] = []): Draft {
+export function draftFrom(profile: ProfileRow | null, prefs: PrefRow | null, apps: string[]): Draft {
   const three = (list: string[] | undefined) => [list?.[0] ?? "", list?.[1] ?? "", list?.[2] ?? ""];
   return {
     firstName: profile?.first_name ?? "", birthday: profile?.birthday ?? "", gender: profile?.gender ?? "", interestedIn: profile?.interested_in ?? [],
     job: profile?.job ?? "", heightCm: profile?.height_cm ? String(profile.height_cm) : "", interests: three(profile?.interests),
     city: profile?.city ?? "", ageMin: prefs?.age_min ? String(prefs.age_min) : "", ageMax: prefs?.age_max ? String(prefs.age_max) : "",
     distanceKm: prefs?.distance_km ? String(prefs.distance_km) : "50", lookingFor: prefs?.looking_for ?? "", dealbreakers: three(prefs?.dealbreakers),
-    apps: apps.filter((a): a is App => (APPS as readonly string[]).includes(a)),
-    connections: Object.fromEntries(accounts.map((a) => [a.app, { handoff: a.handoff_method ?? DEFAULT_HANDOFF, consent: true, locked: true }]))
+    apps: apps.filter((a): a is App => (APPS as readonly string[]).includes(a))
   };
 }
 
@@ -42,10 +31,7 @@ export function payloadFor(step: StepName, d: Draft): unknown {
     case "who": return { gender: d.gender, interestedIn: d.interestedIn };
     case "about": return { job: d.job, heightCm: d.heightCm.trim() === "" ? null : num(d.heightCm), interests: clean(d.interests) };
     case "type": return { city: d.city, ageMin: num(d.ageMin), ageMax: num(d.ageMax), distanceKm: num(d.distanceKm), lookingFor: d.lookingFor, dealbreakers: clean(d.dealbreakers) };
-    case "apps": return {
-      apps: d.apps,
-      connections: d.apps.filter((a) => !d.connections?.[a]?.locked).map((a) => ({ app: a, handoff: d.connections?.[a]?.handoff ?? DEFAULT_HANDOFF, consent: d.connections?.[a]?.consent === true }))
-    };
+    case "apps": return { apps: d.apps };
   }
 }
 

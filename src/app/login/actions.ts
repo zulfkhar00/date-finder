@@ -57,7 +57,7 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
     console.error("Sign-in email failed", error instanceof Error ? error.name : "unknown error");
     return { step: "email", email, error: SEND_FAILED };
   }
-  return { step: "code", email, notice: "New code sent. Older codes no longer work." };
+  return { step: "code", email, notice: "New code sent." };
 }
 
 async function checkCode(formData: FormData): Promise<LoginState> {

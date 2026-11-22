@@ -27,11 +27,8 @@ export async function getPrefs(sb: SupabaseClient, userId: string) {
 }
 export async function getApps(sb: SupabaseClient) {
   // client_action_reason and status_changed_at come from supabase/2026-11-20-fulfilment.sql; before it is applied, read the old columns.
-  // handoff_method, login_scheduled_at and consented_at come from supabase/2026-11-21-account-runs.sql.
-  const richest = await sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at, handoff_method, login_scheduled_at, consented_at").order("app");
+  const richest = await sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").order("app");
   if (!richest.error) return (richest.data ?? []) as AppAccountRow[];
-  const { data, error } = await sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").order("app");
-  if (!error) return (data ?? []) as AppAccountRow[];
   const { data: legacy } = await sb.from("app_accounts").select("app, status, user_paused").order("app");
   return (legacy ?? []) as AppAccountRow[];
 }

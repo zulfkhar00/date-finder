@@ -5,6 +5,8 @@
   "port": 3100,
   "routes": [
     "/",
+    "/demo",
+    "/login",
     "/try",
     "/reserve",
     "/guides",
