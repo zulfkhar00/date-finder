@@ -74,6 +74,8 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .ob-top{display:flex;align-items:center;gap:12px;min-height:48px}
 .ob-back{width:44px;height:44px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;flex:none;margin-left:-10px}
 .ob-back:disabled{opacity:.3}
+.ob-signin{flex:none;font-weight:700;font-size:15px;color:var(--ink,inherit);text-decoration:none;padding:10px 4px;min-height:44px;display:grid;place-items:center}
+.ob-signin:hover{text-decoration:underline}
 .ob-bar{flex:1;height:8px;border-radius:var(--r-pill);background:#E9E1F2;overflow:hidden}
 .ob-bar span{display:block;height:100%;background:var(--coral);border-radius:inherit;transition:width .3s ease}
 .ob-body{flex:1;padding-top:22px}
