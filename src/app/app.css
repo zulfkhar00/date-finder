@@ -247,7 +247,7 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 /* Owner preview */
 .app-preview-banner{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
 .app-slots{display:flex;flex-wrap:wrap;gap:8px}
-/* Accounts run by NoSwipe (Home cards, connect-apps step, date answers) */
+/* Accounts run by NoSwipe (Home cards, date answers) */
 .acct{display:grid;gap:10px;list-style:none}
 .acct-head{display:flex;align-items:center;gap:14px;min-width:0}
 .acct-text{margin:0;font-size:15px;line-height:1.45;color:var(--grape-2)}
@@ -264,11 +264,6 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .acct-actions{display:flex;flex-wrap:wrap;gap:8px}
 .acct-confirm{border-radius:var(--r-lg);background:var(--blush);padding:12px 14px;display:grid;gap:10px}
 .acct-confirm p{margin:0;font-size:14.5px;font-weight:600}
-.app-connect{display:grid;gap:10px}
-.app-connect[data-on=true]{border-radius:var(--r-xl);border:1.5px solid var(--grape);padding:8px;box-shadow:0 0 0 3px var(--lime)}
-.app-connect[data-on=true]>.app-choice{border-color:transparent;box-shadow:none}
-.app-connect-body{padding:2px 8px 8px;display:grid;gap:4px}
-.app-handoff{min-height:0;padding:12px 14px;font-size:16px}
 .date-card{display:grid;gap:12px;padding:12px 14px}
 .date-card>.app-row{border:0;padding:0;background:none;box-shadow:none}
 .date-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}

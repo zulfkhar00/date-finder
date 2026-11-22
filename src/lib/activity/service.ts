@@ -79,7 +79,7 @@ async function applyEvent(sb: Admin, userId: string, e: ActivityEvent, account: 
   if (e.kind === "needs_you") {
     // Only an app that is still in play flips to "needs you". A pause or closure the client or team chose is never overridden by the rig.
     const s = effectiveStatus(account);
-    if (s === "awaiting_login" || s === "setting_up" || s === "active" || s === "live") {
+    if (s === "setting_up" || s === "active" || s === "live") {
       await changeAppStatus(sb, "automation", userId, e.app, { status: "needs_client_action", reason: e.reason });
     }
   }
@@ -90,34 +90,39 @@ async function applyEvent(sb: Admin, userId: string, e: ActivityEvent, account: 
 
 export type RunRow = {
   userId: string; app: App; phoneId: string | null; accountRef: string | null; status: AppStatus; userPaused: boolean; effectiveStatus: AppStatus;
-  handoffMethod: string | null; loginScheduledAt: string | null; consented: boolean; held: boolean;
-  /** True only when the client consented, nothing paused or closed the app, no report hold applies and an operator marked it active. */
+  /** The client finished onboarding (profiles.onboarding_done_at is set). */
+  onboarded: boolean; held: boolean;
+  /** True only when onboarding is finished, an operator marked the app active, nobody paused it, no report hold applies and a phone is assigned. */
   shouldRun: boolean;
 };
 
 /** The rig's job list: every app account with its phone assignment and a plain shouldRun flag. Optional filter by phone. */
 export async function listRuns(sb: Admin, filter: { phoneId?: string; limit?: number } = {}): Promise<{ ok: true; runs: RunRow[] } | Failure> {
   const limit = Math.min(Math.max(filter.limit ?? 200, 1), 500);
-  const full = "user_id, app, status, user_paused, handoff_method, login_scheduled_at, consented_at";
-  const rich = await sb.from("app_accounts").select(full).limit(limit);
-  // Before the migration the handoff columns do not exist: read the old shape.
-  const accounts = rich.error && isUndefinedRelation(rich.error) ? await sb.from("app_accounts").select("user_id, app, status, user_paused").limit(limit) : rich;
+  const accounts = await sb.from("app_accounts").select("user_id, app, status, user_paused").limit(limit);
   if (accounts.error) { console.error("Runs read failed", accounts.error.code); return { ok: false, status: 500, code: "db", message: "Could not list runs." }; }
   const runsRes = await sb.from("account_runs").select("user_id, app, phone_id, account_ref");
   const runs = new Map<string, { phone_id: string | null; account_ref: string | null }>();
   if (runsRes.error && !isUndefinedRelation(runsRes.error)) { console.error("Run assignments read failed", runsRes.error.code); return { ok: false, status: 500, code: "db", message: "Could not list runs." }; }
   for (const r of runsRes.data ?? []) runs.set(`${r.user_id}:${r.app}`, { phone_id: r.phone_id as string | null, account_ref: r.account_ref as string | null });
-  const rows = (accounts.data ?? []) as unknown as { user_id: string; app: App; status: AppStatus; user_paused: boolean; handoff_method?: string | null; login_scheduled_at?: string | null; consented_at?: string | null }[];
-  const held = await core.reportHeldUsers(sb, [...new Set(rows.map((r) => r.user_id))]);
+  const rows = (accounts.data ?? []) as unknown as { user_id: string; app: App; status: AppStatus; user_paused: boolean }[];
+  const userIds = [...new Set(rows.map((r) => r.user_id))];
+  const held = await core.reportHeldUsers(sb, userIds);
+  const onboarded = new Set<string>();
+  if (userIds.length) {
+    const profiles = await sb.from("profiles").select("user_id, onboarding_done_at").in("user_id", userIds);
+    if (profiles.error) { console.error("Profiles read failed", profiles.error.code); return { ok: false, status: 500, code: "db", message: "Could not list runs." }; }
+    for (const p of profiles.data ?? []) if (p.onboarding_done_at) onboarded.add(p.user_id as string);
+  }
   const out: RunRow[] = rows.map((a) => {
     const run = runs.get(`${a.user_id}:${a.app}`);
     const eff = effectiveStatus(a);
     const isHeld = held.has(a.user_id);
-    const consented = Boolean(a.consented_at);
+    const done = onboarded.has(a.user_id);
     return {
       userId: a.user_id, app: a.app, phoneId: run?.phone_id ?? null, accountRef: run?.account_ref ?? null, status: a.status, userPaused: a.user_paused, effectiveStatus: eff,
-      handoffMethod: a.handoff_method ?? null, loginScheduledAt: a.login_scheduled_at ?? null, consented, held: isHeld,
-      shouldRun: consented && !isHeld && (eff === "active" || eff === "live") && Boolean(run?.phone_id)
+      onboarded: done, held: isHeld,
+      shouldRun: done && !isHeld && (eff === "active" || eff === "live") && Boolean(run?.phone_id)
     };
   }).filter((r) => (filter.phoneId ? r.phoneId === filter.phoneId : true));
   return { ok: true, runs: out };
@@ -148,15 +153,14 @@ export async function getRunPanel(sb: Admin, userId: string): Promise<{ assignme
 
 const runSchema = z.object({
   phoneId: z.string().trim().max(80).nullable().optional(),
-  accountRef: z.string().trim().max(120).nullable().optional(),
-  loginScheduledAt: z.string().datetime({ offset: true }).nullable().optional()
+  accountRef: z.string().trim().max(120).nullable().optional()
 });
 
-/** Assigns the phone and internal account label, and sets when the client's one-time login is scheduled (they read that time on Home). */
+/** Assigns the phone and the internal account label that run this client's app. */
 export async function setRun(sb: Admin, actor: string, userId: string, app: string, input: unknown): Promise<{ ok: true } | Failure> {
   if (!(APPS as readonly string[]).includes(app) || !uuid.safeParse(userId).success) return { ok: false, status: 400, code: "invalid", message: "Unknown app." };
   const p = runSchema.safeParse(input);
-  if (!p.success) return { ok: false, status: 400, code: "invalid", message: "Phone and account labels are up to 80 and 120 characters; the login time must be a valid time." };
+  if (!p.success) return { ok: false, status: 400, code: "invalid", message: "Phone and account labels are up to 80 and 120 characters." };
   const nowIso = new Date().toISOString();
   const phoneId = p.data.phoneId || null;
   const accountRef = p.data.accountRef || null;
@@ -165,13 +169,6 @@ export async function setRun(sb: Admin, actor: string, userId: string, app: stri
     if (isUndefinedRelation(error)) return { ok: false, status: 503, code: "migration", message: `Phone assignment is not set up. ${SETUP_HINT}` };
     console.error("Run save failed", error.code);
     return { ok: false, status: 500, code: "db", message: "Could not save the phone assignment." };
-  }
-  if (p.data.loginScheduledAt !== undefined) {
-    const { error: e2 } = await sb.from("app_accounts").update({ login_scheduled_at: p.data.loginScheduledAt, updated_at: nowIso }).eq("user_id", userId).eq("app", app);
-    if (e2) {
-      if (isUndefinedRelation(e2)) return { ok: false, status: 503, code: "migration", message: `Login scheduling is not set up. ${SETUP_HINT}` };
-      return { ok: false, status: 500, code: "db", message: "Could not save the login time." };
-    }
   }
   return { ok: true };
 }

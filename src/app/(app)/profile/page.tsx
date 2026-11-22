@@ -19,7 +19,7 @@ export default async function ProfilePage() {
     <ProfileClient
       email={user.email ?? ""}
       age={profile?.birthday ? ageFromBirthday(profile.birthday) : null}
-      draft={draftFrom(profile, prefs, ordered.map((a) => a.app), ordered)}
+      draft={draftFrom(profile, prefs, ordered.map((a) => a.app))}
       photos={photos}
       flaggedPhotoIds={photos.filter((p) => flagged.has(p.id)).map((p) => p.id)}
       apps={ordered}

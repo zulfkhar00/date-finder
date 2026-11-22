@@ -7,7 +7,7 @@ import { PhotoManager } from "@/components/app/photo-manager";
 import { StepFields } from "@/components/app/step-fields";
 import { NextSteps } from "@/components/app/views";
 import { addSamplePhotos, photoApi } from "@/components/app/mock/actions";
-import { connectionsReady, payloadFor, type Draft } from "@/lib/app/draft";
+import { payloadFor, type Draft } from "@/lib/app/draft";
 import { CONSENT_STATEMENT, stepSchemas, type StepName } from "@/lib/app/domain";
 import { completeOnboarding, setOnboardingStep, type MockState } from "@/lib/app/mock-core";
 import { set, useMock } from "@/lib/app/mock-store";
@@ -16,7 +16,7 @@ import { leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-
 type Key = "basics" | "apps" | "about" | "type" | "photos" | "consent" | "done";
 const STEPS: { key: Key; title: string; sub?: string }[] = [
   { key: "basics", title: "A bit about you", sub: "NoSwipe is only for adults 18 or older. Your birthday is required; everything else is optional." },
-  { key: "apps", title: "Connect your apps", sub: "Optional. Pick the apps you want NoSwipe to run for you: your profile, your swipes, your chats, your dates. You just show up." },
+  { key: "apps", title: "Which apps?", sub: "Optional. We create your profile on each one you pick and run it for you. You just show up." },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this." },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no." },
   { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile." },
@@ -98,7 +98,7 @@ function Flow({ initial }: { initial: MockState }) {
     }
   }
 
-  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : def.key === "apps" ? connectionsReady(d) : true;
+  const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : true;
   const isBlank =
     def.key === "basics" ? d.firstName.trim() === "" && d.birthday === "" && !d.gender && d.interestedIn.length === 0 :
     def.key === "photos" ? photoCount === 0 :
