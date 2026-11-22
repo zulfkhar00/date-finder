@@ -94,21 +94,22 @@ Book a date. Body `{"matchId":"…"?,"who":"Maya","venue":"Taqueria on 5th","add
 
 ## Phone rig: runs and the activity feed
 
-The phone rig (repo `edge-phone-agent`: Android phones driven by a Raspberry Pi, one job per phone and account) runs the client's own
-Hinge / Tinder / Bumble, with the consent they gave per app in onboarding. It talks to NoSwipe only through this API. Credentials never
-reach NoSwipe: the client logs in once, themselves, on a phone we set aside (or accepts an invite). Needs `supabase/2026-11-21-account-runs.sql`.
+The phone rig (repo `edge-phone-agent`: Android phones driven by a Raspberry Pi, one job per phone and account) runs the dating profiles
+NoSwipe creates for the client. The client connects nothing and logs in to nothing: they finish onboarding and we create the accounts on our
+side. It talks to NoSwipe only through this API. Needs `supabase/2026-11-21-account-runs.sql`.
 
-App states the client sees (`status` on the app account): `awaiting_login` (Waiting for login) -> `setting_up` (Setting up) -> `active`
-(Running) -> `paused` / `closed`; `needs_client_action` (Needs you, with a reason the client reads) at any point. The client's own pause
+App states the client sees (`status` on the app account): `setting_up` (Setting up: we are creating the profile) -> `active`
+(Running) -> `paused` / `closed`; `needs_client_action` (Needs you, with a reason the client reads, e.g. a new photo or a verification
+selfie) at any point. `awaiting_login` is retired: old rows keep it and read as `setting_up`. The client's own pause
 (`userPaused`) wins over `status`. Move the state with `PUT /clients/{userId}/apps/{app}` (`{"status":"setting_up"|"active"|"paused"|"needs_client_action","reason":"…"}`).
 
 ### `GET /runs?phoneId=<id>`
 The rig's job list: every app account with its phone assignment (set by an operator in the admin Run panel) and a plain `shouldRun`.
 ```json
 {"ok":true,"runs":[{"userId":"…","app":"hinge","phoneId":"pi-rack-1-phone-3","accountRef":"hinge-017","status":"active","userPaused":false,
-  "effectiveStatus":"active","handoffMethod":"operator_session","loginScheduledAt":null,"consented":true,"held":false,"shouldRun":true}]}
+  "effectiveStatus":"active","onboarded":true,"held":false,"shouldRun":true}]}
 ```
-`shouldRun` is true only when the client consented for that app, the app is `active`, nobody paused it, no report hold applies and a phone is
+`shouldRun` is true only when the client finished onboarding, the app is `active`, nobody paused it, no report hold applies and a phone is
 assigned. Poll it (every minute or so) and stop work on an account the moment it turns false. `limit` (default 200, max 500).
 
 ### `POST /activity`

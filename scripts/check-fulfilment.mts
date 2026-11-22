@@ -67,7 +67,7 @@ assert.equal(countrySupport("USA"), "unknown");
 }
 
 // ---------- status workflow rules ----------
-assert.deepEqual([...WORKFLOW_STATUSES], ["awaiting_login", "setting_up", "needs_client_action", "active", "paused", "closed"]);
+assert.deepEqual([...WORKFLOW_STATUSES], ["setting_up", "needs_client_action", "active", "paused", "closed"]);
 for (const legacy of ["setting_up", "live", "paused"]) assert.ok((APP_STATUSES as readonly string[]).includes(legacy), `the migration check stays a superset: ${legacy}`);
 assert.deepEqual(parseStatusChange({ status: "needs_client_action", reason: "  Add 2 more   photos " }), { ok: true, change: { status: "needs_client_action", reason: "Add 2 more photos" } });
 assert.equal(parseStatusChange({ status: "needs_client_action" }).ok, false, "a reason is required");
@@ -89,7 +89,7 @@ assert.equal(effectiveStatus({ status: "active", user_paused: true }), "paused")
   const paid = { paid: true, hoursWaiting: 3 };
   const c = appCopy(acct("setting_up"), paid);
   assert.equal(c.label, "Setting up"); assert.equal(c.actor, "us");
-  assert.equal(c.text, "We're setting up your Hinge. A person on our team will start within 72 hours.");
+  assert.equal(c.text, "We're creating your Hinge profile. A person on our team will start within 72 hours.");
   const need = appCopy(acct("needs_client_action", { client_action_reason: "Add 2 more photos" }), paid);
   assert.equal(need.label, "Needs you"); assert.equal(need.actor, "you");
   assert.match(need.text, /^We need something from you: Add 2 more photos\./);

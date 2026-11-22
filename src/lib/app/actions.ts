@@ -46,21 +46,11 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
   }
   if (step === "apps") {
     const chosen = v.apps as string[];
-    const connections = (v.connections ?? []) as { app: string; handoff: string; consent: boolean }[];
     const { data: existing } = await sb.from("app_accounts").select("app, status").eq("user_id", user.id);
     const have = new Set((existing ?? []).map((a) => a.app));
-    const adding = chosen.filter((a) => !have.has(a));
-    // An app is only added with the client's own yes, recorded per app with the handoff method they picked.
-    if (adding.some((a) => !connections.some((c) => c.app === a && c.consent === true))) return { ok: false, error: "Agree for each app you want us to run." };
-    const add = adding.map((app) => ({
-      user_id: user.id, app, status: "awaiting_login", handoff_method: connections.find((c) => c.app === app)?.handoff ?? "operator_session",
-      consented_at: now, consent_version: CONSENT_VERSION
-    }));
-    if (add.length) {
-      ({ error } = await sb.from("app_accounts").insert(add));
-      // Before supabase/2026-11-21-account-runs.sql is applied the new columns and the new status do not exist: save the old shape.
-      if (error && isSchemaGap(error)) ({ error } = await sb.from("app_accounts").insert(add.map((r) => ({ user_id: r.user_id, app: r.app, status: "setting_up" }))));
-    }
+    // We create the profile ourselves: a picked app is just a new row that starts as "setting up".
+    const add = chosen.filter((a) => !have.has(a)).map((app) => ({ user_id: user.id, app, status: "setting_up" }));
+    if (add.length) ({ error } = await sb.from("app_accounts").insert(add));
     const drop = (existing ?? []).filter((a) => !chosen.includes(a.app) && (a.status === "setting_up" || a.status === "awaiting_login")).map((a) => a.app);
     if (!error && drop.length) ({ error } = await sb.from("app_accounts").delete().eq("user_id", user.id).in("app", drop));
   }

@@ -66,9 +66,9 @@ export function buildDemo(now = Date.now()) {
   ].sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
 
   const apps: AppAccountRow[] = [
-    { app: "tinder", status: "active", user_paused: false, handoff_method: "operator_session" },
-    { app: "hinge", status: "active", user_paused: false, handoff_method: "invite" },
-    { app: "bumble", status: "needs_client_action", user_paused: false, client_action_reason: "Bumble asked for a quick selfie to verify the profile. Open the app on your phone and finish it", handoff_method: "operator_session" }
+    { app: "tinder", status: "active", user_paused: false },
+    { app: "hinge", status: "active", user_paused: false },
+    { app: "bumble", status: "needs_client_action", user_paused: false, client_action_reason: "Bumble asked for a quick selfie to verify the profile. Upload a new selfie in Profile and we finish it" }
   ];
   // Sample feed rows from the last hours, so "today" has numbers to show. Invented, like everything in /demo.
   const row = (app: "tinder" | "hinge" | "bumble", kind: ActivityRow["kind"], count: number, msAgo: number, ref: string | null = null): ActivityRow => ({ app, kind, count, match_ref: ref, occurred_at: at(msAgo) });

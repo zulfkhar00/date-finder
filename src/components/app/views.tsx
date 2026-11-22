@@ -23,7 +23,7 @@ export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps
     <section className="app-card app-next" aria-label="What happens next">
       {compact ? null : <h2 style={{ fontSize: 17, fontWeight: 800 }}>What happens next</h2>}
       <ol className="app-steps">
-        <li><span aria-hidden>1</span><div><strong>You log in once, we set up your profile</strong><p>{names ? `On ${names}, from your photos and answers. A person on our team arranges the one-time login with you.` : "On the apps you pick, from your photos and answers. A person on our team arranges the one-time login with you."}</p></div></li>
+        <li><span aria-hidden>1</span><div><strong>We create your dating profiles</strong><p>{names ? `On ${names}, from your photos and answers. You don't log in to anything.` : "On the apps you pick, from your photos and answers. You don't log in to anything."}</p></div></li>
         <li><span aria-hidden>2</span><div><strong>We swipe and chat as you</strong><p>Matches and chats show up here as they happen. Read along, pause, or take over any time.</p></div></li>
         <li><span aria-hidden>3</span><div><strong>Dates land in Dates, you just show up</strong><p>With the place and the time. You confirm or decline, and we email you if you have that on.</p></div></li>
       </ol>
@@ -67,11 +67,11 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
   return (
     <>
       <h1 className="app-h1">Hi {name || "there"}.</h1>
-      <p className="app-sub">Here&rsquo;s what NoSwipe is doing for you.</p>
+      <p className="app-sub">We create your dating profiles and run them for you. You just show up.</p>
 
       <h2 className="app-h2">Your accounts, run by NoSwipe</h2>
       {accounts.length === 0 ? (
-        <Empty title="No apps connected yet">Connect the apps you want NoSwipe to run for you. <Link href={`${base}/profile`} className="app-link">Connect an app</Link></Empty>
+        <Empty title="No apps yet">We create your dating profiles and run them for you. You just show up. <Link href={`${base}/profile`} className="app-link">Pick your apps</Link></Empty>
       ) : (
         <AccountCards apps={accounts} ctx={fulfilment} activity={activity} nowMs={nowMs} base={base} api={accountApi} hasChatsByApp={hasChatsByApp} />
       )}

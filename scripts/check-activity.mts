@@ -1,12 +1,12 @@
 // Done-for-you accounts: the activity feed the phone rig writes (validation, idempotency, time bounds, needs-you), "today" in the
 // viewer's time zone, the rig's job list (shouldRun), the operator's Run panel, the client-facing copy for every account state, the
-// Connect your apps consent rules and the migration file. No network, no database: an in-memory Supabase.
+// onboarding (no connect step, no handoff) and the migration file. No network, no database: an in-memory Supabase.
 // Run with: node --conditions=react-server --import tsx scripts/check-activity.mts
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { eventSchema, occurredAtOk, summarizeToday, dayKey, type ActivityRow } from "../src/lib/app/activity";
-import { APP_STATUSES, WORKFLOW_STATUSES, CONSENT_STATEMENT, appConsentLine, effectiveStatus, stepSchemas } from "../src/lib/app/domain";
-import { connectionsReady, payloadFor, draftFrom, type Draft } from "../src/lib/app/draft";
+import { APP_STATUSES, WORKFLOW_STATUSES, CONSENT_STATEMENT, effectiveStatus, stepSchemas } from "../src/lib/app/domain";
+import { payloadFor, draftFrom } from "../src/lib/app/draft";
 import { appCopy, START_WITHIN_HOURS } from "../src/lib/app/status-copy";
 import { getRunPanel, ingestEvents, listRuns, setRun } from "../src/lib/activity/service";
 
@@ -136,10 +136,10 @@ class Q implements PromiseLike<{ data: unknown; error: { code: string } | null }
 const sb = (db: Fake) => db as unknown as Parameters<typeof ingestEvents>[0];
 const world = () => {
   const db = new Fake();
-  db.tables.profiles.push({ user_id: U, notify_email: false }); // no email can ever be sent from these tests
+  db.tables.profiles.push({ user_id: U, notify_email: false, onboarding_done_at: ago(2 * HOUR) }); // no email can ever be sent from these tests
   db.tables.app_accounts.push(
-    { user_id: U, app: "hinge", status: "active", user_paused: false, consented_at: ago(HOUR), handoff_method: "operator_session" },
-    { user_id: U, app: "tinder", status: "awaiting_login", user_paused: false }
+    { user_id: U, app: "hinge", status: "active", user_paused: false },
+    { user_id: U, app: "tinder", status: "setting_up", user_paused: false }
   );
   return db;
 };
@@ -247,13 +247,13 @@ console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
     const hinge = runs.runs.find((r) => r.app === "hinge")!;
     assert.equal(hinge.shouldRun, true);
     assert.equal(hinge.phoneId, "pi-1-phone-3");
-    assert.equal(runs.runs.find((r) => r.app === "tinder")!.shouldRun, false, "waiting for login never runs");
+    assert.equal(runs.runs.find((r) => r.app === "tinder")!.shouldRun, false, "setting up never runs");
   }
-  const should = async (patch: R, withPhone = true, consented = true) => {
+  const should = async (patch: R, withPhone = true, onboarded = true) => {
     const w = world();
     const acct = w.tables.app_accounts.find((a) => a.app === "hinge")!;
     Object.assign(acct, patch);
-    if (!consented) delete acct.consented_at;
+    if (!onboarded) w.tables.profiles[0].onboarding_done_at = null;
     if (withPhone) w.tables.account_runs.push({ user_id: U, app: "hinge", phone_id: "pi-1-phone-3", account_ref: null });
     const r = await listRuns(sb(w), { phoneId: withPhone ? "pi-1-phone-3" : undefined });
     return r.ok ? r.runs.find((x) => x.app === "hinge")!.shouldRun : null;
@@ -264,7 +264,7 @@ console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
   assert.equal(await should({ status: "needs_client_action" }), false, "needs the client: stop");
   assert.equal(await should({ status: "closed" }), false);
   assert.equal(await should({}, false), false, "no phone assigned: nothing to run on");
-  assert.equal(await should({}, true, false), false, "no consent on record for this app: never run");
+  assert.equal(await should({}, true, false), false, "onboarding not finished: never run");
   assert.equal(await should({ status: "live" }), true, "the old name for active still runs");
   const filtered = await listRuns(sb(db), { phoneId: "pi-9" });
   assert.ok(filtered.ok && filtered.runs.length === 0, "the phone filter only returns that phone's jobs");
@@ -279,17 +279,12 @@ console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
 // ---------- Run panel ----------
 {
   const db = world();
-  const ok = await setRun(sb(db), "ops@noswipe.test", U, "hinge", { phoneId: " pi-1-phone-3 ", accountRef: "hinge-017", loginScheduledAt: "2026-11-23T17:00:00Z" });
+  const ok = await setRun(sb(db), "ops@noswipe.test", U, "hinge", { phoneId: " pi-1-phone-3 ", accountRef: "hinge-017" });
   assert.ok(ok.ok);
   assert.deepEqual([db.tables.account_runs[0].phone_id, db.tables.account_runs[0].account_ref, db.tables.account_runs[0].updated_by], ["pi-1-phone-3", "hinge-017", "ops@noswipe.test"]);
-  assert.equal(db.tables.app_accounts.find((a) => a.app === "hinge")!.login_scheduled_at, "2026-11-23T17:00:00Z");
   assert.ok((await setRun(sb(db), "ops", U, "hinge", { phoneId: "pi-2" })).ok);
   assert.equal(db.tables.account_runs.length, 1, "reassigning updates the one row");
-  assert.equal(db.tables.app_accounts.find((a) => a.app === "hinge")!.login_scheduled_at, "2026-11-23T17:00:00Z", "leaving the login time out keeps it");
-  assert.ok((await setRun(sb(db), "ops", U, "hinge", { loginScheduledAt: null })).ok);
-  assert.equal(db.tables.app_accounts.find((a) => a.app === "hinge")!.login_scheduled_at, null, "null clears it");
   assert.ok(!(await setRun(sb(db), "ops", U, "grindr", {})).ok);
-  assert.ok(!(await setRun(sb(db), "ops", U, "hinge", { loginScheduledAt: "tomorrow" })).ok);
   assert.ok(!(await setRun(sb(db), "ops", U, "hinge", { phoneId: "x".repeat(81) })).ok);
   const gone = world(); gone.missingTables.add("account_runs");
   const r = await setRun(sb(gone), "ops", U, "hinge", { phoneId: "p" });
@@ -302,29 +297,28 @@ console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
 
 // ---------- what the client reads on each card ----------
 {
-  const acct = (status: (typeof APP_STATUSES)[number], extra: R = {}) => ({ app: "hinge" as const, status, user_paused: false, client_action_reason: null, handoff_method: "operator_session" as const, ...extra });
+  const acct = (status: (typeof APP_STATUSES)[number], extra: R = {}) => ({ app: "hinge" as const, status, user_paused: false, client_action_reason: null, ...extra });
   const paid = { paid: true, hoursWaiting: 4 };
   const wait = appCopy(acct("awaiting_login"), paid);
-  assert.equal(wait.label, "Waiting for login");
-  assert.match(wait.text, /log in to Hinge once, on a phone we set aside for you/);
-  assert.match(wait.text, /never ask for your password/);
-  assert.match(wait.text, /starts within 72 hours/);
-  assert.match(appCopy(acct("awaiting_login", { handoff_method: "invite" }), paid).text, /email you an invite for your Hinge/, "the invite path says so");
-  assert.match(appCopy(acct("awaiting_login"), { paid: true, hoursWaiting: START_WITHIN_HOURS + 1 }).text, /taking longer than the 72 hours we said/, "a late start is admitted");
+  assert.equal(wait.label, "Setting up", "the retired awaiting_login state reads as setting up");
+  assert.match(wait.text, /creating your Hinge profile/);
+  assert.match(wait.text, /starts? within 72 hours/);
+  assert.doesNotMatch(wait.text, /log ?in|invite|password/i, "the client is never asked to hand anything over");
+  assert.match(appCopy(acct("setting_up"), { paid: true, hoursWaiting: START_WITHIN_HOURS + 1 }).text, /taking longer than the 72 hours we said/, "a late start is admitted");
   assert.equal(appCopy(acct("awaiting_login"), { paid: false }).label, "Not started", "before activation nothing is promised");
   assert.match(appCopy(acct("awaiting_login"), { paid: false }).text, /Waiting for you to activate/);
   const outside = appCopy(acct("awaiting_login"), { paid: false, paidOffered: false });
   assert.equal(outside.label, "Not available yet");
   assert.match(outside.text, /isn't offered in your country yet/);
   assert.match(outside.text, /starter pack and reply helper still work/, "the free tools are still there");
-  assert.equal(appCopy(acct("awaiting_login"), { paid: true, paidOffered: false }).label, "Waiting for login", "a client who already pays is never told it is unavailable");
+  assert.equal(appCopy(acct("awaiting_login"), { paid: true, paidOffered: false }).label, "Setting up", "a client who already pays is never told it is unavailable");
   assert.equal(appCopy(acct("active"), paid).label, "Running");
   assert.equal(appCopy(acct("needs_client_action", { client_action_reason: "Hinge asked for a selfie" }), paid).label, "Needs you");
   assert.equal(appCopy(acct("active", { user_paused: true }), paid).label, "Paused");
   assert.match(appCopy(acct("active", { user_paused: true }), paid).text, /Resume it/);
   assert.equal(appCopy(acct("setting_up"), paid).label, "Setting up");
   assert.equal(effectiveStatus({ status: "awaiting_login", user_paused: true }), "paused");
-  assert.ok((WORKFLOW_STATUSES as readonly string[]).includes("awaiting_login") && (APP_STATUSES as readonly string[]).includes("awaiting_login"));
+  assert.ok(!(WORKFLOW_STATUSES as readonly string[]).includes("awaiting_login") && (APP_STATUSES as readonly string[]).includes("awaiting_login"), "operators cannot set the retired state; old rows still read");
   // no copy for any state promises a count, a person's name or activity that did not happen
   for (const s of APP_STATUSES) for (const ctx of [paid, { paid: false }, { paid: false, paidOffered: false }, { ...paid, hold: "paused" as const }]) {
     const t = appCopy(acct(s, { client_action_reason: "Add 2 more photos" }), ctx).text;
@@ -332,32 +326,21 @@ console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
   }
 }
 
-// ---------- Connect your apps: consent and handoff ----------
+// ---------- onboarding: no connect step, no handoff ----------
 {
-  assert.match(CONSENT_STATEMENT, /^NoSwipe runs your profile, swipes and chats as you/);
-  assert.equal(appConsentLine("hinge"), "NoSwipe runs my Hinge profile, swipes and chats as me.");
+  assert.match(CONSENT_STATEMENT, /^NoSwipe creates and runs dating profiles for you/);
   const terms = read("../src/app/terms/page.tsx");
-  assert.match(terms, /NoSwipe runs your profile, swipes and chats as you on the apps you picked/, "/terms says the same thing the client agrees to");
-  assert.match(terms, /We never ask for your password on our website/);
-  assert.equal(stepSchemas.apps.safeParse({ apps: ["hinge"] }).success, true, "old payloads still validate");
-  assert.equal(stepSchemas.apps.safeParse({ apps: ["hinge"], connections: [{ app: "hinge", handoff: "invite", consent: true }] }).success, true);
-  assert.equal(stepSchemas.apps.safeParse({ apps: ["hinge"], connections: [{ app: "hinge", handoff: "invite", consent: false }] }).success, false, "no yes, no app");
-  assert.equal(stepSchemas.apps.safeParse({ apps: ["hinge"], connections: [{ app: "hinge", handoff: "password", consent: true }] }).success, false, "there is no password handoff");
-  const base = draftFrom(null, null, []);
-  assert.equal(connectionsReady(base), true, "no apps is fine: the step is optional");
-  assert.equal(connectionsReady({ ...base, apps: ["hinge"] }), false, "an app without consent blocks Continue");
-  assert.equal(connectionsReady({ ...base, apps: ["hinge"], connections: { hinge: { handoff: "invite", consent: true } } }), true);
-  assert.equal(connectionsReady({ ...base, apps: ["hinge", "tinder"], connections: { hinge: { handoff: "invite", consent: true } } }), false, "every picked app needs its own yes");
-  const existing = draftFrom(null, null, ["hinge"], [{ app: "hinge", handoff_method: "invite" }]);
-  assert.equal(connectionsReady(existing), true, "an app already connected carries its consent on record");
-  const payload = payloadFor("apps", { ...existing, apps: ["hinge", "bumble"], connections: { ...existing.connections, bumble: { handoff: "operator_session", consent: true } } } as Draft) as { apps: string[]; connections: { app: string; handoff: string; consent: boolean }[] };
-  assert.deepEqual(payload.connections, [{ app: "bumble", handoff: "operator_session", consent: true }], "only new apps carry a connection; the connected one is untouched");
-  assert.ok(!JSON.stringify(payload).match(/password|credential|login_name/i), "nothing credential-shaped is ever in the payload");
-  // the server refuses a new app without consent
+  assert.doesNotMatch(terms, /app by app|hand each app over|phone we set aside|invite we send|never ask for your password/i, "/terms has no handoff wording; privacy terms come later");
+  assert.equal(stepSchemas.apps.safeParse({ apps: ["hinge"] }).success, true, "an app preference is just a list");
+  const draft = draftFrom(null, null, ["hinge"]);
+  assert.deepEqual(payloadFor("apps", draft), { apps: ["hinge"] }, "nothing but the preference is sent");
   const actions = read("../src/lib/app/actions.ts");
-  assert.match(actions, /Agree for each app you want us to run\./);
-  assert.match(actions, /consented_at: now, consent_version: CONSENT_VERSION/, "consent is stored per app with its version");
-  assert.match(actions, /isSchemaGap\(error\)\) \(\{ error \} = await sb\.from\("app_accounts"\)\.insert\(add\.map/, "before the migration the old shape still saves");
+  assert.doesNotMatch(actions, /handoff|Agree for each app|consented_at/, "the server asks nothing per app");
+  assert.match(actions, /status: "setting_up"/, "a picked app starts as setting up");
+  for (const f of ["../src/app/onboarding/flow.tsx", "../src/components/app/mock/onboarding.tsx", "../src/components/app/step-fields.tsx", "../src/components/app/views.tsx", "../src/components/app/profile-client.tsx"]) {
+    assert.doesNotMatch(read(f), /Connect your apps|Connect an app|one-time login|log in once/i, `${f} has no connect or login wording`);
+  }
+  assert.match(read("../src/components/app/views.tsx"), /We create your dating profiles and run them for you\. You just show up\./);
 }
 
 // ---------- the API routes and the migration ----------
