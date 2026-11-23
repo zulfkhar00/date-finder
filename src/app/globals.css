@@ -549,3 +549,15 @@ h1,h2,h3,h4,p{margin:0}
 
 /* A photo held for review: outlined so the one line under the grid points at something. */
 .ob-photo[data-flagged="true"] { outline: 3px solid var(--coral, #ff6b5e); outline-offset: -3px; }
+
+/* Unsupported-country notice (landing, guides, onboarding start) */
+.country-notice{display:flex;gap:8px;align-items:flex-start;flex-basis:100%;font-size:14px;font-weight:700;color:var(--grape);background:rgba(255,255,255,.7);border:2px solid var(--grape);border-radius:var(--r-lg,16px);padding:10px 12px;margin:4px 0 0}
+.country-notice svg{flex:none;margin-top:2px}
+.short-hero .country-notice{margin-top:12px}
+.ob-country{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-weight:700}
+.ob-country svg{flex:none;margin-top:2px}
+/* Guide and answer pages: the phone bottom bar also shows on desktop, as a compact card bottom-right (desktop readers had no CTA past the header: 43 sessions, 0 starts) */
+@media (min-width:768px){.sticky-cta.guide-sticky{display:block;left:auto;right:24px;bottom:24px;width:300px}}
+.guide-bridge{display:flex;flex-direction:column;gap:12px;align-items:flex-start;margin:14px 0;padding:16px 18px;border:2px solid var(--grape);border-radius:var(--r-xl);background:#fff}
+.guide-bridge p{font-weight:600;margin:0}
+@media (min-width:768px){.guide-bridge{flex-direction:row;align-items:center;justify-content:space-between;gap:20px}.guide-bridge .btn{flex:none}}

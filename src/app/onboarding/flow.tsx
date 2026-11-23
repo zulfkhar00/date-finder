@@ -14,6 +14,7 @@ import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attrib
 import { GUEST_KEY, NETWORK_ERROR, accountCopy, ageForCheckout, primaryLabel, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
 import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
+import { CountryNotice } from "@/components/country-notice";
 import { CountryBlocked } from "@/components/app/country-blocked";
 import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
@@ -260,6 +261,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       <form className="ob-body" onSubmit={(e) => { e.preventDefault(); if (def.key === "pay") void openCheckout(); else if (canContinue) void next(); }}>
         <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{def.title}</h1>
         {def.sub ? <p className="app-sub">{def.sub}</p> : null}
+        {step === 0 && !paidOffered ? <CountryNotice className="app-card ob-country" show /> : null}
         <div style={{ marginTop: 22 }}>
           {def.key === "photos" ? <PhotoManager initial={initialPhotos} onChange={(p) => setPhotoCount(p.length)} onBusyChange={setPhotoBusy} /> :
            def.key === "consent" ? (

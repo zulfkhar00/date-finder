@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CtaLink } from "@/components/cta-link";
+import { GuideBridge } from "@/components/guide-bridge";
 import { GuideStickyCta } from "@/components/guide-sticky-cta";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { Acc, FaqItems, ShortHero, quotedBullets } from "@/components/short/parts";
@@ -99,6 +100,7 @@ export function AiAnswerPage({ page }: { page: AiPage }) {
               <p>{page.answer}</p>
               <p className="guide-meta">Published {publishedLabel}{updatedLabel ? ` · Updated ${updatedLabel}` : ""}</p>
             </Acc>
+            <GuideBridge href={reserveHref} utm={reserveUtm} location={`answer_${slug}_bridge`} />
             {page.steps ? (
               <Acc title="How it works, in detail" id="how-it-works">
                 <ol>{page.steps.map((step) => <li key={step}>{step}</li>)}</ol>

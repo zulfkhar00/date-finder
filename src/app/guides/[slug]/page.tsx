@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CtaLink } from "@/components/cta-link";
+import { GuideBridge } from "@/components/guide-bridge";
 import { GuideStickyCta } from "@/components/guide-sticky-cta";
 import { FunnelTracker } from "@/components/funnel-tracker";
 import { Acc, FaqItems, ShortHero } from "@/components/short/parts";
@@ -107,6 +108,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
               <p>{guide.intro}</p>
               <p className="guide-meta">Published {publishedLabel} · {guide.readingTime}</p>
             </Acc>
+            <GuideBridge href={reserveHref} utm={reserveUtm} location={`guide_${guide.slug}_bridge`} />
             {guide.sections.map((section, index) => (
               <Acc key={section.title} title={section.title} id={`section-${index + 1}`}>
                 {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
