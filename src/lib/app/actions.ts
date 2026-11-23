@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeTimezone } from "@/lib/timezone";
 import { addSystemEvent } from "@/lib/automation/core";
 import { CONSENT_STATEMENT, CONSENT_VERSION, APPS, SEND_REFUSALS, VOICES, canUserSend, chatMode, stepSchemas, type StepName } from "@/lib/app/domain";
 import { createAppClient, userOrNull } from "@/lib/app/session";
@@ -65,16 +67,18 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
  * those answers are saved here, once, and only onto a brand-new profile: an existing account's
  * answers are never overwritten.
  */
-export async function adoptGuestAnswers(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }): Promise<ActionResult> {
+export async function adoptGuestAnswers(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, browserTimezone?: string): Promise<ActionResult> {
   const c = await ctx();
   if (!c) return UNAUTH;
   const { sb, user } = c;
-  const { data: row } = await sb.from("profiles").select("first_name, birthday, gender, onboarding_step, onboarding_done_at").eq("user_id", user.id).maybeSingle();
-  if (!row || row.onboarding_done_at || row.first_name || row.birthday || row.gender || (row.onboarding_step ?? 0) > 0) return { ok: true };
+  const { data: row } = await sb.from("profiles").select("first_name, birthday, gender, onboarding_step, onboarding_done_at, timezone").eq("user_id", user.id).maybeSingle();
+  if (!row || row.onboarding_done_at || row.first_name || row.birthday || row.gender || (row.onboarding_step ?? 0) > 0) { await rememberTimezone(sb, user.id, browserTimezone); return { ok: true }; }
   const name = stepSchemas.name.safeParse({ firstName: input.firstName });
   const birthday = stepSchemas.birthday.safeParse({ birthday: input.birthday });
   const who = stepSchemas.who.safeParse({ gender: input.gender, interestedIn: input.interestedIn });
   const patch: Record<string, unknown> = { onboarding_step: 1, updated_at: new Date().toISOString() };
+  const zone = normalizeTimezone(browserTimezone);
+  if (zone && !row.timezone) patch.timezone = zone;
   if (name.success && name.data.firstName) patch.first_name = name.data.firstName;
   if (birthday.success && birthday.data.birthday) patch.birthday = birthday.data.birthday;
   if (who.success) { if (who.data.gender) patch.gender = who.data.gender; patch.interested_in = who.data.interestedIn; }
@@ -82,8 +86,18 @@ export async function adoptGuestAnswers(input: { firstName: string; birthday: st
   return error ? DB_ERR : { ok: true };
 }
 
+/**
+ * The browser's own IANA zone, saved silently with the basics (no question asked). Validated here, only fills an empty value (an operator's
+ * edit or an earlier capture wins), and never blocks onboarding: a failure just leaves it null.
+ */
+async function rememberTimezone(sb: SupabaseClient, userId: string, browserTimezone: string | undefined): Promise<void> {
+  const zone = normalizeTimezone(browserTimezone);
+  if (!zone) return;
+  await sb.from("profiles").update({ timezone: zone }).eq("user_id", userId).is("timezone", null);
+}
+
 /** The one-screen basics (name, birthday, who): one check, one write, then on to the next step. */
-export async function saveBasics(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, stepIndex: number): Promise<ActionResult> {
+export async function saveBasics(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, stepIndex: number, browserTimezone?: string): Promise<ActionResult> {
   const c = await ctx();
   if (!c) return UNAUTH;
   const name = stepSchemas.name.safeParse({ firstName: input.firstName });
@@ -95,6 +109,7 @@ export async function saveBasics(input: { firstName: string; birthday: string; g
   const { sb, user } = c;
   const { error } = await sb.from("profiles").update({ first_name: name.data.firstName || null, birthday: birthday.data.birthday || null, gender: who.data.gender || null, interested_in: who.data.interestedIn, updated_at: new Date().toISOString() }).eq("user_id", user.id);
   if (error) return DB_ERR;
+  await rememberTimezone(sb, user.id, browserTimezone);
   if (Number.isInteger(stepIndex) && stepIndex >= 0 && stepIndex <= 6) await sb.from("profiles").update({ onboarding_step: stepIndex }).eq("user_id", user.id).lt("onboarding_step", stepIndex);
   revalidatePath("/profile");
   return { ok: true };

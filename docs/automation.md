@@ -107,10 +107,14 @@ selfie) at any point. `awaiting_login` is retired: old rows keep it and read as 
 The rig's job list: every app account with its phone assignment (set by an operator in the admin Run panel) and a plain `shouldRun`.
 ```json
 {"ok":true,"runs":[{"userId":"…","app":"hinge","phoneId":"pi-rack-1-phone-3","accountRef":"hinge-017","status":"active","userPaused":false,
-  "effectiveStatus":"active","onboarded":true,"held":false,"shouldRun":true}]}
+  "effectiveStatus":"active","onboarded":true,"held":false,"timezone":"Europe/London","shouldRun":true}]}
 ```
 `shouldRun` is true only when the client finished onboarding, the app is `active`, nobody paused it, no report hold applies and a phone is
 assigned. Poll it (every minute or so) and stop work on an account the moment it turns false. `limit` (default 200, max 500).
+
+`timezone` is the client's IANA zone (e.g. `Europe/London`) or `null` when unknown. Use it for quiet hours and daily swipe caps; when it is
+`null`, fall back to your own default. It is captured silently from the browser during onboarding and an operator can correct it on the
+admin client page. Only validated IANA names are ever returned. Needs `supabase/2026-11-22-client-timezone.sql`.
 
 ### `POST /activity`
 Report what the phone did. Body `{"userId":"…","events":[ … 1 to 200 events … ]}`. Every event has `kind`, `app`, `idempotencyKey` (your own

@@ -18,6 +18,11 @@ import { CountryBlocked } from "@/components/app/country-blocked";
 import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
 
+/** The browser's IANA zone, sent silently with the basics (the server validates it). Undefined when the browser will not say. */
+function browserTimezone(): string | undefined {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; }
+}
+
 // Stripe.js only loads when the payment step opens.
 const EmbeddedPayment = dynamic(() => import("@/components/embedded-payment").then((m) => m.EmbeddedPayment), { ssr: false });
 
@@ -115,7 +120,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
           adopting.current = true;
           void (async () => {
             let ok = false;
-            for (let attempt = 0; attempt < 2 && !ok; attempt++) ok = await withTimeout(adoptGuestAnswers(basicsOf(saved.d))).then((r) => r.ok, () => false);
+            for (let attempt = 0; attempt < 2 && !ok; attempt++) ok = await withTimeout(adoptGuestAnswers(basicsOf(saved.d), browserTimezone())).then((r) => r.ok, () => false);
             if (!ok) return; // stays on the basics screen with the answers filled in; Continue saves them
             try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
             trackEvent("reserve_step_3", { oncePerSession: true });
@@ -149,7 +154,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
           if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
         }
       } else if (def.key === "basics") {
-        const r = await withTimeout(saveBasics(basicsOf(d), step + 1));
+        const r = await withTimeout(saveBasics(basicsOf(d), step + 1, browserTimezone()));
         if (!r.ok) { setError(r.error); return; }
         try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
       } else if (def.key === "photos") {
@@ -179,7 +184,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     // Two tries. If both fail the answers stay in this tab and are shown again on the first member screen.
     let saved = false;
     for (let attempt = 0; attempt < 2 && !saved; attempt++) {
-      saved = await withTimeout(adoptGuestAnswers(basicsOf(d))).then((r) => r.ok, () => false);
+      saved = await withTimeout(adoptGuestAnswers(basicsOf(d), browserTimezone())).then((r) => r.ok, () => false);
     }
     if (saved) { try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ } }
     trackEvent("reserve_step_3", { oncePerSession: true });
