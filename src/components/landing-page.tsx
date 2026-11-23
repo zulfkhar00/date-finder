@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -64,6 +65,18 @@ export function LandingPage() {
             <FaqItems faqs={faqs.map((item) => ({ question: item.q, answer: item.a }))} />
           </Acc>
         </div>
+
+        <nav className="shell related-guides" aria-label="Dating apps done for you">
+          <p className="kicker">Dating apps, done for you</p>
+          <div>
+            <Link href="/someone-to-run-my-dating-apps">Someone to run my dating apps</Link>
+            <Link href="/tinder-done-for-you">Tinder done for you</Link>
+            <Link href="/hinge-done-for-you">Hinge done for you</Link>
+            <Link href="/bumble-done-for-you">Bumble done for you</Link>
+            <Link href="/too-busy-for-dating-apps">Too busy for dating apps?</Link>
+            <Link href="/dating-app-management-service">Dating app management service</Link>
+          </div>
+        </nav>
 
         <Testimonials />
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CtaLink } from "@/components/cta-link";
 
 /**
@@ -10,6 +11,7 @@ export function GuideBridge({ href, utm, location }: { href: string; utm: string
     <aside className="guide-bridge" aria-label="About NoSwipe">
       <p><strong>Rather not do this yourself?</strong> We create your dating profiles and run them for you. You just show up.</p>
       <CtaLink href={href} utm={utm} location={location} className="btn btn-primary" />
+      <p className="guide-meta"><Link href="/someone-to-run-my-dating-apps">How handing off your dating apps works</Link></p>
     </aside>
   );
 }
