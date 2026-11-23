@@ -1,7 +1,7 @@
 // Checks for the onboarding screen's pure logic and the consent idempotency guard. No network, no database.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ACTION_TIMEOUT_MS, ageForCheckout, mergeGuestBasics, parseGuestSaved, withTimeout } from "../src/lib/app/onboarding-flow";
+import { ACTION_TIMEOUT_MS, accountCopy, ageForCheckout, primaryLabel, mergeGuestBasics, parseGuestSaved, withTimeout } from "../src/lib/app/onboarding-flow";
 import { draftFrom } from "../src/lib/app/draft";
 
 async function main() {
@@ -22,6 +22,13 @@ async function main() {
   assert.equal(mergeGuestBasics(blank, saved).firstName, "Sam", "a blank account gets the guest's answers back");
   assert.equal(mergeGuestBasics({ ...blank, firstName: "Alex" }, saved).firstName, "Alex", "answers already on the account win");
   assert.equal(mergeGuestBasics(blank, null), blank);
+
+  assert.equal(primaryLabel("basics", true), "Continue", "the basics screen has a required birthday: never Skip");
+  assert.equal(primaryLabel("about", true), "Skip for now");
+  assert.equal(primaryLabel("about", false), "Continue");
+  assert.equal(primaryLabel("consent", true), "Create my profiles");
+  assert.notEqual(accountCopy(true).title, accountCopy(false).title, "the heading changes once the code is sent");
+  assert.match(accountCopy(true).sub, /spam/i);
 
   assert.equal(await withTimeout(Promise.resolve(1), 50), 1);
   await assert.rejects(withTimeout(new Promise(() => undefined), 20), /timeout/, "a save that never answers is cut off");
