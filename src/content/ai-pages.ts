@@ -5,6 +5,7 @@ import { geoAiPages } from "@/content/ai-pages-geo";
 import { conciergePages } from "@/content/ai-pages-concierge";
 import { longtailPages } from "@/content/ai-pages-longtail";
 import { intentPages } from "@/content/ai-pages-intent";
+import { servicePages } from "@/content/ai-pages-service";
 
 export type AiPage = {
   path: string;
@@ -356,15 +357,20 @@ const withComparison = new Set(["/ai-dating-assistant", "/ai-that-swipes-for-you
 const inboundLinks: Record<string, { href: string; label: string }[]> = {
   "/ai-dating-assistant": [{ href: "/ai-dating-assistant-for-busy-professionals", label: "AI dating assistant for busy professionals" }, { href: "/ai-dating-assistant-privacy", label: "AI dating assistant privacy" }],
   "/how-to-get-more-matches-on-bumble": [{ href: "/bumble-opening-lines", label: "Bumble opening lines that get replies" }],
-  "/bumble-automation": [{ href: "/bumble-opening-lines", label: "Bumble opening lines that get replies" }],
-  "/hire-someone-to-do-my-dating-apps": [{ href: "/done-for-you-dating-profile", label: "Done-for-you dating profile" }],
+  "/hire-someone-to-do-my-dating-apps": [{ href: "/done-for-you-dating-profile", label: "Done-for-you dating profile" }, { href: "/someone-to-run-my-dating-apps", label: "Someone to run my dating apps" }, { href: "/hire-a-dating-assistant", label: "Hire a dating assistant" }],
+  "/done-for-you-dating-profile": [{ href: "/dating-profile-manager", label: "Dating profile manager" }, { href: "/dating-app-ghostwriter", label: "Dating app ghostwriter vs done for you" }],
+  "/ai-that-swipes-for-you": [{ href: "/ai-that-chats-for-you-on-dating-apps", label: "An AI that chats for you on dating apps" }, { href: "/dating-app-management-service", label: "Dating app management service" }],
+  "/hinge-automation": [{ href: "/hinge-done-for-you", label: "Hinge done for you" }],
+  "/bumble-automation": [{ href: "/bumble-opening-lines", label: "Bumble opening lines that get replies" }, { href: "/bumble-done-for-you", label: "Bumble done for you" }],
+  "/ai-dating-assistant-for-busy-professionals": [{ href: "/too-busy-for-dating-apps", label: "Too busy for dating apps?" }],
+  "/best-ai-dating-assistant-2026": [{ href: "/virtual-dating-assistant-cost", label: "Virtual dating assistant cost" }],
   "/matches-but-no-dates": [{ href: "/best-time-to-use-dating-apps", label: "Best time to use dating apps" }, { href: "/dating-app-burnout", label: "Dating app burnout" }],
   "/dating-app-automation": [{ href: "/how-many-dating-apps-should-you-use", label: "How many dating apps should you use?" }, { href: "/first-date-safety-from-dating-apps", label: "First date safety checklist" }],
-  "/tinder-automation": [{ href: "/dating-app-dealbreakers-and-preferences", label: "Set dating app dealbreakers" }],
-  "/dating-app-concierge": [{ href: "/getting-back-on-dating-apps", label: "Getting back on dating apps" }]
+  "/tinder-automation": [{ href: "/dating-app-dealbreakers-and-preferences", label: "Set dating app dealbreakers" }, { href: "/tinder-done-for-you", label: "Tinder done for you" }],
+  "/dating-app-concierge": [{ href: "/getting-back-on-dating-apps", label: "Getting back on dating apps" }, { href: "/dating-concierge-online", label: "Online dating concierge" }]
 };
 
-export const aiPages: AiPage[] = [...corePages, ...geoAiPages, ...conciergePages, ...longtailPages, ...intentPages].map((page) => {
+export const aiPages: AiPage[] = [...corePages, ...geoAiPages, ...conciergePages, ...longtailPages, ...intentPages, ...servicePages].map((page) => {
   const linked = inboundLinks[page.path] ? { ...page, related: [...page.related, ...inboundLinks[page.path]] } : page;
   return withComparison.has(linked.path) ? { ...linked, steps: linked.steps ?? howNoSwipeWorksSteps, comparison: linked.comparison ?? standardComparison } : linked;
 });
