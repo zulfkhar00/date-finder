@@ -6,6 +6,7 @@ import { APPS, effectiveStatus, type App, type AppStatus } from "@/lib/app/domai
 import * as core from "@/lib/automation/core";
 import { changeAppStatus } from "@/lib/fulfilment/service";
 import { isUndefinedRelation } from "@/lib/starter-pack/photo-flags";
+import { normalizeTimezone } from "@/lib/timezone";
 
 // Server half of the activity feed (supabase/2026-11-21-account-runs.sql). Service role only. The phone rig POSTs events, the
 // client reads their own rows on Home. Nothing here logs ids, names, reasons or message text: errors reduce to a Postgres code.
@@ -92,6 +93,8 @@ export type RunRow = {
   userId: string; app: App; phoneId: string | null; accountRef: string | null; status: AppStatus; userPaused: boolean; effectiveStatus: AppStatus;
   /** The client finished onboarding (profiles.onboarding_done_at is set). */
   onboarded: boolean; held: boolean;
+  /** The client's IANA time zone (profiles.timezone, captured at onboarding or set by an operator), or null when unknown. */
+  timezone: string | null;
   /** True only when onboarding is finished, an operator marked the app active, nobody paused it, no report hold applies and a phone is assigned. */
   shouldRun: boolean;
 };
@@ -109,10 +112,15 @@ export async function listRuns(sb: Admin, filter: { phoneId?: string; limit?: nu
   const userIds = [...new Set(rows.map((r) => r.user_id))];
   const held = await core.reportHeldUsers(sb, userIds);
   const onboarded = new Set<string>();
+  const zones = new Map<string, string>();
   if (userIds.length) {
-    const profiles = await sb.from("profiles").select("user_id, onboarding_done_at").in("user_id", userIds);
+    const profiles = await sb.from("profiles").select("user_id, onboarding_done_at, timezone").in("user_id", userIds);
     if (profiles.error) { console.error("Profiles read failed", profiles.error.code); return { ok: false, status: 500, code: "db", message: "Could not list runs." }; }
-    for (const p of profiles.data ?? []) if (p.onboarding_done_at) onboarded.add(p.user_id as string);
+    for (const p of profiles.data ?? []) {
+      if (p.onboarding_done_at) onboarded.add(p.user_id as string);
+      const tz = normalizeTimezone(p.timezone);
+      if (tz) zones.set(p.user_id as string, tz);
+    }
   }
   const out: RunRow[] = rows.map((a) => {
     const run = runs.get(`${a.user_id}:${a.app}`);
@@ -121,7 +129,7 @@ export async function listRuns(sb: Admin, filter: { phoneId?: string; limit?: nu
     const done = onboarded.has(a.user_id);
     return {
       userId: a.user_id, app: a.app, phoneId: run?.phone_id ?? null, accountRef: run?.account_ref ?? null, status: a.status, userPaused: a.user_paused, effectiveStatus: eff,
-      onboarded: done, held: isHeld,
+      onboarded: done, held: isHeld, timezone: zones.get(a.user_id) ?? null,
       shouldRun: done && !isHeld && (eff === "active" || eff === "live") && Boolean(run?.phone_id)
     };
   }).filter((r) => (filter.phoneId ? r.phoneId === filter.phoneId : true));
