@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CountryNotice } from "@/components/country-notice";
 import { CtaLink } from "@/components/cta-link";
 import { HeroPhone } from "@/components/hero-phone";
 import { MatchCards } from "@/components/match-cards";
@@ -25,6 +26,7 @@ export function LandingPage() {
             <div className="hero-cta" id="hero-cta">
               <CtaLink location="hero">Get started</CtaLink>
               <a className="btn btn-white" href="/demo">Try the interactive demo</a>
+              <CountryNotice />
               <p className="fine">Explore sample matches and date plans, and try taking over a chat. No signup needed for the demo.</p>
             </div>
           </div>

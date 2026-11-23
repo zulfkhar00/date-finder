@@ -178,7 +178,7 @@ async function checkRenderedGuides(baseUrl: string) {
     const links = [...html.matchAll(/<a\b[^>]*href="([^\"]+)"/g)].map((match) => match[1].replace(/&amp;/g, "&"));
     const startLinks = links.filter((href) => href.startsWith("/onboarding"));
     assert.equal(links.filter((href) => href.startsWith("/try") || href.startsWith("/reserve")).length, 0, `${path}: no links to the removed /try or /reserve`);
-    assert.equal(startLinks.length, 4, `${path}: header, inline, closing and sticky mobile CTAs go to onboarding`);
+    assert.equal(startLinks.length, 5, `${path}: header, hero, bridge, closing and sticky CTAs go to onboarding`);
     // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.
     for (const link of startLinks) {
       // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.

@@ -55,7 +55,7 @@ export function GuideStickyCta({ href, utm, slug }: { href: string; utm: string;
   const show = scrolledDown && !blocked;
   return (
     <div
-      className="sticky-cta"
+      className="sticky-cta guide-sticky"
       data-show={show}
       aria-hidden={!show}
       inert={!show}

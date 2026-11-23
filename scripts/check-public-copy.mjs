@@ -224,3 +224,14 @@ assert.ok(guidePage.includes("utm_campaign=${guide.slug}&utm_content=guide-${gui
 assert.ok(guidePage.includes("guide.sources.map"), "guide pages must render their cited primary sources");
 
 console.log("public copy: compliant boundaries, outcome claims and guide structure passed");
+
+// Conversion fixes (23 Nov 2026): unsupported-country notice up front, product bridge on guides.
+const pathOf = (suffix) => Object.keys(contents).find((file) => file.endsWith(suffix));
+assert.ok(contents[pathOf("components/landing-page.tsx")].includes("<CountryNotice"), "landing hero tells unsupported countries up front");
+assert.ok(contents[pathOf("components/short/parts.tsx")].includes("<CountryNotice"), "guide and answer heroes tell unsupported countries up front");
+assert.ok(contents[pathOf("onboarding/flow.tsx")].includes("<CountryNotice") && contents[pathOf("onboarding/flow.tsx")].includes("!paidOffered"), "onboarding start shows the notice when paid is not offered");
+assert.ok(contents[pathOf("components/country-notice.tsx")].includes("COUNTRY_BLOCKED_COPY"), "notice uses the shared honest copy");
+assert.ok(contents[pathOf("components/guide-bridge.tsx")].includes("run them for you. You just show up."), "bridge states the positioning");
+assert.ok(contents[pathOf("guides/[slug]/page.tsx")].includes("<GuideBridge") && contents[pathOf("components/ai-answer-page.tsx")].includes("<GuideBridge"), "guides and answer pages carry the bridge");
+const geoRoute = await readFile("src/app/api/paid-access/route.ts", "utf8");
+assert.ok(geoRoute.includes("paidAccessFor") && !/country:/.test(geoRoute), "the paid-access API returns a boolean, never the country");
