@@ -11,7 +11,7 @@ import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } fro
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
-import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
+import { GUEST_KEY, NETWORK_ERROR, accountCopy, ageForCheckout, primaryLabel, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
 import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
 import { CountryBlocked } from "@/components/app/country-blocked";
@@ -55,6 +55,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const adopting = useRef(false);
   const saving = useRef(false);
   const [error, setError] = useState("");
+  const [birthdayError, setBirthdayError] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(null);
   // Paid service is only offered in some countries (PAID_COUNTRIES). The server decides; a 403 from /api/checkout also lands here.
   const [countryBlocked, setCountryBlocked] = useState(!paidOffered);
@@ -139,7 +141,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   }, [guest, ready, d, step]);
 
   const def = STEPS[step];
-  const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setError(""); };
+  const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setError(""); setBirthdayError(""); };
   const progress = Math.round(((step + 1) / STEPS.length) * 100);
 
   async function next() {
@@ -151,7 +153,12 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         // Not signed in yet: check the answers here, keep them in the page, save them after the email code.
         for (const k of ["name", "birthday", "who"] as const) {
           const parsed = stepSchemas[k].safeParse(payloadFor(k, d));
-          if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
+          if (!parsed.success) {
+            const message = parsed.error.issues[0]?.message ?? "Check your answers.";
+            // Say it next to the field and move the cursor there, not in a line below the fold.
+            if (k === "birthday") { setBirthdayError(message); document.querySelector<HTMLInputElement>('input[type="date"]')?.focus(); } else setError(message);
+            return;
+          }
         }
       } else if (def.key === "basics") {
         const r = await withTimeout(saveBasics(basicsOf(d), step + 1, browserTimezone()));
@@ -244,9 +251,9 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       </div>
       {accountStep ? (
         <div className="ob-body">
-          <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>Where should we send your code?</h1>
-          <p className="app-sub">Nice. Your answers are ready. Enter your email to save your profile. No password, just a code.</p>
-          <AccountStep onSignedIn={signedIn} />
+          <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{accountCopy(codeSent).title}</h1>
+          <p className="app-sub">{accountCopy(codeSent).sub}</p>
+          <AccountStep onSignedIn={signedIn} onCodeSent={setCodeSent} />
           <p className="app-fine" style={{ marginTop: 16, textAlign: "center" }}>Already have an account? <a href="/login">Sign in</a></p>
         </div>
       ) : (
@@ -270,7 +277,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
            ) : def.key === "basics" ? (
             <div style={{ display: "grid", gap: 22 }}>
               <StepFields step="name" d={d} set={set} compact />
-              <StepFields step="birthday" d={d} set={set} compact />
+              <StepFields step="birthday" d={d} set={set} compact error={birthdayError} />
               <StepFields step="who" d={d} set={set} />
             </div>
            ) : <StepFields step={def.key} d={d} set={set} />}
@@ -286,7 +293,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
             </>
           ) : (
             <button type="submit" className="app-btn" disabled={busy || !canContinue} aria-busy={busy}>
-              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : def.key === "consent" ? "Create my profiles" : isBlank ? "Skip for now" : "Continue"}
+              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : primaryLabel(def.key, isBlank)}
             </button>
           )}
         </div>
