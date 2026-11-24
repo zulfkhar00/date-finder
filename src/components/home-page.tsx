@@ -1,0 +1,52 @@
+import { FunnelTracker } from "@/components/funnel-tracker";
+import { LandingPage } from "@/components/landing-page";
+import { faqs } from "@/content/faq";
+
+const site = "https://www.noswipe.app";
+const structuredData = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${site}/#organization`,
+    name: "NoSwipe",
+    url: site,
+    logo: `${site}/brand/email-logo.png`,
+    email: "support@noswipe.app",
+    description: "NoSwipe is AI dating automation: it swipes, chats and books first dates for its users on Tinder, Hinge and Bumble, using their own accounts and real photos."
+  },
+  { "@context": "https://schema.org", "@type": "WebSite", name: "NoSwipe", url: site },
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "NoSwipe",
+    url: site,
+    applicationCategory: "LifestyleApplication",
+    operatingSystem: "Web",
+    publisher: { "@id": `${site}/#organization` },
+    audience: { "@type": "Audience", audienceType: "Men who are done swiping on Tinder, Hinge and Bumble" },
+    featureList: [
+      "Swipes on Tinder, Hinge and Bumble for people who match the user's type and dealbreakers",
+      "Opens and keeps up conversations in the user's own voice",
+      "Books first dates and sends the user the plan: where, when, who",
+      "Fixes the profile first: photo order, bio and prompt answers",
+      "The user's own accounts, real photos and matches"
+    ],
+    description: "Stop swiping. NoSwipe swipes, chats and books dates for you on Tinder, Hinge and Bumble. You just show up."
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({ "@type": "Question", name: faq.q, acceptedAnswer: { "@type": "Answer", text: faq.a } }))
+  }
+];
+
+/** The home page with its structured data and page_view. Both hero variants render this, so SEO and tracking are identical. */
+export function HomePage({ variant }: { variant: "a" | "b" }) {
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+      <FunnelTracker event="page_view" />
+      <LandingPage variant={variant} />
+    </>
+  );
+}
