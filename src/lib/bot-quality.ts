@@ -7,8 +7,10 @@
 //     request came from. Decided once, when the event arrives, and stored on funnel_events.quality.
 //     "bot" is certain enough to also store device = 'bot' (which every report already drops).
 //     "suspect" is a doubt, not a verdict: it stays in the table and an admin toggle brings it back.
-//  2. Behaviour (classifySession): a visit that has exactly one page_view, nothing else and no dwell
-//     is "unengaged". It cannot be known at insert time, so it is derived when the numbers are read.
+//  2. Behaviour (sessionQualities): a visit that has exactly one page_view, nothing else and no dwell
+//     is "unengaged"; a visit that loads many pages in a few seconds and never does anything a person does
+//     (no get_started, no form step) is a "page burst" crawler. Neither can be known at insert time, so
+//     both are derived when the numbers are read.
 //
 // Privacy: the UA, IP and ASN are read and reduced to a label; none of them is stored or logged.
 
@@ -112,6 +114,16 @@ export const UNENGAGED_DWELL_MS = 2_000;
 /** A visit this young may still be about to do something: never called unengaged yet. */
 export const UNENGAGED_GRACE_MS = 30 * 60_000;
 
+/**
+ * A JS-executing scanner (seen 22-24 Nov: desktop browsers from EU datacenters, landing on /login or a landing
+ * page, no referrer, no Accept-Language oddity) walks the site: 6+ page_views inside this window and nothing but
+ * the passive events below. A person cannot read that many pages that fast, and never skips get_started.
+ */
+export const BURST_PAGE_VIEWS = 6;
+export const BURST_WINDOW_MS = 90_000;
+/** Events a page load fires by itself (reserve_start on /onboarding, the country notice). Anything else is a person acting. */
+const PASSIVE_EVENTS = new Set(["page_view", "reserve_start", "checkout_blocked_country"]);
+
 export type QualityEvent = {
   created_at: string;
   event: string;
@@ -136,18 +148,19 @@ const REACHED_PAID = new Set(["paid"]);
  * suspect (money is never hidden by a doubt); only a certain bot is dropped. An unpaid checkout from a suspect session is filtered.
  */
 export function sessionQualities(events: readonly QualityEvent[], nowMs: number): Map<string, SessionQuality> {
-  type Acc = { first: number; last: number; n: number; pageViews: number; checkout: boolean; captured: boolean; sourced: boolean; stored: Quality; deviceBot: boolean; storedBot: boolean };
+  type Acc = { first: number; last: number; n: number; pageViews: number; active: boolean; checkout: boolean; captured: boolean; sourced: boolean; stored: Quality; deviceBot: boolean; storedBot: boolean };
   const acc = new Map<string, Acc>();
   for (const e of events) {
     if (!e.session_id) continue;
     const at = Date.parse(e.created_at);
     if (Number.isNaN(at)) continue;
     let a = acc.get(e.session_id);
-    if (!a) { a = { first: at, last: at, n: 0, pageViews: 0, checkout: false, captured: false, sourced: false, stored: "human", deviceBot: false, storedBot: false }; acc.set(e.session_id, a); }
+    if (!a) { a = { first: at, last: at, n: 0, pageViews: 0, active: false, checkout: false, captured: false, sourced: false, stored: "human", deviceBot: false, storedBot: false }; acc.set(e.session_id, a); }
     a.first = Math.min(a.first, at);
     a.last = Math.max(a.last, at);
     a.n += 1;
     if (e.event === "page_view") a.pageViews += 1;
+    if (!PASSIVE_EVENTS.has(e.event)) a.active = true;
     if (REACHED_PAID.has(e.event)) a.checkout = true;
     if (e.device || e.in_app_source || e.utm_source || e.referrer_host || e.landing_path || e.country) a.captured = true;
     if (e.in_app_source || e.utm_source || e.referrer_host) a.sourced = true;
@@ -163,6 +176,10 @@ export function sessionQualities(events: readonly QualityEvent[], nowMs: number)
     let quality: Quality = "human";
     if (a.deviceBot || a.storedBot) { quality = "bot"; reasons.push(a.deviceBot ? "device_bot" : "stored_bot"); }
     else if (a.stored === "suspect") { quality = "suspect"; reasons.push("stored_suspect"); }
+    if (quality !== "bot" && !a.active && !a.checkout && a.pageViews >= BURST_PAGE_VIEWS && a.last - a.first <= BURST_WINDOW_MS) {
+      quality = "bot";
+      reasons.push("page_burst");
+    }
     if (quality !== "bot" && a.captured && !a.sourced && a.pageViews === 1 && a.n === 1 && a.last - a.first < UNENGAGED_DWELL_MS && nowMs - a.last > UNENGAGED_GRACE_MS) {
       quality = worstQuality(quality, "suspect");
       reasons.push("unengaged_direct");
@@ -196,7 +213,8 @@ const REASON_LABELS: Record<string, string> = {
   device_bot: "crawler or automation user agent",
   stored_bot: "crawler or automation user agent",
   stored_suspect: "no browser language or a datacenter / anonymizing network",
-  unengaged_direct: "one page view, no source, no interaction"
+  unengaged_direct: "one page view, no source, no interaction",
+  page_burst: "many pages in seconds, no interaction"
 };
 
 /** "3 likely bots (crawler or automation user agent: 3), 5 suspect sessions (...)": the sentence the admin shows. null when nothing was filtered. */
