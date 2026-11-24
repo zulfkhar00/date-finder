@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { CountryNotice } from "@/components/country-notice";
 import { CtaLink } from "@/components/cta-link";
 import type { CopyItem } from "@/components/short/copy-cards";
 
@@ -10,6 +11,7 @@ export function ShortHero({ h1, promise, href, utm, location }: { h1: string; pr
       <h1>{h1}</h1>
       <p className="short-promise">{promise}</p>
       <CtaLink href={href} utm={utm} location={location} className="btn btn-primary btn-block short-cta" />
+      <CountryNotice />
     </header>
   );
 }

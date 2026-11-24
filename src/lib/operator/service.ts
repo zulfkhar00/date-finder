@@ -6,7 +6,8 @@ import { addNoteEvent, changeAppStatus } from "@/lib/fulfilment/service";
 import { flaggedPhotoIds, isUndefinedRelation, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 import { PACK_VERSION, packContentSchema, type PackContent } from "@/lib/starter-pack/types";
 import { CHECKLIST_STEPS, canTick, decideTransition, isStep, progress, resolveReason, type ChecklistStep, type StepTick } from "./checklist";
-import { KIT_SECTIONS, buildKit, buildSection, isKitSection, isValidTimezone, type KitInput, type KitSection, type KitSections } from "./kit";
+import { normalizeTimezone } from "@/lib/timezone";
+import { KIT_SECTIONS, buildKit, buildSection, isKitSection, type KitInput, type KitSection, type KitSections } from "./kit";
 import { zipStore } from "./zip";
 
 // Server half of the operator tools (supabase/2026-11-22-operator-kit.sql). Service role only. Nothing here logs names, emails, bios,
@@ -94,12 +95,17 @@ export async function regenerateSection(sb: Admin, actor: string, userId: string
   return { ok: true };
 }
 
+/** Sets the client's IANA zone: profiles.timezone is the source of truth (the rig reads it); the kit rows are kept in step for the schedule windows. */
 export async function setKitTimezone(sb: Admin, actor: string, userId: string, timezone: string): Promise<{ ok: true } | Failure> {
-  const tz = timezone.trim();
+  const raw = timezone.trim();
   if (!UUID.test(userId)) return fail(400, "invalid", "Unknown client.");
-  if (tz && !isValidTimezone(tz)) return fail(400, "invalid", "Use a zone name like America/Los_Angeles or Europe/London.");
-  const { error } = await sb.from("account_kits").update({ timezone: tz || null, updated_at: new Date().toISOString(), updated_by: actor.slice(0, 254) }).eq("user_id", userId);
-  if (error) { if (isUndefinedRelation(error)) return fail(503, "migration", `The kit is not set up. ${SETUP_HINT}`); return fail(500, "db", "Could not save the time zone."); }
+  const tz = raw ? normalizeTimezone(raw) : null;
+  if (raw && !tz) return fail(400, "invalid", "Use a zone name like America/Los_Angeles or Europe/London.");
+  const { data, error } = await sb.from("profiles").update({ timezone: tz, updated_at: new Date().toISOString() }).eq("user_id", userId).select("user_id");
+  if (error) { console.error("Time zone save failed", error.code); return fail(500, "db", "Could not save the time zone. Has supabase/2026-11-22-client-timezone.sql been applied?"); }
+  if (!data?.length) return fail(404, "not_found", "Unknown client.");
+  const kits = await sb.from("account_kits").update({ timezone: tz, updated_at: new Date().toISOString(), updated_by: actor.slice(0, 254) }).eq("user_id", userId);
+  if (kits.error && !isUndefinedRelation(kits.error)) { console.error("Kit time zone save failed", kits.error.code); return fail(500, "db", "Saved on the client, but not on the kit."); }
   return { ok: true };
 }
 

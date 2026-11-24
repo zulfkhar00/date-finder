@@ -1,5 +1,6 @@
 import "server-only";
 import { describeFiltered, summariseFiltered } from "@/lib/bot-quality";
+import { heroExperiment, type HeroRow } from "@/lib/hero-report";
 import { buildTrafficModel, liveNow, periodStats, rangeWindows, RANGE_MS, type LiveNow, type PeriodStats, type RangeKey } from "@/lib/traffic-report";
 import { AdminDataError } from "../_lib/data";
 import { loadTrafficRows } from "../_lib/traffic-data";
@@ -25,6 +26,8 @@ export type TrafficPageData = {
   suspectInRange: number;
   /** false until supabase/2026-11-22-session-quality.sql is applied. */
   qualityColumn: boolean;
+  /** Home hero A/B test over the selected range: all / desktop / mobile. */
+  hero: HeroRow[];
 };
 
 export type SourceWindow = "7d" | "30d";
@@ -58,6 +61,7 @@ export async function getTrafficPage(range: RangeKey, sourceWindow: SourceWindow
     includeSuspect,
     filteredNote: describeFiltered(filtered),
     suspectInRange: includeSuspect ? 0 : filtered.suspect,
-    qualityColumn: rows.qualityColumn
+    qualityColumn: rows.qualityColumn,
+    hero: heroExperiment(model, w.from, w.to)
   };
 }

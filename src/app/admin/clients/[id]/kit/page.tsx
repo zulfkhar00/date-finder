@@ -25,7 +25,7 @@ export default async function AdminKitPage({ params }: { params: Promise<{ id: s
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sb = getSupabaseAdmin();
   const [{ data: profile }, { data: accounts }, gate, kitsRes, ticksRes, run, photos] = await Promise.all([
-    sb.from("profiles").select("first_name, internal, report_hold").eq("user_id", id).maybeSingle(),
+    sb.from("profiles").select("first_name, internal, report_hold, timezone").eq("user_id", id).maybeSingle(),
     sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").eq("user_id", id),
     kitAllowed(sb, id),
     listKits(sb, id),
@@ -38,7 +38,7 @@ export default async function AdminKitPage({ params }: { params: Promise<{ id: s
   const signed = photos.length ? (await sb.storage.from("profile-photos").createSignedUrls(photos.map((p) => p.path), 600)).data ?? [] : [];
   const urlOf = new Map(signed.map((u) => [u.path, u.signedUrl]));
   const pathOf = new Map(photos.map((p) => [p.id, p.path]));
-  const tz = Object.values(kitsRes.kits).find((k) => k?.timezone)?.timezone ?? "";
+  const tz = (profile.timezone as string | null) ?? Object.values(kitsRes.kits).find((k) => k?.timezone)?.timezone ?? "";
   const today = new Date().toISOString().slice(0, 10);
 
   return (

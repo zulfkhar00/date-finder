@@ -8,6 +8,7 @@
 import { counts as qualityCounts, sessionQualities, type SessionQuality } from "@/lib/bot-quality";
 import { CHECKOUT_DIAGNOSTIC_EVENTS } from "@/lib/checkout-events";
 import { internalSessionIds, splitReservations, type ReservationRow } from "@/lib/real-funnel";
+import { isHeroLabel } from "@/lib/hero-experiment";
 import { DIRECT_CHANNEL, NOT_CAPTURED_CHANNEL, resolveChannel, normalizeChannel } from "@/lib/traffic";
 
 export const MIN = 60_000;
@@ -50,6 +51,8 @@ export type Session = {
   device: string | null;
   country: string | null;
   ref: string | null;
+  /** Home hero test bucket (hero-a / hero-b) from the first event that carried one; null when never in the test. */
+  heroVariant: string | null;
   pageView: boolean;
   getStarted: boolean;
   opened: boolean;
@@ -99,7 +102,7 @@ export function buildTrafficModel(events: TrafficEvent[], allReservations: Reser
     }
     let s = sessions.get(e.session_id);
     if (!s) {
-      s = { id: e.session_id, firstAt: at, lastAt: at, captured: false, channel: NOT_CAPTURED_CHANNEL, refHost: null, landing: null, device: null, country: null, ref: null, pageView: false, getStarted: false, opened: false, step2: false, step3: false, done: false };
+      s = { id: e.session_id, firstAt: at, lastAt: at, captured: false, channel: NOT_CAPTURED_CHANNEL, refHost: null, landing: null, device: null, country: null, ref: null, heroVariant: null, pageView: false, getStarted: false, opened: false, step2: false, step3: false, done: false };
       sessions.set(e.session_id, s);
       raw.set(e.session_id, { utm: null, ref: null, app: null });
     }
@@ -113,6 +116,7 @@ export function buildTrafficModel(events: TrafficEvent[], allReservations: Reser
     s.device ??= e.device ?? null;
     s.country ??= e.country ?? null;
     s.ref ??= e.ref ?? null;
+    if (!s.heroVariant && isHeroLabel(e.variant)) s.heroVariant = e.variant;
     if (e.event === "page_view") s.pageView = true;
     else if (e.event === "get_started") s.getStarted = true;
     else if (e.event === "reserve_start") s.opened = true;

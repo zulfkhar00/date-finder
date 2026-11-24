@@ -11,12 +11,18 @@ import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } fro
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
-import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
+import { GUEST_KEY, NETWORK_ERROR, accountCopy, ageForCheckout, primaryLabel, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
 import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
+import { CountryNotice } from "@/components/country-notice";
 import { CountryBlocked } from "@/components/app/country-blocked";
 import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
+
+/** The browser's IANA zone, sent silently with the basics (the server validates it). Undefined when the browser will not say. */
+function browserTimezone(): string | undefined {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; }
+}
 
 // Stripe.js only loads when the payment step opens.
 const EmbeddedPayment = dynamic(() => import("@/components/embedded-payment").then((m) => m.EmbeddedPayment), { ssr: false });
@@ -50,6 +56,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const adopting = useRef(false);
   const saving = useRef(false);
   const [error, setError] = useState("");
+  const [birthdayError, setBirthdayError] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(null);
   // Paid service is only offered in some countries (PAID_COUNTRIES). The server decides; a 403 from /api/checkout also lands here.
   const [countryBlocked, setCountryBlocked] = useState(!paidOffered);
@@ -115,7 +123,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
           adopting.current = true;
           void (async () => {
             let ok = false;
-            for (let attempt = 0; attempt < 2 && !ok; attempt++) ok = await withTimeout(adoptGuestAnswers(basicsOf(saved.d))).then((r) => r.ok, () => false);
+            for (let attempt = 0; attempt < 2 && !ok; attempt++) ok = await withTimeout(adoptGuestAnswers(basicsOf(saved.d), browserTimezone())).then((r) => r.ok, () => false);
             if (!ok) return; // stays on the basics screen with the answers filled in; Continue saves them
             try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
             trackEvent("reserve_step_3", { oncePerSession: true });
@@ -134,7 +142,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   }, [guest, ready, d, step]);
 
   const def = STEPS[step];
-  const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setError(""); };
+  const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setError(""); setBirthdayError(""); };
   const progress = Math.round(((step + 1) / STEPS.length) * 100);
 
   async function next() {
@@ -146,10 +154,15 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         // Not signed in yet: check the answers here, keep them in the page, save them after the email code.
         for (const k of ["name", "birthday", "who"] as const) {
           const parsed = stepSchemas[k].safeParse(payloadFor(k, d));
-          if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
+          if (!parsed.success) {
+            const message = parsed.error.issues[0]?.message ?? "Check your answers.";
+            // Say it next to the field and move the cursor there, not in a line below the fold.
+            if (k === "birthday") { setBirthdayError(message); document.querySelector<HTMLInputElement>('input[type="date"]')?.focus(); } else setError(message);
+            return;
+          }
         }
       } else if (def.key === "basics") {
-        const r = await withTimeout(saveBasics(basicsOf(d), step + 1));
+        const r = await withTimeout(saveBasics(basicsOf(d), step + 1, browserTimezone()));
         if (!r.ok) { setError(r.error); return; }
         try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
       } else if (def.key === "photos") {
@@ -179,7 +192,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     // Two tries. If both fail the answers stay in this tab and are shown again on the first member screen.
     let saved = false;
     for (let attempt = 0; attempt < 2 && !saved; attempt++) {
-      saved = await withTimeout(adoptGuestAnswers(basicsOf(d))).then((r) => r.ok, () => false);
+      saved = await withTimeout(adoptGuestAnswers(basicsOf(d), browserTimezone())).then((r) => r.ok, () => false);
     }
     if (saved) { try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ } }
     trackEvent("reserve_step_3", { oncePerSession: true });
@@ -239,15 +252,16 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       </div>
       {accountStep ? (
         <div className="ob-body">
-          <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>Where should we send your code?</h1>
-          <p className="app-sub">Nice. Your answers are ready. Enter your email to save your profile. No password, just a code.</p>
-          <AccountStep onSignedIn={signedIn} />
+          <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{accountCopy(codeSent).title}</h1>
+          <p className="app-sub">{accountCopy(codeSent).sub}</p>
+          <AccountStep onSignedIn={signedIn} onCodeSent={setCodeSent} />
           <p className="app-fine" style={{ marginTop: 16, textAlign: "center" }}>Already have an account? <a href="/login">Sign in</a></p>
         </div>
       ) : (
       <form className="ob-body" onSubmit={(e) => { e.preventDefault(); if (def.key === "pay") void openCheckout(); else if (canContinue) void next(); }}>
         <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{def.title}</h1>
         {def.sub ? <p className="app-sub">{def.sub}</p> : null}
+        {step === 0 && !paidOffered ? <CountryNotice className="app-card ob-country" show /> : null}
         <div style={{ marginTop: 22 }}>
           {def.key === "photos" ? <PhotoManager initial={initialPhotos} onChange={(p) => setPhotoCount(p.length)} onBusyChange={setPhotoBusy} /> :
            def.key === "consent" ? (
@@ -265,7 +279,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
            ) : def.key === "basics" ? (
             <div style={{ display: "grid", gap: 22 }}>
               <StepFields step="name" d={d} set={set} compact />
-              <StepFields step="birthday" d={d} set={set} compact />
+              <StepFields step="birthday" d={d} set={set} compact error={birthdayError} />
               <StepFields step="who" d={d} set={set} />
             </div>
            ) : <StepFields step={def.key} d={d} set={set} />}
@@ -281,7 +295,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
             </>
           ) : (
             <button type="submit" className="app-btn" disabled={busy || !canContinue} aria-busy={busy}>
-              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : def.key === "consent" ? "Create my profiles" : isBlank ? "Skip for now" : "Continue"}
+              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : primaryLabel(def.key, isBlank)}
             </button>
           )}
         </div>

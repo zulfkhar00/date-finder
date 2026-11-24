@@ -8,7 +8,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LocalTime } from "../../_components/local-time";
 import { SetupNotice } from "../../_components/notices";
 import { formatDateTime } from "../../_lib/format";
-import { decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, addNoteAction, setAppStatusAction, setNeedsYouAction, setRunAction } from "../actions";
+import { decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, addNoteAction, setAppStatusAction, setNeedsYouAction, setRunAction, setTimezoneAction } from "../actions";
 import { flagLabel } from "@/lib/starter-pack/photo-flags-core";
 import { listFlaggedForUser, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 import { PACK_VERSION } from "@/lib/starter-pack/types";
@@ -111,6 +111,15 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <p className={styles.sub}>
           {profile.gender ?? "?"} → {(profile.interested_in ?? []).join(", ") || "?"} · ages {prefs?.age_min ?? "?"}–{prefs?.age_max ?? "?"} · {prefs?.distance_km ?? "?"} km · {prefs?.looking_for ?? "?"} · interests: {(profile.interests ?? []).join(", ") || "?"} · dealbreakers: {(prefs?.dealbreakers ?? []).join(", ") || "?"} · tone: {profile.voice}
         </p>
+      </section>
+
+      <section className={styles.card} data-testid="client-timezone">
+        <h2 className={styles.subhead}>Time zone</h2>
+        <OpForm action={setTimezoneAction.bind(null, id)} label="Save time zone" pendingLabel="Saving…">
+          <label className={styles.field}>IANA zone (e.g. America/Los_Angeles, Europe/London)
+            <input className={styles.input} name="timezone" defaultValue={(profile.timezone as string | null) ?? ""} maxLength={64} placeholder="America/Los_Angeles" /></label>
+        </OpForm>
+        <p className={styles.sub}>The phone rig uses this for the client&rsquo;s quiet hours and daily caps. Captured from their browser at onboarding; blank means unknown and the rig falls back to its default.</p>
       </section>
 
       <section className={styles.card} data-testid="app-workflow">

@@ -99,7 +99,7 @@ await heading("Where should we send your code?");
 await shot("2-signup-email");
 await page.locator('input[name="email"]').fill(email);
 await page.getByRole("button", { name: "Email me a code" }).click();
-await page.getByText("We emailed a code to").waitFor({ timeout: 15000 });
+await page.getByText("Code sent to").waitFor({ timeout: 15000 });
 const mail = await (await fetch(`${MOCK}/__outbox`)).json();
 const sent = [...mail.email].reverse().find((m) => m.to.includes(email));
 const code = sent?.text.match(/\b(\d{6})\b/)?.[1];

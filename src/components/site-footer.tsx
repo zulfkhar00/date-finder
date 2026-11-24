@@ -15,6 +15,11 @@ export function SiteFooter() {
           <Link href="/hinge-openers-that-get-replies">Hinge openers</Link>
           <Link href="/dating-app-message-assistant">Message assistant</Link>
           <Link href="/hire-someone-to-do-my-dating-apps">Hire help for dating apps</Link>
+          <Link href="/someone-to-run-my-dating-apps">Someone to run my dating apps</Link>
+          <Link href="/dating-app-management-service">Dating app management</Link>
+          <Link href="/tinder-done-for-you">Tinder done for you</Link>
+          <Link href="/hinge-done-for-you">Hinge done for you</Link>
+          <Link href="/bumble-done-for-you">Bumble done for you</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/acceptable-use">Acceptable use</Link>

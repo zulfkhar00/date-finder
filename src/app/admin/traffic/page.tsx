@@ -11,6 +11,7 @@ import { DropoffFunnel } from "../_components/dropoff-funnel";
 import { QueryErrorNotice, SetupNotice } from "../_components/notices";
 import { StackedChart } from "../_components/stacked-chart";
 import { getTrafficPage, type SourceWindow, type TrafficPageData } from "./data";
+import { HeroExperimentSection } from "./hero-experiment-section";
 import { SourcesSection } from "./sources-section";
 import styles from "../admin.module.css";
 
@@ -99,6 +100,8 @@ function TrafficBody({ data, range }: { data: TrafficPageData; range: RangeKey }
         <Kpi label="Median visit → paid" value={formatDuration(c.medianPaidSeconds)} hint={c.paidSamples ? `${c.paidSamples} paid with a linked visit` : "No paid visit linked yet"} />
         <Kpi label="Live now" value={formatInt(live.sessions)} hint="Visits in the last 30 min" />
       </section>
+
+      <HeroExperimentSection rows={data.hero} />
 
       <SourcesSection data={data.sources} range={range} includeSuspect={data.includeSuspect} />
 

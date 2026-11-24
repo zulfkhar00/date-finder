@@ -8,6 +8,7 @@ import { eventSchema, occurredAtOk, summarizeToday, dayKey, type ActivityRow } f
 import { APP_STATUSES, WORKFLOW_STATUSES, CONSENT_STATEMENT, effectiveStatus, stepSchemas } from "../src/lib/app/domain";
 import { payloadFor, draftFrom } from "../src/lib/app/draft";
 import { appCopy, START_WITHIN_HOURS } from "../src/lib/app/status-copy";
+import { isIanaTimezone, normalizeTimezone } from "../src/lib/timezone";
 import { getRunPanel, ingestEvents, listRuns, setRun } from "../src/lib/activity/service";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -274,6 +275,29 @@ console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
   held.tables.profiles[0].report_hold = "paused";
   const hr = await listRuns(sb(held));
   assert.ok(hr.ok && hr.runs.find((r) => r.app === "hinge")!.shouldRun === false && hr.runs.find((r) => r.app === "hinge")!.held, "a report hold stops the rig");
+}
+
+// ---------- client time zone ----------
+{
+  for (const ok of ["America/Los_Angeles", "Europe/London", "Asia/Almaty", "America/Argentina/Buenos_Aires", "UTC"]) assert.equal(isIanaTimezone(ok), true, ok);
+  for (const bad of ["", "EST", "+01:00", "Mars/Base", "america/los_angeles ", "Europe/London; drop table", "x".repeat(70), "Europe", "GMT+5", null, 5, undefined]) assert.equal(isIanaTimezone(bad), false, String(bad));
+  assert.equal(normalizeTimezone("  Europe/London "), "Europe/London", "trimmed");
+  assert.equal(normalizeTimezone("nonsense"), null);
+  const db = world();
+  db.tables.account_runs.push({ user_id: U, app: "hinge", phone_id: "pi-1-phone-3", account_ref: null });
+  let r = await listRuns(sb(db));
+  assert.ok(r.ok && r.runs.every((x) => x.timezone === null), "unknown zone is null, not a guess");
+  db.tables.profiles[0].timezone = "Europe/London";
+  r = await listRuns(sb(db));
+  assert.ok(r.ok && r.runs.every((x) => x.timezone === "Europe/London"), "every run of the client carries their zone");
+  db.tables.profiles[0].timezone = "Not/AZone";
+  r = await listRuns(sb(db));
+  assert.ok(r.ok && r.runs.every((x) => x.timezone === null), "a bad stored value is never handed to the rig");
+  const sql = read("../supabase/2026-11-22-client-timezone.sql");
+  assert.match(sql, /add column if not exists timezone text/);
+  assert.match(sql, /drop constraint if exists profiles_timezone_check/);
+  assert.doesNotMatch(sql, /drop table|delete from/i);
+  assert.match(read("../docs/automation.md"), /`timezone` is the client's IANA zone/);
 }
 
 // ---------- Run panel ----------

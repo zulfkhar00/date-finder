@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import sitemap from "../src/app/sitemap";
 import { expandedGuides } from "../src/content/guide-expansion";
 import robots from "../src/app/robots";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { aiPages } from "../src/content/ai-pages";
 import { llmsFullTxt, llmsTxt } from "../src/lib/llms";
 import { guideSeo } from "../src/content/guide-seo";
@@ -127,13 +129,30 @@ for (const guide of guides) {
 assert.equal(metaTitles.size, guides.length, "title tags must be unique");
 assert.equal(queries.size, guides.length, "target queries must be unique");
 
-assert.equal(aiPages.length, 33);
+assert.equal(aiPages.length, 45);
 for (const page of aiPages) {
   assert.equal(page.answer.split(/(?<=[.!?])\s+/).length, 2, `${page.path}: direct answer must be exactly two sentences`);
   assert.ok(page.faqs.length >= 4, `${page.path}: FAQ block`);
   assert.ok(`${page.metaTitle} — NoSwipe`.length <= 60 && page.description.length <= 155, `${page.path}: title/description length`);
   assert.ok(sitemapUrls.includes(`https://www.noswipe.app${page.path}`), `${page.path}: in sitemap`);
   assert.doesNotMatch([page.answer, ...page.sections.flatMap((x) => x.paragraphs)].join(" "), /\d+\s?%/i, `${page.path}: no stats`); // automation positioning allowed (Miko, 4 Nov 2026)
+}
+// Done-for-you intent pages: positioning, no prices or waitlist language, steps, related links resolve, linked from home and footer.
+const servicePaths = aiPages.slice(33).map((p) => p.path);
+assert.equal(servicePaths.length, 12);
+for (const page of aiPages.slice(33)) {
+  const all = JSON.stringify(page);
+  assert.doesNotMatch(all, /\$\s?\d|wait-?list|\breserve|screenshot|guarantee/i, `${page.path}: banned phrasing`);
+  assert.ok(page.steps && page.steps.length === 3, `${page.path}: three-step how it works`);
+  assert.match(all, /just show up/, `${page.path}: positioning line`);
+  assert.ok(page.related.some((r) => r.href === "/pricing" || r.href === "/terms"), `${page.path}: links pricing or terms`);
+  const known = new Set([...aiPages.map((p) => p.path), ...guideSlugs.map((s) => `/guides/${s}`), "/pricing", "/terms", "/refunds"]);
+  for (const r of page.related) assert.ok(known.has(r.href), `${page.path}: related link ${r.href} resolves`);
+  assert.ok(aiPages.some((other) => other.path !== page.path && other.related.some((r) => r.href === page.path)), `${page.path}: linked from another page`);
+}
+for (const [file, label] of [["../src/components/landing-page.tsx", "home"], ["../src/components/site-footer.tsx", "footer"]] as const) {
+  const text = readFileSync(join(__dirname, file), "utf8");
+  for (const path of ["/someone-to-run-my-dating-apps", "/tinder-done-for-you", "/hinge-done-for-you", "/bumble-done-for-you", "/dating-app-management-service"]) assert.ok(text.includes(`"${path}"`), `${label} links ${path}`);
 }
 for (const text of [llmsTxt(), llmsFullTxt()]) {
   assert.match(text, /swipes on people who match/i);
@@ -178,7 +197,7 @@ async function checkRenderedGuides(baseUrl: string) {
     const links = [...html.matchAll(/<a\b[^>]*href="([^\"]+)"/g)].map((match) => match[1].replace(/&amp;/g, "&"));
     const startLinks = links.filter((href) => href.startsWith("/onboarding"));
     assert.equal(links.filter((href) => href.startsWith("/try") || href.startsWith("/reserve")).length, 0, `${path}: no links to the removed /try or /reserve`);
-    assert.equal(startLinks.length, 4, `${path}: header, inline, closing and sticky mobile CTAs go to onboarding`);
+    assert.equal(startLinks.length, 5, `${path}: header, hero, bridge, closing and sticky CTAs go to onboarding`);
     // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.
     for (const link of startLinks) {
       // UTMs are recorded on click (CtaLink's `utm` prop), so crawlers see one untagged URL per page.
