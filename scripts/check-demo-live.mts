@@ -181,4 +181,51 @@ const NOW = Date.parse("2026-11-24T21:00:00Z");
   assert.match(read("../src/components/app/demo-ticker.tsx"), /return null;\n\}/, "the ticker renders nothing: no demo watermark in the client UI");
 }
 
+// ---------- match profiles, source app, read state ----------
+{
+  const { parseMatchProfile, timeAgo, unreadCount, matchedVia } = await import("../src/lib/app/match-profile");
+  const { profileFor, profileForUser, PHOTO_SUFFIXES } = await import("../src/lib/demo/profiles");
+  for (const p of PERSONAS) {
+    const prof = profileFor(p);
+    assert.ok(parseMatchProfile(prof), `${p.slug} profile parses`);
+    assert.equal(prof.photos.length, 3, "a carousel of three photos");
+    assert.equal(prof.photos.length, PHOTO_SUFFIXES.length);
+    if (p.app === "hinge") assert.ok(prof.prompts.length >= 3, `${p.slug}: Hinge shows prompts`);
+    if (p.app === "bumble") assert.ok(prof.prompts.length === 2, `${p.slug}: Bumble shows question badges`);
+    if (p.app === "tinder") assert.ok(prof.passions.length >= 4 && prof.prompts.length === 0, `${p.slug}: Tinder shows passions`);
+    assert.ok(prof.distanceKm >= 1 && prof.distanceKm <= 15);
+    for (const x of prof.prompts) assert.equal(cleanLine(x.a, { kind: "chat", venue: "x" }) !== null || x.a.length > 260, true, `${p.slug} prompt answer is clean`);
+    assert.ok(profileForUser(p, "u1").photos.every((path) => path.startsWith("u1/demo/")), "photos live in the owner's folder so signed URLs work");
+  }
+  assert.equal(parseMatchProfile(null), null);
+  assert.equal(parseMatchProfile({ bio: "", photos: ["a"] }), null, "no bio, no profile page");
+  assert.equal(parseMatchProfile({ bio: "hi", photos: [] }), null, "no photos, no profile page");
+  assert.deepEqual(parseMatchProfile({ bio: "hi", photos: ["a"], prompts: [{ q: "q", a: "" }, { q: "q2", a: "a2" }], distanceKm: 9999 })?.prompts, [{ q: "q2", a: "a2" }]);
+  assert.equal(parseMatchProfile({ bio: "hi", photos: ["a"], distanceKm: 9999 })?.distanceKm, 500);
+  assert.equal(timeAgo(NOW - 20_000, NOW), "just now");
+  assert.equal(timeAgo(NOW - 12 * 60_000, NOW), "12 min ago");
+  assert.equal(timeAgo(NOW - 3 * 3600_000, NOW), "3 h ago");
+  assert.equal(timeAgo(NOW - 30 * 3600_000, NOW), "yesterday");
+  assert.equal(timeAgo(NOW - 4 * 86_400_000, NOW), "4 days ago");
+  assert.equal(timeAgo(NOW + 5000, NOW), "just now");
+  assert.match(matchedVia("hinge"), /liked your profile/);
+  const msgs = [{ sender: "match", sent_at: "2026-11-24T10:00:00Z" }, { sender: "as_user_ai", sent_at: "2026-11-24T10:01:00Z" }, { sender: "match", sent_at: "2026-11-24T10:02:00Z" }];
+  assert.equal(unreadCount(msgs, "2026-11-24T10:01:30Z"), 1, "only her messages after the last open count");
+  assert.equal(unreadCount(msgs, "2026-11-24T11:00:00Z"), 0);
+  assert.equal(unreadCount(msgs, null), 0, "read state not tracked: no badge, so ordinary accounts are unchanged");
+  // Seeds: unread chats really have her message after the read mark; older chats are complete with a past or booked date.
+  assert.ok(SEED.filter((s) => s.unread).length >= 3, "several unread badges at the start");
+  assert.ok(SEED.filter((s) => s.turns === "all").length >= 3 && SEED.some((s) => s.matchedAgoMin >= 3 * 1440), "older matches have full backstories");
+  assert.ok(PERSONAS.length - SEED.length >= 3, "new matches keep arriving after the opening state");
+  const sql2 = read("../supabase/2026-11-24-match-profiles.sql");
+  assert.match(sql2, /add column if not exists profile jsonb/);
+  assert.match(sql2, /add column if not exists last_read_at timestamptz/);
+  assert.doesNotMatch(sql2, /grant /i, "no new grants: the owner already reads matches, only the server writes");
+  // The UI: chip in Chats, thread header and Dates; a profile link only for matches that have a profile.
+  assert.match(read("../src/components/app/views.tsx"), /<AppChip app=\{c\.app\} \/>/);
+  assert.match(read("../src/components/app/views.tsx"), /d\.app \? <AppChip app=\{d\.app\} \/>/);
+  assert.match(read("../src/components/app/thread.tsx"), /profileHref/);
+  assert.match(read("../src/app/(app)/chats/[id]/page.tsx"), /chat\.profile \? `\/chats\/\$\{chat\.match\.id\}\/profile` : undefined/);
+}
+
 console.log("demo live mode checks passed");

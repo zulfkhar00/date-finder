@@ -6,6 +6,11 @@ export function AppBadge({ app }: { app: App }) {
   return <span className="app-badge" data-app={app} aria-hidden="true">{APP_LABELS[app][0]}</span>;
 }
 
+/** The app a match came from, as a small coloured chip: Tinder, Hinge or Bumble. */
+export function AppChip({ app }: { app: App }) {
+  return <span className="app-chip" data-app={app}><b aria-hidden="true">{APP_LABELS[app][0]}</b>{APP_LABELS[app]}</span>;
+}
+
 export function Avatar({ name, url, large }: { name: string; url?: string | null; large?: boolean }) {
   return <span className={`app-avatar${large ? " lg" : ""}`} aria-hidden="true">{url ? <img src={url} alt="" /> : initials(name)}</span>;
 }
@@ -24,6 +29,6 @@ export function Empty({ title, children, icon }: { title: string; children?: Rea
   return <div className="app-empty">{icon ? <div className="app-empty-mark">{icon}</div> : null}<strong>{title}</strong>{children}</div>;
 }
 
-export function RowLink({ href, children }: { href: string; children: ReactNode }) {
-  return <Link href={href} className="app-row">{children}</Link>;
+export function RowLink({ href, children, unread }: { href: string; children: ReactNode; unread?: boolean }) {
+  return <Link href={href} className="app-row" data-unread={unread ? "" : undefined}>{children}</Link>;
 }

@@ -9,6 +9,7 @@ import {
 } from "./engine";
 import { writeLine, type Turn } from "./llm";
 import { PERSONAS } from "./personas";
+import { PHOTO_SUFFIXES, profileForUser } from "./profiles";
 
 // Live demo mode (supabase/2026-11-24-live-demo.sql). Server only, service role. Only an INTERNAL account (profiles.internal) can be
 // switched on: this file checks it, and a database trigger refuses it again. Every row written here has demo = true so reset removes
@@ -83,12 +84,15 @@ async function seed(sb: Sb, userId: string, profile: Profile, tz: string, nowMs:
     if (error) return fail("db", "Could not add the dating apps.");
   }
   // Persona photos: copied from the private demo/ masters into the user's own folder, so the signed-in user can read them (owner policy).
-  await Promise.all(PERSONAS.map((p) => sb.storage.from(BUCKET).copy(`demo/${p.slug}.jpg`, `${userId}/demo/${p.slug}.jpg`)));
+  await Promise.all(PERSONAS.flatMap((p) => PHOTO_SUFFIXES.map((x) => sb.storage.from(BUCKET).copy(`demo/${p.slug}${x}.jpg`, `${userId}/demo/${p.slug}${x}.jpg`))));
 
   const matchRows = SEED.map((spec) => {
     const p = personaBySlug(spec.slug)!;
     const t = seedTimes(spec, p.script.length, nowMs, rng);
-    return { spec, p, t, row: { user_id: userId, app: p.app, name: p.name, age: p.age, photo_path: `${userId}/demo/${p.slug}.jpg`, external_id: `demo-match-${p.slug}`, matched_at: iso(t.matchedAtMs), demo: true } };
+    // Read state: a chat flagged unread was last opened right after his latest message, so her newer lines show as unread.
+    const lastHim = t.lineAtMs.reduce((acc, at, i) => (turnSender(p, i) === "as_user_ai" ? at : acc), t.matchedAtMs);
+    const lastAny = t.lineAtMs.length ? t.lineAtMs[t.lineAtMs.length - 1] : t.matchedAtMs;
+    return { spec, p, t, row: { user_id: userId, app: p.app, name: p.name, age: p.age, photo_path: `${userId}/demo/${p.slug}.jpg`, profile: profileForUser(p, userId), last_read_at: iso(spec.unread ? lastHim + 1000 : lastAny + 5000), external_id: `demo-match-${p.slug}`, matched_at: iso(t.matchedAtMs), demo: true } };
   });
   const ins = await sb.from("matches").insert(matchRows.map((m) => m.row)).select("id, external_id");
   if (ins.error || !ins.data) return fail("db", "Could not add the demo matches.");
@@ -213,7 +217,7 @@ export async function tickDemo(sb: Sb, userId: string, opts: { timezone?: string
 
     if (action.kind === "match") {
       const p = personaBySlug(action.slug)!;
-      const { error } = await sb.from("matches").insert({ user_id: userId, app: p.app, name: p.name, age: p.age, photo_path: `${userId}/demo/${p.slug}.jpg`, external_id: `demo-match-${p.slug}`, matched_at: iso(nowMs), demo: true });
+      const { error } = await sb.from("matches").insert({ user_id: userId, app: p.app, name: p.name, age: p.age, photo_path: `${userId}/demo/${p.slug}.jpg`, profile: profileForUser(p, userId), last_read_at: iso(nowMs), external_id: `demo-match-${p.slug}`, matched_at: iso(nowMs), demo: true });
       if (!error) {
         await sb.from("account_activity").insert({ user_id: userId, app: p.app, kind: "match", count: 1, occurred_at: iso(nowMs), idempotency_key: `demo-match-${p.slug}`, demo: true });
         changed = true;

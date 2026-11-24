@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Hand, RefreshCw, RotateCcw, Send } from "lucide-react";
-import { Avatar, ModePill } from "@/components/app/ui";
+import { Avatar, AppChip, ModePill } from "@/components/app/ui";
+import { Ago } from "@/components/app/ago";
 import { When } from "@/components/app/when";
 import { APP_LABELS, SENT_BY_TAG, bubbleSide, parseSystemEvent, type App, type ChatMode } from "@/lib/app/domain";
 import type { MessageRow } from "@/lib/app/data";
@@ -26,6 +27,8 @@ export type ThreadDraftApi = {
 type Props = {
   match: { id: string; name: string; age: number | null; app: App }; photoUrl: string | null; messages: MessageRow[]; mode: ChatMode; paused: boolean;
   api: ThreadApi; base?: string;
+  /** Where the match's profile page lives (only for matches that have one) and when you matched. */
+  profileHref?: string; matchedAt?: string;
   /** Optional review-before-sending flow (draft card, "typing" bubble). Absent in the real app and /demo. */
   draft?: ThreadDraft | null; draftApi?: ThreadDraftApi; typing?: boolean; canDraft?: boolean;
 };
@@ -79,7 +82,7 @@ function SystemRow({ body }: { body: string }) {
   );
 }
 
-export function Thread({ match, photoUrl, messages, mode, paused, api, base = "", draft = null, draftApi, typing = false, canDraft = false }: Props) {
+export function Thread({ match, photoUrl, messages, mode, paused, api, base = "", profileHref, matchedAt, draft = null, draftApi, typing = false, canDraft = false }: Props) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -115,11 +118,20 @@ export function Thread({ match, photoUrl, messages, mode, paused, api, base = ""
     <div className={`th${draft && mode === "ai" ? " has-draft" : ""}`}>
       <div className="th-head">
         <Link href={`${base}/chats`} className="back" aria-label="Back to chats"><ChevronLeft size={26} /></Link>
-        <Avatar name={match.name} url={photoUrl} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="th-name">{match.name}{match.age ? `, ${match.age}` : ""}</div>
-          <div className="app-muted" style={{ fontSize: 13, fontWeight: 600 }}>{APP_LABELS[match.app]}</div>
-        </div>
+        {(() => {
+          const who = (
+            <>
+              <Avatar name={match.name} url={photoUrl} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="th-name">{match.name}{match.age ? `, ${match.age}` : ""}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><AppChip app={match.app} />{matchedAt ? <Ago iso={matchedAt} prefix="Matched " /> : null}</div>
+              </div>
+            </>
+          );
+          return profileHref
+            ? <Link href={profileHref} className="th-name-link" aria-label={`${match.name}'s profile`}>{who}</Link>
+            : <div className="th-name-link">{who}</div>;
+        })()}
         <ModePill mode={mode} paused={paused} />
       </div>
 
