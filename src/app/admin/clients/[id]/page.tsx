@@ -8,11 +8,12 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LocalTime } from "../../_components/local-time";
 import { SetupNotice } from "../../_components/notices";
 import { formatDateTime } from "../../_lib/format";
-import { decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, addNoteAction, setAppStatusAction, setNeedsYouAction, setRunAction, setTimezoneAction } from "../actions";
+import { resetDemoAction, setDemoAction, decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, addNoteAction, setAppStatusAction, setNeedsYouAction, setRunAction, setTimezoneAction } from "../actions";
 import { flagLabel } from "@/lib/starter-pack/photo-flags-core";
 import { listFlaggedForUser, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 import { PACK_VERSION } from "@/lib/starter-pack/types";
-import { OpForm, TzOffset } from "../op-form";
+import { OpForm, TzName, TzOffset } from "../op-form";
+import { getDemoStatus } from "@/lib/demo/service";
 import styles from "../../admin.module.css";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,8 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   const apps: { app: string; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null }[] | null = appsNew ?? ((await sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id)).data as never);
   const log = await listEvents(sb, id);
   const run = await getRunPanel(sb, id);
+  const demo = await getDemoStatus(sb, id);
+  const formatUsd = (micro: number) => `$${(micro / 1_000_000).toFixed(2)}`;
   // Reply helper usage: counts only, never the chats or the drafts. Read separately so the page works before supabase/2026-11-21-reply-helper.sql is applied.
   const [replyThreads, replyRuns, replyToday] = await Promise.all([
     sb.from("reply_threads").select("id", { count: "exact", head: true }).eq("user_id", id),
@@ -98,6 +101,26 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <PackPreview content={pack?.content} />
         <OpForm action={generatePackAction.bind(null, id)} label={pack ? "Write the pack again" : "Write the pack now"}><span className={styles.muted}>Uses the daily pack budget. Reload the page after a minute.</span></OpForm>
       </section>
+
+      {profile.internal ? (
+        <section className={styles.card} data-testid="live-demo">
+          <h2 className={styles.subhead}>Live demo mode {demo.enabled ? <span className={styles.badge}>on</span> : <span className={styles.badge}>off</span>}</h2>
+          <p className={styles.sub}>
+            Internal accounts only. Turns this account&rsquo;s real app into a live simulation for filming: fictional matches with synthetic photos, chats that move while the page is open, a date that gets booked. Everything it writes is tagged demo and left out of every metric. Closing the page stops it. Model spend is capped at {formatUsd(demo.capMicro)} a day; past that the chats use written lines.
+          </p>
+          {!demo.migrated ? <div className={styles.notice}>Run supabase/2026-11-24-live-demo.sql first.</div> : (
+            <>
+              <p className={styles.sub}>{demo.matches} demo match{demo.matches === 1 ? "" : "es"} · {demo.messages} messages · {demo.dates} date{demo.dates === 1 ? "" : "s"} · model spend today {formatUsd(demo.spentMicro)}{demo.lastTickAt ? <> · last tick <LocalTime iso={demo.lastTickAt} /></> : null}</p>
+              <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                {demo.enabled
+                  ? <OpForm action={setDemoAction.bind(null, id, false)} label="Demo mode: on (turn off)" pendingLabel="Turning off…"><TzName /></OpForm>
+                  : <OpForm action={setDemoAction.bind(null, id, true)} label="Demo mode: off (turn on)" pendingLabel="Setting up…"><TzName /></OpForm>}
+                <OpForm action={resetDemoAction.bind(null, id)} label="Reset demo" pendingLabel="Resetting…"><TzName /></OpForm>
+              </div>
+            </>
+          )}
+        </section>
+      ) : null}
 
       <section className={styles.card} data-testid="reply-usage">
         <h2 className={styles.subhead}>Reply helper</h2>
