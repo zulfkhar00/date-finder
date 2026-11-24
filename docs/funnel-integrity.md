@@ -22,6 +22,13 @@ events earlier in the same tab session (guest-to-member). Existing exclusions ar
 on reservations, `cs_test_` Stripe test mode, probe session ids (`00000000-`, set by `?internal=1`).
 Never inferred from IP, device or user agent.
 
+## Same "internal" everywhere
+One email classifier (`internalEmailReason`) feeds both `profiles.internal` (set by `ensureProfile`, or flagged
+later by hand) and `funnel_events.account_internal`. Live demo mode (`docs/live-demo.md`) only accepts `profiles.internal`,
+which is a subset of what the funnel excludes, so a demo account never reaches funnel or signup numbers. Demo mode
+writes no funnel events. Internal sessions are removed before bot classification (`lib/bot-quality`, including the
+page-burst rule), so each session is counted once: internal first, otherwise bot / suspect / human.
+
 ## Unclassifiable data (documented gaps)
 - Rows written before `supabase/2026-11-22-funnel-account-link.sql` have no account. A founder session from then that
   never reached a checkout still counts and cannot be recovered.

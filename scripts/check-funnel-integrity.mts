@@ -4,6 +4,7 @@ import { funnelRowAttempts } from "../src/lib/funnel.ts";
 import { funnelAccount } from "../src/lib/funnel-account.ts";
 import { computeRealFunnel, internalSessionIds, type EventRow, type ReservationRow } from "../src/lib/real-funnel.ts";
 import { buildTrafficModel } from "../src/lib/traffic-report.ts";
+import { computeCheckoutReport } from "../src/lib/checkout-report.ts";
 import { computeSignups, recordFirstConfirmation, type SignupEventRow } from "../src/lib/signups.ts";
 
 // Local fixtures only: no network, no Supabase, no Telegram (the digest route is driven below with a
@@ -130,6 +131,41 @@ assert.equal(model.sessions.has(FOUNDER_S), false);
 assert.equal(model.sessions.has(FLAGGED_S), false);
 assert.equal(model.sessions.has(GUEST_THEN_FOUNDER), false);
 assert.equal(model.sessions.has(EXT), true);
+
+// ---- page-burst scanners vs internal accounts: each session lands in exactly one bucket ----
+// A founder walking the site (or filming the demo account, profiles.internal) can look like a page-burst scanner.
+// Internal wins: it is counted once as internal and never again as a bot. A guest burst is still a bot.
+{
+  const burst = (id: string, extra: Partial<EventRow>): EventRow[] => [
+    ev(id, "page_view", t, { device: "desktop", landing_path: "/login" }),
+    // The account is only stamped on one passive event, so the session stays "no interaction".
+    ev(id, "reserve_start", t + 500, extra),
+    ...Array.from({ length: 9 }, (_, k) => ev(id, "page_view", t + 1000 + k * 1000)),
+    ev(id, "checkout_blocked_country", t + 11_000, { dedupe_key: `checkout_blocked_country:${id}` })
+  ];
+  const rows = [
+    ...burst("burst-founder", { user_id: U_FOUNDER, account_internal: true }),
+    ...burst("burst-demo", { user_id: U_FLAGGED, account_internal: false }),
+    ...burst("burst-guest", {}),
+    ...burst("burst-external", { user_id: U_EXT, account_internal: false })
+  ];
+  const real = computeRealFunnel(rows, [], 1, new Date(NOW), undefined, { internalUserIds: internalUsers });
+  assert.equal(real.excluded.internalSessions, 2, "founder and demo account are internal");
+  assert.equal(real.qualityFiltered.bot, 2, "only the guest and external bursts are bots; internal ones are not counted twice");
+  assert.equal(real.qualityFiltered.reasons.page_burst, 2);
+  assert.equal(real.visitors, 0);
+  const traffic = buildTrafficModel(rows, [], undefined, { internalUserIds: internalUsers, nowMs: NOW });
+  assert.equal(traffic.sessions.size, 0);
+  assert.deepEqual([...traffic.qualities.keys()].sort(), ["burst-external", "burst-guest"], "internal sessions are not quality-classified");
+  assert.ok([...traffic.qualities.values()].every((q) => q.quality === "bot"));
+  // Checkout panel: a checkout event from an internal burst session counts as internal only, not as a bot.
+  const checkout = computeCheckoutReport(
+    rows.concat(ev("burst-demo", "checkout_form_ready", t + 12_000, { dedupe_key: "checkout_form_ready:cs_live_demo", device: "bot" })),
+    [], new Date(NOW), 30, { internalUserIds: internalUsers }
+  );
+  assert.equal(checkout.excluded.internal, 1);
+  assert.equal(checkout.excluded.bots, 0);
+}
 
 // ---- digest text: signups separate from Get started, n/a stays local ----
 const text = buildDigestText({ now: new Date(NOW), day: funnel, month, signups: { day: 1, month: 4, captureSince: iso(NOW - 2 * DAY), excludedInternal30d: 3 }, refs: "none" });
