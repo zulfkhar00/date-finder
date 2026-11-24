@@ -149,13 +149,16 @@ export function chooseAction(input: TickInput, rng: () => number): Action {
 // ---------- the starting state ----------
 
 /** Chats the demo starts with, so Home is already busy when the page opens. `turns` = lines already sent; ages are minutes before now. */
-export const SEED: readonly { slug: string; turns: number | "all"; matchedAgoMin: number; lastAgoMin: number }[] = [
+export const SEED: readonly { slug: string; turns: number | "all"; matchedAgoMin: number; lastAgoMin: number; unread?: true }[] = [
+  { slug: "jess", turns: "all", matchedAgoMin: 4 * 1440, lastAgoMin: 3.1 * 1440 },
+  { slug: "sophie", turns: "all", matchedAgoMin: 2.2 * 1440, lastAgoMin: 1.6 * 1440 },
   { slug: "maya", turns: "all", matchedAgoMin: 27 * 60, lastAgoMin: 3 * 60 },
+  { slug: "camila", turns: 6, matchedAgoMin: 30 * 60, lastAgoMin: 20 * 60 },
   { slug: "priya", turns: 5, matchedAgoMin: 9 * 60, lastAgoMin: 70 },
-  { slug: "chloe", turns: 3, matchedAgoMin: 5 * 60, lastAgoMin: 38 },
-  { slug: "zoe", turns: 4, matchedAgoMin: 3.5 * 60, lastAgoMin: 22 },
-  { slug: "hannah", turns: 1, matchedAgoMin: 100, lastAgoMin: 14 },
-  { slug: "amara", turns: 2, matchedAgoMin: 55, lastAgoMin: 8 },
+  { slug: "chloe", turns: 3, matchedAgoMin: 5 * 60, lastAgoMin: 38, unread: true },
+  { slug: "zoe", turns: 4, matchedAgoMin: 3.5 * 60, lastAgoMin: 22, unread: true },
+  { slug: "hannah", turns: 1, matchedAgoMin: 100, lastAgoMin: 14, unread: true },
+  { slug: "amara", turns: 2, matchedAgoMin: 55, lastAgoMin: 8, unread: true },
   { slug: "leila", turns: 0, matchedAgoMin: 6, lastAgoMin: 6 }
 ];
 

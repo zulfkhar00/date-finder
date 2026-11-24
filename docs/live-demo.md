@@ -18,6 +18,14 @@ The open page (layout, internal + demo on only) runs an invisible ticker that PO
 
 A chat is a script of 7 to 9 turns (`src/lib/demo/personas.ts`), ending in: he proposes a day, time and place, she says yes, he closes, and the date is booked (Dates + Home counters + a date notice in the thread). The day and time are the viewer's own zone (the page sends it); venue names are invented. Chats the user takes over, or whose app is paused, are left alone. No email is sent for demo dates.
 
+## A full mock to browse
+
+- **Source app everywhere**: a Tinder / Hinge / Bumble chip on every Chats row, the thread header, Home's active chats, Dates rows and the date page, with "Matched 3 h ago" where the match has a profile.
+- **Match profile page** (`/chats/<id>/profile`, tap the avatar or name in a thread): 3-photo carousel, name and age, source app, how and when you matched, distance, job, bio, and the app's own extras (Hinge prompts, Bumble question badges, Tinder passions). Stored as `matches.profile` jsonb (`supabase/2026-11-24-match-profiles.sql`); a match without one has no profile link, so ordinary accounts see no new page.
+- **Read state**: `matches.last_read_at`. Her messages after it show an unread count on the Chats row and a bold row; opening the chat marks it read. Null (ordinary accounts) means no tracking and no badge.
+- **Backstory**: 10 chats at the start, 3 of them full 2-4 day old conversations with booked (one already past) dates, 4 with unread messages, 1 brand new match; 4 more personas arrive live. Per-app swipes, matches, chats and dates reach Home's app cards through `account_activity`.
+- Dates link back to the chat and show the app and match time.
+
 ## Model and cost cap
 
 Lines are written by the existing Anthropic path (`createAnthropicModel`, key server-side): `claude-sonnet-5-5` for his lines, `claude-haiku-5-5` for hers, each given the persona or his known profile facts, the last 10 messages and the canned line as a direction. Output is checked (`cleanLine`: length, one paragraph, no bot tells, no contact details, no explicit words, a proposal must name the venue). A failed, refused, slow (9 s) or rejected call, a missing key, or the cap, falls back to the canned line, so the chat never stalls.
