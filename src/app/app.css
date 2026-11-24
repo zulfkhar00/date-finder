@@ -81,7 +81,10 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .ob-bar span{display:block;height:100%;background:var(--coral);border-radius:inherit;transition:width .3s ease}
 .ob-body{flex:1;padding-top:22px}
 .ob-body h1{font-family:var(--font-display),sans-serif;font-weight:400;font-size:36px;line-height:1.05}
-.ob-foot{padding-top:18px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+/* The main button stays on screen: on a phone the first screen is taller than the viewport. */
+.ob-foot{position:sticky;bottom:0;z-index:5;background:var(--paper);padding:12px 0 calc(10px + env(safe-area-inset-bottom));margin-bottom:-12px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.ob-body input,.ob-body textarea,.ob-body button{scroll-margin-bottom:120px}
+.ob-body .ob-foot button{scroll-margin-bottom:0}
 .ob-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
 .ob-photo{position:relative;aspect-ratio:3/4;border-radius:var(--r-lg);overflow:hidden;background:#EFE8F6;border:1.5px solid var(--line)}
 .ob-photo img{width:100%;height:100%;object-fit:cover;display:block}

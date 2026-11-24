@@ -1,7 +1,7 @@
 // Checks for the onboarding screen's pure logic and the consent idempotency guard. No network, no database.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ACTION_TIMEOUT_MS, accountCopy, ageForCheckout, primaryLabel, mergeGuestBasics, parseGuestSaved, withTimeout } from "../src/lib/app/onboarding-flow";
+import { ACTION_TIMEOUT_MS, PENDING_CODE_TTL_MS, parsePendingCode, pendingCodeValue, accountCopy, ageForCheckout, primaryLabel, mergeGuestBasics, parseGuestSaved, withTimeout } from "../src/lib/app/onboarding-flow";
 import { draftFrom } from "../src/lib/app/draft";
 
 async function main() {
@@ -30,6 +30,11 @@ async function main() {
   assert.notEqual(accountCopy(true).title, accountCopy(false).title, "the heading changes once the code is sent");
   assert.match(accountCopy(true).sub, /spam/i);
 
+  const sentAt = now.getTime();
+  assert.equal(parsePendingCode(pendingCodeValue("sam@example.test", sentAt), sentAt + 60_000), "sam@example.test", "a reload after the mail app comes back to the code field");
+  assert.equal(parsePendingCode(pendingCodeValue("sam@example.test", sentAt), sentAt + PENDING_CODE_TTL_MS), null, "an expired code is not offered again");
+  for (const bad of [null, "", "nope", "{}", '{"email":5,"at":1}', '{"email":"x","at":1}', '{"email":"a@b.co"}']) assert.equal(parsePendingCode(bad, sentAt), null, String(bad));
+
   assert.equal(await withTimeout(Promise.resolve(1), 50), 1);
   await assert.rejects(withTimeout(new Promise(() => undefined), 20), /timeout/, "a save that never answers is cut off");
   assert.ok(ACTION_TIMEOUT_MS >= 10_000);
@@ -55,6 +60,11 @@ async function main() {
   const chip = rules.get(".app-chip")?.[0] ?? "";
   assert.match(chip, /background:var\(--card\)/, "answer chips sit on the card colour");
   assert.doesNotMatch(chip, /(^|;)color:#fff/, "an unpicked answer chip must not be white on white");
+  const account = readFileSync(new URL("../src/app/onboarding/account-step.tsx", import.meta.url), "utf8");
+  assert.match(account, /useActionState<LoginState, FormData>\(requestCode, initial\)/, "the code screen can be restored");
+  assert.match(account, /restart=\{\(\) => \{ forgetPendingCode\(\)/, "Change email forgets the old address");
+  assert.match(css, /\.ob-foot\{position:sticky;bottom:0/, "the main button stays on screen on phones");
+  assert.match(flow, /ob-foot[^\n]*\n\s*\{error \?/, "a save error sits next to the button, not under the sticky footer");
   console.log("onboarding checks ok");
 }
 void main();
