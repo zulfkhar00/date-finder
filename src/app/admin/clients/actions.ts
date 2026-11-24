@@ -6,6 +6,7 @@ import * as core from "@/lib/automation/core";
 import { setRun } from "@/lib/activity/service";
 import * as operator from "@/lib/operator/service";
 import { addNoteEvent } from "@/lib/fulfilment/service";
+import { disableDemo, enableDemo, resetDemo } from "@/lib/demo/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { startRegeneration } from "@/lib/starter-pack/service";
 import { decideFlaggedPhoto } from "@/lib/starter-pack/photo-flags";
@@ -194,4 +195,30 @@ export async function restartSetupAction(userId: string, app: string, _prev: OpS
   const admin = await adminEmailOrNull();
   if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
   return kitDone(await operator.restartSetup(getSupabaseAdmin(), admin, userId, app), userId, "Setup restarted");
+}
+
+// ---------- live demo mode (internal accounts only; see src/lib/demo) ----------
+
+function demoMessage(code: string): string {
+  return code === "not_internal" ? "Demo mode is only for internal accounts." : code === "migration" ? "Run supabase/2026-11-24-live-demo.sql first." : "Demo mode failed. Try again.";
+}
+
+/** Turns demo mode on (cleans and seeds the opening state) or off (stops new activity, keeps the chats). */
+export async function setDemoAction(userId: string, on: boolean, _prev: OpState, formData: FormData): Promise<OpState> {
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const sb = getSupabaseAdmin();
+  const timezone = String(formData.get("timezone") ?? "");
+  const result = on ? await enableDemo(sb, userId, { timezone }) : await disableDemo(sb, userId);
+  if (!result.ok) return { error: demoMessage(result.code) };
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: on ? "Demo mode is on. Open the app and refresh." : "Demo mode is off. The chats stay until you reset." };
+}
+
+/** Deletes every demo row, photo and added app; starts over from the opening state if demo mode is on. */
+export async function resetDemoAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await resetDemo(getSupabaseAdmin(), userId, { timezone: String(formData.get("timezone") ?? "") });
+  if (!result.ok) return { error: demoMessage(result.code) };
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: result.reseeded ? "Reset. Demo mode started over." : "Reset. All demo data is gone." };
 }
