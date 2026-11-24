@@ -82,10 +82,10 @@ export async function getOverview(sinceDays: number | null, days = 30, includeSu
   } catch {
     throw new AdminDataError("real_funnel", undefined);
   }
-  const current = computeRealFunnel(rows.events, rows.reservations, sinceDays, now, undefined, { includeSuspect });
-  const previous = sinceDays === null ? null : computeRealFunnel(rows.events, rows.reservations, sinceDays * 2, now, nowMs - sinceDays * DAY, { includeSuspect });
+  const current = computeRealFunnel(rows.events, rows.reservations, sinceDays, now, undefined, { includeSuspect, internalUserIds: rows.internalUserIds });
+  const previous = sinceDays === null ? null : computeRealFunnel(rows.events, rows.reservations, sinceDays * 2, now, nowMs - sinceDays * DAY, { includeSuspect, internalUserIds: rows.internalUserIds });
 
-  const model = buildTrafficModel(rows.events, rows.reservations, undefined, { includeSuspect, nowMs });
+  const model = buildTrafficModel(rows.events, rows.reservations, undefined, { includeSuspect, nowMs, internalUserIds: rows.internalUserIds });
   let fromMs = nowMs - (sinceDays ?? 30) * DAY;
   if (sinceDays === null) for (const s of model.sessions.values()) fromMs = Math.min(fromMs, s.firstAt);
   const range = periodStats(model, fromMs, nowMs + 1);

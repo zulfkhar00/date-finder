@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchAllRows, RESERVATION_COLUMNS, type ReservationRow } from "@/lib/real-funnel";
+import { fetchAllRows, loadInternalUserIds, RESERVATION_COLUMNS, type ReservationRow } from "@/lib/real-funnel";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { TrafficEvent } from "@/lib/traffic-report";
 
@@ -10,6 +10,7 @@ import type { TrafficEvent } from "@/lib/traffic-report";
 const PAGE = 1000;
 const MAX_ROWS = 100_000;
 const BASE_COLUMNS = "id, created_at, event, session_id, variant, utm_campaign, dedupe_key, ref";
+const ACCOUNT_COLS = "user_id, account_internal";
 const TRAFFIC_COLS = "utm_source, utm_medium, utm_content, referrer_host, landing_path, device, country";
 
 export type TrafficRows = {
@@ -21,6 +22,8 @@ export type TrafficRows = {
   /** false until supabase/2026-11-22-session-quality.sql is applied: only device = 'bot' and behaviour classify sessions. */
   qualityColumn: boolean;
   reservations: ReservationRow[];
+  /** Accounts flagged internal on their profile; with funnel_events.account_internal they drop signed-in internal sessions. */
+  internalUserIds: Set<string>;
   /** false until supabase/2026-11-03-traffic.sql is applied (the columns do not exist yet). */
   trafficColumns: boolean;
 };
@@ -49,7 +52,9 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   let trafficColumns = true;
   let inAppColumn = true;
   let qualityColumn = true;
-  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, quality`, sinceIso);
+  // Newest shape first; each missing-column error falls to the next (account link, then quality, then in-app source, then traffic columns).
+  let result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, quality, ${ACCOUNT_COLS}`, sinceIso);
+  if (undefinedColumn(result.error)) result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source, quality`, sinceIso);
   if (undefinedColumn(result.error)) {
     qualityColumn = false;
     result = await pageEvents(supabase, `${BASE_COLUMNS}, ${TRAFFIC_COLS}, in_app_source`, sinceIso);
@@ -68,7 +73,8 @@ export async function loadTrafficRows(sinceMs: number | null): Promise<TrafficRo
   }
   // All reservations: a paid_at inside the window can belong to an older row.
   const reservations = await fetchAllRows<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at");
-  return { events: result.rows, reservations, trafficColumns, inAppColumn, qualityColumn, firstTouchByStripe: await loadFirstTouch(supabase) };
+  const internalUserIds = await loadInternalUserIds(supabase);
+  return { events: result.rows, reservations, trafficColumns, inAppColumn, qualityColumn, firstTouchByStripe: await loadFirstTouch(supabase), internalUserIds };
 }
 
 /** Best effort: the first-touch columns may not exist yet, and a failure here must never blank the page. */

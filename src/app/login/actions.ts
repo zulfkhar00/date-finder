@@ -6,6 +6,7 @@ import { buildLoginEmail } from "@/lib/app-emails";
 import { readAppConfig } from "@/lib/app/config";
 import { createAppClient } from "@/lib/app/session";
 import { canSendEmail, sendAppEmail } from "@/lib/email";
+import { recordFirstConfirmation } from "@/lib/signups";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export type LoginState = { step: "email" | "code" | "done"; email?: string; error?: string; notice?: string };
@@ -71,6 +72,8 @@ async function checkCode(formData: FormData): Promise<LoginState> {
       if (error) console.error("Code verification failed", error.code ?? error.status ?? "unknown");
       return { step: "code", email: email.data, error: "That code is invalid or has expired." };
     }
+    // First confirmation of this account (onboarding and standalone login share this check). Never blocks sign-in.
+    await recordFirstConfirmation(data.user);
   } catch (error) {
     console.error("Code verification failed", error instanceof Error ? error.name : "unknown error");
     return { step: "code", email: email.data, error: "That code is invalid or has expired." };
