@@ -41,6 +41,20 @@ async function main() {
   const flow = readFileSync(new URL("../src/app/onboarding/flow.tsx", import.meta.url), "utf8");
   assert.match(flow, /saving\.current/, "a second tap while a step is saving is ignored");
   assert.match(flow, /NETWORK_ERROR/, "a failed save shows a message");
+  // The answer chips on the first screen share app.css with the whole app. A second `.app-chip` rule added for another
+  // component once turned every unpicked answer into white text on white, so one class name has one top-level rule.
+  const css = readFileSync(new URL("../src/app/app.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = new Map<string, string[]>();
+  let depth = 0, buffer = "", open: string[] = [];
+  for (const ch of css) {
+    if (ch === "{") { if (depth === 0) open = buffer.split(",").map((s) => s.trim()); depth += 1; buffer = ""; }
+    else if (ch === "}") { depth -= 1; if (depth === 0) for (const s of open) if (/^\.[a-z0-9-]+$/i.test(s)) rules.set(s, [...(rules.get(s) ?? []), buffer]); buffer = ""; }
+    else buffer += ch;
+  }
+  assert.deepEqual([...rules].filter(([, bodies]) => bodies.length > 1).map(([name]) => name), [], "a class is styled by two top-level rules in app.css: the later one silently restyles the earlier component");
+  const chip = rules.get(".app-chip")?.[0] ?? "";
+  assert.match(chip, /background:var\(--card\)/, "answer chips sit on the card colour");
+  assert.doesNotMatch(chip, /(^|;)color:#fff/, "an unpicked answer chip must not be white on white");
   console.log("onboarding checks ok");
 }
 void main();
