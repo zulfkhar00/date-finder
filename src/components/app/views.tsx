@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, User } from "lucide-react";
-import { Avatar, Empty, ModePill, RowLink } from "@/components/app/ui";
+import { Avatar, AppChip, Empty, ModePill, RowLink } from "@/components/app/ui";
+import { Ago } from "@/components/app/ago";
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
 import { StarterPack } from "@/components/app/starter-pack";
@@ -138,7 +139,7 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
                 <RowLink href={`${base}/chats/${c.id}`}>
                   <Avatar name={c.name} url={c.photoUrl} />
                   <div className="app-row-body">
-                    <div className="app-row-title">{c.name} <ModePill mode={c.mode} paused={c.paused} /></div>
+                    <div className="app-row-title">{c.name} <AppChip app={c.app} /> <ModePill mode={c.mode} paused={c.paused} /></div>
                     <div className="app-row-sub">{c.last?.body ?? "Matched. We're writing the first message."}</div>
                   </div>
                   <MessageCircle className="app-row-end" size={20} aria-hidden="true" />
@@ -168,14 +169,17 @@ export function ChatsView({ chats, apps = [], gaps = [], base = "" }: { chats: C
           <ul className="app-list">
             {chats.map((c) => (
               <li key={c.id}>
-                <RowLink href={`${base}/chats/${c.id}`}>
+                <RowLink href={`${base}/chats/${c.id}`} unread={Boolean(c.unread)}>
                   <Avatar name={c.name} url={c.photoUrl} large />
                   <div className="app-row-body">
-                    <div className="app-row-title">{c.name}{c.age ? `, ${c.age}` : ""} <span className="app-muted" style={{ fontWeight: 600, fontSize: 13 }}>{APP_LABELS[c.app]}</span></div>
+                    <div className="app-row-title">{c.name}{c.age ? `, ${c.age}` : ""} <AppChip app={c.app} /></div>
                     <div className="app-row-sub">{c.last ? `${c.last.sender === "match" ? "" : "You: "}${c.last.body}` : "No messages yet"}</div>
-                    <div style={{ marginTop: 6 }}><ModePill mode={c.mode} paused={c.paused} /></div>
+                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><ModePill mode={c.mode} paused={c.paused} />{c.hasProfile ? <Ago iso={c.matched_at} prefix="Matched " /> : null}</div>
                   </div>
-                  {c.last ? <span className="app-row-end" style={{ fontSize: 12, fontWeight: 700, alignSelf: "flex-start", marginTop: 6 }}><When iso={c.last.sent_at} style="time" /></span> : null}
+                  <div style={{ display: "grid", justifyItems: "end", gap: 6, alignSelf: "flex-start", marginTop: 6 }}>
+                    {c.last ? <span className="app-row-end" style={{ fontSize: 12, fontWeight: 700 }}><When iso={c.last.sent_at} style="time" /></span> : null}
+                    {c.unread ? <span className="app-unread" aria-label={`${c.unread} unread`}>{c.unread}</span> : null}
+                  </div>
                 </RowLink>
               </li>
             ))}
@@ -194,7 +198,7 @@ export function DatesView({ dates, apps = [], gaps = [], base = "", dateApi }: {
       <RowLink href={`${base}/dates/${d.id}`}>
         <span className="app-badge" style={{ background: "var(--lime)", color: "var(--grape)" }} aria-hidden="true"><CalendarDays size={22} /></span>
         <div className="app-row-body">
-          <div className="app-row-title">{d.who} {d.client_response === "confirmed" ? <span className="app-pill" data-tone="lime"><i />Confirmed</span> : upcoming.includes(d) ? <span className="app-pill" data-tone="coral"><i />To confirm</span> : null}</div>
+          <div className="app-row-title">{d.who} {d.app ? <AppChip app={d.app} /> : null} {d.client_response === "confirmed" ? <span className="app-pill" data-tone="lime"><i />Confirmed</span> : upcoming.includes(d) ? <span className="app-pill" data-tone="coral"><i />To confirm</span> : null}</div>
           <div className="app-row-sub">{d.venue}</div>
           <div className="app-row-sub"><When iso={d.starts_at} style="full" /></div>
         </div>
@@ -235,7 +239,7 @@ export function DateDetailView({ date, base = "", tag, actions, hideIcs }: { dat
         </div>
       </div>
       <ul className="app-list" style={{ marginTop: 12 }}>
-        <li className="app-detail"><User size={22} aria-hidden /><div><small>Who</small><strong>{date.who}</strong></div></li>
+        <li className="app-detail"><User size={22} aria-hidden /><div><small>Who</small><strong>{date.who}</strong>{date.app ? <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><AppChip app={date.app} />{date.matched_at ? <Ago iso={date.matched_at} prefix="Matched " /> : null}</div> : null}</div></li>
         <li className="app-detail"><MapPin size={22} aria-hidden /><div><small>Where</small><strong>{date.venue}</strong>{date.address ? <div className="app-muted" style={{ fontSize: 15 }}>{date.address}</div> : null}</div></li>
         <li className="app-detail"><Clock size={22} aria-hidden /><div><small>When</small><strong><When iso={date.starts_at} style="full" /></strong></div></li>
         {date.summary ? <li className="app-detail"><MessageCircle size={22} aria-hidden /><div><small>What you talked about</small><strong style={{ fontWeight: 600 }}>{date.summary}</strong></div></li> : null}

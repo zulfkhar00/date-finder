@@ -156,7 +156,7 @@ export const CONSENT_STATEMENT = "NoSwipe creates and runs dating profiles for y
 
 // --- dates ------------------------------------------------------------------------------------
 
-export type DateRow = { id: string; who: string; venue: string; address: string | null; starts_at: string; summary: string | null; status: string; client_response?: "pending" | "confirmed" | "declined" | null };
+export type DateRow = { id: string; who: string; venue: string; address: string | null; starts_at: string; summary: string | null; status: string; client_response?: "pending" | "confirmed" | "declined" | null; /** The match this date came from: its source app and when you matched (set when the date belongs to a match). */ app?: App; matched_at?: string; match_id?: string | null };
 
 function icsEscape(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");

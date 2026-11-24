@@ -225,6 +225,27 @@ assert.equal(updates.get(sid(6)), "bot");
 assert.equal(updates.has(sid(2)), false, "humans are not written");
 assert.ok(plan.pageViewSessions.after < plan.pageViewSessions.before);
 
+// ---------- Page-burst scanner (22-24 Nov: /login, reserve_start, 10 page views in ~12 s, nothing else) ----------
+const burst = (i: number, views: number, gapMs: number, extra: TrafficEvent[] = []): TrafficEvent[] => [
+  ev(i, "page_view", { device: "desktop", landing_path: "/login", country: "NL" }),
+  ev(i, "reserve_start", {}, T0 + 500),
+  ev(i, "checkout_blocked_country", {}, T0 + 800),
+  ...Array.from({ length: views - 1 }, (_, k) => ev(i, "page_view", {}, T0 + 1_000 + k * gapMs)),
+  ...extra
+];
+const bq = sessionQualities([
+  ...burst(21, 10, 1_200),                                    // scanner: bot
+  ...burst(22, 10, 1_200, [ev(22, "get_started", {}, T0 + 20_000)]), // someone clicked Get started: human
+  ...burst(23, 10, 1_200, [ev(23, "reserve_step_2", {}, T0 + 20_000)]),
+  ...burst(24, 5, 1_200),                                     // five pages: human
+  ...burst(25, 10, 30_000),                                   // ten pages over 4.5 minutes: reading, human
+  ...burst(26, 10, 1_200, [ev(26, "paid", { dedupe_key: "paid:cs_live_26" }, T0 + 20_000)])
+], NOW);
+const bqOf = (i: number) => bq.get(sid(i))!;
+assert.equal(bqOf(21).quality, "bot"); assert.deepEqual(bqOf(21).reasons, ["page_burst"]);
+for (const i of [22, 23, 24, 25, 26]) assert.equal(bqOf(i).quality, "human", `session ${i}`);
+assert.match(describeFiltered(summariseFiltered(bq, { includeSuspect: false }))!, /many pages in seconds, no interaction: 1/);
+
 // ---------- Wiring ----------
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const migration = read("../supabase/2026-11-22-session-quality.sql");

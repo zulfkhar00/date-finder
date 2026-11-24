@@ -23,6 +23,11 @@ export function OpForm({ action, label, pendingLabel, children, encType }: {
   );
 }
 
+/** Hidden field holding the admin browser's IANA zone ("Europe/London"), read when the form is submitted. */
+export function TzName() {
+  return <input type="hidden" name="timezone" defaultValue="" ref={(el) => { if (el && !el.value) { try { el.value = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* the server falls back */ } } }} />;
+}
+
 /** Hidden field; OpForm fills it with the admin browser's UTC offset on submit so a typed local time is stored correctly. */
 export function TzOffset() {
   return <input type="hidden" name="tzOffset" defaultValue="0" />;
