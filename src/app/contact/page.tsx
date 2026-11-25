@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { DocPage, SUPPORT_EMAIL, docMetadata } from "@/components/doc-page";
+import { businessIdentity } from "@/lib/business";
 
 export const metadata = docMetadata("/contact", "Contact", "Contact NoSwipe",
   "Contact NoSwipe support by email for account help, refunds and privacy requests, or use the report form for safety reports. We reply within 2 business days; safety reports are acknowledged within 24 hours.");
 
 export default function ContactPage() {
+  const business = businessIdentity();
   return <DocPage heading="Contact.">
     <p>Email us at <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. We reply within 2 business days.</p>
+    {business ? <>
+      <h2>Business details</h2>
+      <p>{business.legalName}{business.addressLines.map((line) => <span key={line}><br />{line}</span>)}</p>
+    </> : null}
     <h2>What to contact us about</h2>
     <ul>
       <li>Help with your account, your profiles or a chat.</li>
