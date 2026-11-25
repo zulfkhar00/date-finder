@@ -4,12 +4,15 @@ import { requireAdminPage } from "@/lib/admin-auth";
 import { conversion, type RangeKey } from "@/lib/traffic-report";
 import { AdminDataError } from "../_lib/data";
 import { formatDateTime, formatDuration, formatInt, percent } from "../_lib/format";
+import { QualityNote } from "../_components/quality-note";
 import { DeltaBadge } from "../_components/delta";
 import { DimTable } from "../_components/dim-table";
 import { DropoffFunnel } from "../_components/dropoff-funnel";
 import { QueryErrorNotice, SetupNotice } from "../_components/notices";
 import { StackedChart } from "../_components/stacked-chart";
-import { getTrafficPage, type TrafficPageData } from "./data";
+import { getTrafficPage, type SourceWindow, type TrafficPageData } from "./data";
+import { HeroExperimentSection } from "./hero-experiment-section";
+import { SourcesSection } from "./sources-section";
 import styles from "../admin.module.css";
 
 const RANGES: Record<RangeKey, string> = { "24h": "24 hours", "7d": "7 days", "30d": "30 days", all: "All time" };
@@ -19,13 +22,16 @@ export default async function AdminTrafficPage({ searchParams }: { searchParams:
   const access = await requireAdminPage();
   if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
 
-  const rangeParam = (await searchParams).range;
+  const params = await searchParams;
+  const rangeParam = params.range;
+  const sourcesWindow: SourceWindow = params.sources === "7d" ? "7d" : "30d";
+  const includeSuspect = params.suspect === "1";
   const range: RangeKey = typeof rangeParam === "string" && Object.hasOwn(RANGES, rangeParam) ? (rangeParam as RangeKey) : "7d";
 
   let data: TrafficPageData | null = null;
   let problem = false;
   try {
-    data = await getTrafficPage(range);
+    data = await getTrafficPage(range, sourcesWindow, includeSuspect);
   } catch (error) {
     problem = true;
     if (!(error instanceof AdminDataError)) console.error("Admin traffic page failed");
@@ -36,11 +42,11 @@ export default async function AdminTrafficPage({ searchParams }: { searchParams:
       <div className={styles.pageHead}>
         <div>
           <h1>Traffic</h1>
-          <p className={styles.sub}>Real visits only: founders, test emails, Stripe test checkouts and probe sessions are excluded. Channel = utm_source, else referrer host, else direct. Times are UTC.</p>
+          <p className={styles.sub}>Real visits only: bots and (by default) suspect sessions, founders, test emails, Stripe test checkouts and probe sessions are excluded. Channel = utm_source, else referrer host, else in-app browser, else direct. Times are UTC.</p>
         </div>
         <nav className={styles.segmented} aria-label="Date range">
           {(Object.keys(RANGES) as RangeKey[]).map((key) => (
-            <Link key={key} href={key === "7d" ? "/admin/traffic" : `/admin/traffic?range=${key}`} className={`${styles.segment} ${key === range ? styles.segmentActive : ""}`} aria-current={key === range ? "page" : undefined}>
+            <Link key={key} href={trafficHref({ range: key, includeSuspect })} className={`${styles.segment} ${key === range ? styles.segmentActive : ""}`} aria-current={key === range ? "page" : undefined}>
               {RANGES[key]}
             </Link>
           ))}
@@ -48,12 +54,20 @@ export default async function AdminTrafficPage({ searchParams }: { searchParams:
       </div>
 
       {problem ? <QueryErrorNotice /> : null}
-      {data ? <TrafficBody data={data} /> : null}
+      {data ? <TrafficBody data={data} range={range} /> : null}
     </main>
   );
 }
 
-function TrafficBody({ data }: { data: TrafficPageData }) {
+function trafficHref({ range, includeSuspect }: { range: RangeKey; includeSuspect: boolean }) {
+  const q = new URLSearchParams();
+  if (range !== "7d") q.set("range", range);
+  if (includeSuspect) q.set("suspect", "1");
+  const qs = q.toString();
+  return `/admin/traffic${qs ? `?${qs}` : ""}`;
+}
+
+function TrafficBody({ data, range }: { data: TrafficPageData; range: RangeKey }) {
   const { current: c, previous: p, live } = data;
   const t = c.totals;
   const pt = p?.totals;
@@ -64,6 +78,7 @@ function TrafficBody({ data }: { data: TrafficPageData }) {
 
   return (
     <>
+      <QualityNote includeSuspect={data.includeSuspect} note={data.filteredNote} suspectCount={data.suspectInRange} hrefToggle={trafficHref({ range, includeSuspect: !data.includeSuspect })} qualityColumn={data.qualityColumn} />
       {!data.trafficColumns ? (
         <div className={styles.notice}>Source, landing page, device and country are not being captured yet. Apply <code>{MIGRATION}</code> in the Supabase SQL editor; until then every visit shows as <code>(not captured)</code>.</div>
       ) : data.captureSince === null ? (
@@ -85,6 +100,10 @@ function TrafficBody({ data }: { data: TrafficPageData }) {
         <Kpi label="Median visit → paid" value={formatDuration(c.medianPaidSeconds)} hint={c.paidSamples ? `${c.paidSamples} paid with a linked visit` : "No paid visit linked yet"} />
         <Kpi label="Live now" value={formatInt(live.sessions)} hint="Visits in the last 30 min" />
       </section>
+
+      <HeroExperimentSection rows={data.hero} />
+
+      <SourcesSection data={data.sources} range={range} includeSuspect={data.includeSuspect} />
 
       {live.sessions > 0 ? (
         <section className={styles.card}>

@@ -6,15 +6,20 @@ import { getApps, getPhotos, getPrefs, getProfile } from "@/lib/app/data";
 import { createAppClient, getAppUser } from "@/lib/app/session";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CONSENT_STEP, PAY_STEP } from "@/lib/app/domain";
+import { paidAccessFor } from "@/lib/paid-access";
 import { OnboardingFlow } from "./flow";
 
 export const metadata: Metadata = { title: "Set up your profile", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
+// The starter pack is written after the consent step responds (after() in giveConsent); give it room to finish.
+export const maxDuration = 60; // Vercel Hobby ceiling; the pack runs the text and photo calls side by side to fit
 
 export default async function OnboardingPage() {
   const user = await getAppUser();
+  // Free sign-up works everywhere; only the pay step depends on the country (PAID_COUNTRIES, admin sessions override).
+  const paidOffered = (await paidAccessFor()).allowed;
   // Not signed in yet: the first questions run without an account, and the email code comes after them.
-  if (!user) return <OnboardingFlow key="guest" guest email="" draft={draftFrom(null, null, [])} photos={[]} startStep={0} paid={false} />;
+  if (!user) return <OnboardingFlow key="guest" guest email="" draft={draftFrom(null, null, [])} photos={[]} startStep={0} paid={false} paidOffered={paidOffered} />;
   const admin = getSupabaseAdmin();
   await ensureProfile(admin, user.id, user.email);
   const sb = await createAppClient();
@@ -36,6 +41,7 @@ export default async function OnboardingPage() {
       photos={photos}
       startStep={done ? PAY_STEP : Math.min(profile?.onboarding_step ?? 0, CONSENT_STEP)}
       paid={paid}
+      paidOffered={paidOffered}
     />
   );
 }

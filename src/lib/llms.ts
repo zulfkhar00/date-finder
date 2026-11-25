@@ -17,7 +17,7 @@ const howItWorks = [
   "You can read every chat, take over any chat or pause any app at any time. Then you just show up."
 ];
 
-const availability = "Availability: NoSwipe is online and global, not tied to any city or country. It works wherever Tinder, Hinge and Bumble work.";
+const availability = "Availability: NoSwipe is online and not tied to any city. The free tools work anywhere; the paid service is available in the United States, Canada, the United Kingdom, Australia and New Zealand.";
 
 const contact = "Contact: support@noswipe.app. Site: " + site + ".";
 

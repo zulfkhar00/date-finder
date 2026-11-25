@@ -1,5 +1,6 @@
 import { PROBE_SESSION_PREFIX } from "@/lib/internal-traffic";
-import { attributionSchema, cleanVariant, UTM_KEYS, type Attribution, type ClientEventName } from "@/lib/attribution";
+import { attributionSchema, cleanVariant, DEFAULT_VARIANT, UTM_KEYS, type Attribution, type ClientEventName } from "@/lib/attribution";
+import { heroLabel, HERO_COOKIE } from "@/lib/hero-experiment";
 
 // Browser-only helpers. First-touch attribution lives in a first-party cookie (30 days) so a
 // visitor who comes back later still counts toward the campaign that brought them. The funnel
@@ -35,12 +36,36 @@ function externalReferrer(): string | undefined {
   }
 }
 
+/** ?v=a / ?v=b is the hero QA preview, not a campaign variant. */
+function campaignV(value: string | null): string | undefined {
+  return value && value !== "a" && value !== "b" ? value : undefined;
+}
+
+/** Home hero A/B bucket from the server-set ns_hero cookie, as the variant label (hero-a / hero-b), or null. */
+function heroVariantLabel(): string | null {
+  const raw = document.cookie.split("; ").find((part) => part.startsWith(`${HERO_COOKIE}=`));
+  return raw ? heroLabel(raw.slice(HERO_COOKIE.length + 1)) : null;
+}
+
+/**
+ * The hero bucket tags every event and the reservation, unless the visit already carries an explicit campaign variant
+ * (?variant=...), which keeps its own label. Applied on read, so the first-touch cookie is not rewritten.
+ */
+function withHeroVariant(value: Attribution): Attribution {
+  const hero = heroVariantLabel();
+  return hero && value.variant === DEFAULT_VARIANT ? { ...value, variant: hero } : value;
+}
+
 /** Reads UTM/variant/referrer on the first landing and keeps them; later calls return the stored value. */
 export function captureAttribution(): Attribution {
+  return withHeroVariant(captureFirstTouch());
+}
+
+function captureFirstTouch(): Attribution {
   const stored = readCookie();
   if (stored) return stored;
   const params = new URLSearchParams(window.location.search);
-  const raw: Record<string, unknown> = { variant: params.get("variant") ?? params.get("v") ?? undefined, referrer: externalReferrer(), ref: params.get("ref") ?? undefined };
+  const raw: Record<string, unknown> = { variant: params.get("variant") ?? campaignV(params.get("v")), referrer: externalReferrer(), ref: params.get("ref") ?? undefined };
   for (const key of UTM_KEYS) raw[key] = params.get(key) ?? undefined;
   const parsed = attributionSchema.safeParse(raw);
   const value: Attribution = parsed.success ? parsed.data : { variant: cleanVariant(undefined), utm_source: undefined, utm_medium: undefined, utm_campaign: undefined, utm_content: undefined, utm_term: undefined, referrer: undefined, ref: undefined };
@@ -55,22 +80,22 @@ export function captureAttribution(): Attribution {
  */
 export function captureInternalLinkAttribution(href: string): Attribution {
   const stored = readCookie();
-  if (stored && (stored.utm_source || stored.utm_medium || stored.utm_campaign)) return stored;
+  if (stored && (stored.utm_source || stored.utm_medium || stored.utm_campaign)) return withHeroVariant(stored);
 
   try {
     const url = new URL(href, window.location.origin);
     const raw: Record<string, unknown> = {
-      variant: stored?.variant ?? url.searchParams.get("variant") ?? url.searchParams.get("v") ?? undefined,
+      variant: stored?.variant ?? url.searchParams.get("variant") ?? campaignV(url.searchParams.get("v")),
       referrer: stored?.referrer ?? externalReferrer(),
       ref: stored?.ref ?? url.searchParams.get("ref") ?? undefined
     };
     for (const key of UTM_KEYS) raw[key] = url.searchParams.get(key) ?? stored?.[key];
     const parsed = attributionSchema.safeParse(raw);
-    if (!parsed.success) return stored ?? captureAttribution();
+    if (!parsed.success) return stored ? withHeroVariant(stored) : captureAttribution();
     try { writeCookie(parsed.data); } catch { /* cookies disabled */ }
-    return parsed.data;
+    return withHeroVariant(parsed.data);
   } catch {
-    return stored ?? captureAttribution();
+    return stored ? withHeroVariant(stored) : captureAttribution();
   }
 }
 
@@ -101,6 +126,7 @@ function firstTimeThisSession(key: string): boolean {
 }
 
 const INTERNAL_KEY = "ns_internal";
+const QA_KEY = "ns_qa";
 
 /**
  * Founder flag: open any page with ?internal=1 once on a device and that browser is marked
@@ -108,6 +134,12 @@ const INTERNAL_KEY = "ns_internal";
  * events, under a probe session id (see getFunnelSessionId), so they never count as real users.
  */
 function isInternalBrowser(): boolean {
+  try {
+    // QA preview of the home hero test (?v=a or ?v=b): this tab session is a probe, so it is never counted.
+    const preview = new URLSearchParams(window.location.search).get("v");
+    if (preview === "a" || preview === "b") window.sessionStorage.setItem(QA_KEY, "1");
+    if (window.sessionStorage.getItem(QA_KEY) === "1") return true;
+  } catch { /* storage blocked */ }
   try {
     const flag = new URLSearchParams(window.location.search).get("internal");
     if (flag === "1") window.localStorage.setItem(INTERNAL_KEY, "1");
@@ -118,9 +150,41 @@ function isInternalBrowser(): boolean {
   }
 }
 
-export function trackEvent(event: ClientEventName, options: { oncePerSession?: boolean } = {}) {
+export type TrackOptions = {
+  oncePerSession?: boolean;
+  /** Stripe Checkout Session id: required for the checkout_* / payment_* events. */
+  checkoutId?: string;
+  /** Whitelisted checkout detail; the server re-validates and drops anything else. */
+  detail?: { code?: string; type?: string; paymentMethod?: string; reason?: string; seconds?: number };
+  /** Prefer navigator.sendBeacon (survives the page going away); falls back to fetch keepalive. */
+  beacon?: boolean;
+};
+
+/**
+ * Sends a body to /api/event. sendBeacon first when asked (it is the only transport that reliably
+ * survives pagehide on mobile Safari), then fetch with keepalive when sendBeacon is missing, refuses
+ * the payload, or throws (some ad blockers make it return false). Never throws.
+ */
+export function postFunnelEvent(body: string, preferBeacon: boolean) {
   try {
-    if (options.oncePerSession && !firstTimeThisSession(event)) return;
+    if (preferBeacon && typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      if (navigator.sendBeacon("/api/event", new Blob([body], { type: "application/json" }))) return;
+    }
+  } catch {
+    // fall through to fetch
+  }
+  try {
+    void fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
+  } catch {
+    // blocked outright: nothing more to try
+  }
+}
+
+export function trackEvent(event: ClientEventName, options: TrackOptions = {}) {
+  try {
+    // Once-per-tab-session key: checkout events are once per Checkout Session (payment_error per code).
+    const onceKey = [event, options.checkoutId, options.detail?.code].filter(Boolean).join(":");
+    if (options.oncePerSession && !firstTimeThisSession(onceKey)) return;
     const attribution = captureAttribution();
     // Source hints ride on every event (first-touch cookie values); where the visit came from and
     // which page it landed on are only meaningful once, on page_view. The server reduces them.
@@ -134,9 +198,10 @@ export function trackEvent(event: ClientEventName, options: { oncePerSession?: b
       utmSource: attribution.utm_source,
       utmMedium: attribution.utm_medium,
       utmContent: attribution.utm_content,
+      ...(options.checkoutId ? { checkoutId: options.checkoutId, detail: options.detail } : {}),
       ...landing
     });
-    void fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => undefined);
+    postFunnelEvent(body, options.beacon === true);
   } catch {
     // Tracking must never affect the page.
   }

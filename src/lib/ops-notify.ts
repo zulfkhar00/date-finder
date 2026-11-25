@@ -6,7 +6,8 @@ import { scrubString } from "@/lib/scrub";
 // token never reaches the browser. Off while NOSWIPE_OPS_BOT_TOKEN or NOSWIPE_OPS_CHAT_ID is unset.
 // Every send is best-effort: a Telegram problem never fails or slows the request that caused it.
 
-export const OPS_TOPICS = { signups: 2, payments: 3, traffic: 4, errors: 5 } as const;
+// reports shares the errors topic until a dedicated forum topic id is set in NOSWIPE_OPS_REPORTS_TOPIC_ID.
+export const OPS_TOPICS = { signups: 2, payments: 3, traffic: 4, errors: 5, reports: 5 } as const;
 export type OpsTopic = keyof typeof OPS_TOPICS;
 
 const SEND_TIMEOUT_MS = 4000;
@@ -15,6 +16,12 @@ const MAX_TRACKED = 500;
 
 const recentErrors = new Map<string, number>();
 const seenKeys = new Set<string>();
+
+function topicId(topic: OpsTopic): number {
+  if (topic !== "reports") return OPS_TOPICS[topic];
+  const custom = Number(process.env.NOSWIPE_OPS_REPORTS_TOPIC_ID);
+  return Number.isInteger(custom) && custom > 0 ? custom : OPS_TOPICS.reports;
+}
 
 function config() {
   const token = process.env.NOSWIPE_OPS_BOT_TOKEN?.trim();
@@ -30,7 +37,7 @@ export async function sendOps(topic: OpsTopic, text: string): Promise<boolean> {
     const response = await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: cfg.chatId, message_thread_id: OPS_TOPICS[topic], text: text.slice(0, 3500), disable_web_page_preview: true }),
+      body: JSON.stringify({ chat_id: cfg.chatId, message_thread_id: topicId(topic), text: text.slice(0, 3500), disable_web_page_preview: true }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS)
     });
     if (!response.ok) console.error("Ops notify failed", topic, response.status);
@@ -78,4 +85,9 @@ export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "code" in error) return `code ${String((error as { code: unknown }).code)}`;
   return "unknown error";
+}
+
+/** True when the ops bot token and chat id are set, so a caller can skip claiming an alert nobody could receive. */
+export function opsConfigured(): boolean {
+  return config() !== null;
 }

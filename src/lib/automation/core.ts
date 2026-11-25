@@ -2,9 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { buildDateBookedEmail, buildNeedsYouEmail } from "@/lib/app-emails";
-import { APPS, SEND_REFUSALS, canAiSend, chatMode, effectiveStatus, encodeSystemEvent, type AppStatus, type SystemEvent } from "@/lib/app/domain";
+import { APPS, APP_STATUSES, SEND_REFUSALS, canAiSend, chatMode, effectiveStatus, encodeSystemEvent, type AppStatus, type SystemEvent } from "@/lib/app/domain";
 import { sendAppEmail } from "@/lib/email";
 import { parseSiteUrl } from "@/lib/admin-config";
+import { changeAppStatus } from "@/lib/fulfilment/service";
+import { flaggedPhotoIds, livePhotoRows } from "@/lib/starter-pack/photo-flags";
 
 // The automation seam (docs/automation.md). Everything a worker, or the admin console, may do to a
 // client's account goes through these functions with the service-role client. Both the HTTP routes
@@ -19,7 +21,7 @@ const uuid = z.string().uuid();
 const iso = z.string().datetime({ offset: true });
 
 export const schemas = {
-  appStatus: z.object({ status: z.enum(["setting_up", "live", "paused"]) }),
+  appStatus: z.object({ status: z.enum(APP_STATUSES), reason: z.string().max(400).optional(), note: z.string().max(2000).optional() }),
   match: z.object({
     app: z.enum(APPS), externalId: z.string().min(1).max(200).optional(),
     name: z.string().trim().min(1).max(80), age: z.number().int().min(18).max(99).nullable().optional(),
@@ -57,13 +59,14 @@ async function notifyUser(sb: SupabaseClient, userId: string, kind: "date" | "ne
   }
 }
 
-export async function setAppStatus(sb: SupabaseClient, userId: string, app: string, input: unknown): Promise<Result<{ app: string; status: AppStatus }>> {
+export async function setAppStatus(sb: SupabaseClient, userId: string, app: string, input: unknown, actor = "automation"): Promise<Result<{ app: string; status: AppStatus; logged: boolean }>> {
   const a = z.enum(APPS).safeParse(app);
   const p = schemas.appStatus.safeParse(input);
   if (!a.success || !p.success) return fail(400, "invalid", "Unknown app or status.");
-  const { error } = await sb.from("app_accounts").upsert({ user_id: userId, app: a.data, status: p.data.status, updated_at: new Date().toISOString() }, { onConflict: "user_id,app" });
-  if (error) return fail(500, "db", "Could not save the app status.");
-  return { ok: true, app: a.data, status: p.data.status };
+  // Rules, the reason the client reads, and the audit row live in one place: lib/fulfilment/service.
+  const result = await changeAppStatus(sb, actor, userId, a.data, p.data);
+  if (!result.ok) return fail(result.status, result.code, result.message);
+  return { ok: true, app: result.app, status: result.status, logged: result.logged };
 }
 
 export async function addMatch(sb: SupabaseClient, userId: string, input: unknown): Promise<Result<{ matchId: string; created: boolean }>> {
@@ -81,15 +84,25 @@ export async function addMatch(sb: SupabaseClient, userId: string, input: unknow
   return { ok: true, matchId: data.id, created: true };
 }
 
+/** Users whose account a report put on hold (paused or closed). Empty before supabase/2026-11-20-reports.sql is applied. */
+export async function reportHeldUsers(sb: SupabaseClient, userIds: string[]): Promise<Set<string>> {
+  if (!userIds.length) return new Set();
+  const { data, error } = await sb.from("profiles").select("user_id").in("user_id", userIds).not("report_hold", "is", null);
+  if (error) return new Set();
+  return new Set((data ?? []).map((r) => r.user_id as string));
+}
+
 export async function chatState(sb: SupabaseClient, matchId: string) {
   const { data: match } = await sb.from("matches").select("id, user_id, app, name").eq("id", matchId).maybeSingle();
   if (!match) return null;
-  const [{ data: takeovers }, { data: account }] = await Promise.all([
+  const [{ data: takeovers }, { data: account }, held] = await Promise.all([
     sb.from("takeovers").select("ended_at").eq("match_id", matchId),
-    sb.from("app_accounts").select("status, user_paused").eq("user_id", match.user_id).eq("app", match.app).maybeSingle()
+    sb.from("app_accounts").select("status, user_paused").eq("user_id", match.user_id).eq("app", match.app).maybeSingle(),
+    reportHeldUsers(sb, [match.user_id])
   ]);
   const mode = chatMode(takeovers ?? []);
-  const appStatus = account ? effectiveStatus(account) : "setting_up";
+  // A pause or closure after a report stops every AI send, whatever the per-app status says.
+  const appStatus: AppStatus = held.has(match.user_id) ? "paused" : account ? effectiveStatus(account) : "setting_up";
   return { match, mode, appStatus };
 }
 
@@ -138,21 +151,33 @@ export async function setNeedsYou(sb: SupabaseClient, matchId: string, input: un
   return { ok: true, needsUser: p.data.needsUser };
 }
 
-export async function bookDate(sb: SupabaseClient, userId: string, input: unknown): Promise<Result<{ dateId: string }>> {
+export async function bookDate(sb: SupabaseClient, userId: string, input: unknown, externalId?: string): Promise<Result<{ dateId: string; created: boolean }>> {
   const p = schemas.date.safeParse(input);
   if (!p.success) return fail(400, "invalid", "Invalid date.");
   const d = p.data;
+  // The rig's own id for the date: a replayed event returns the date it already booked and sends nothing again.
+  if (externalId) {
+    const { data: existing, error: existingError } = await sb.from("dates").select("id").eq("user_id", userId).eq("external_id", externalId).maybeSingle();
+    if (!existingError && existing) return { ok: true, dateId: existing.id, created: false };
+  }
   if (d.matchId) {
     const { data: match } = await sb.from("matches").select("user_id").eq("id", d.matchId).maybeSingle();
     if (!match || match.user_id !== userId) return fail(404, "not_found", "Unknown chat for this client.");
   }
   const { data, error } = await sb.from("dates").insert({
-    user_id: userId, match_id: d.matchId ?? null, who: d.who, venue: d.venue, address: d.address ?? null, starts_at: d.startsAt, summary: d.summary ?? null
+    user_id: userId, match_id: d.matchId ?? null, who: d.who, venue: d.venue, address: d.address ?? null, starts_at: d.startsAt, summary: d.summary ?? null,
+    ...(externalId ? { external_id: externalId } : {})
   }).select("id").single();
+  if (error?.code === "23505" && externalId) {
+    // Two copies of the same event raced: the other one booked it.
+    const { data: won } = await sb.from("dates").select("id").eq("user_id", userId).eq("external_id", externalId).maybeSingle();
+    if (won) return { ok: true, dateId: won.id, created: false };
+  }
+  if (error?.code === "42703" && externalId) return fail(503, "migration", "Run supabase/2026-11-21-account-runs.sql first.");
   if (error || !data) return fail(500, "db", "Could not book the date.");
   if (d.matchId) await addSystemEvent(sb, d.matchId, userId, { kind: "date_booked", startsAt: d.startsAt, venue: d.venue });
   await notifyUser(sb, userId, "date", { who: d.who, venue: d.venue, startsAt: d.startsAt, path: `/dates/${data.id}` });
-  return { ok: true, dateId: data.id };
+  return { ok: true, dateId: data.id, created: true };
 }
 
 /** User-typed messages that the worker still has to send inside the dating app. */
@@ -161,7 +186,9 @@ export async function listOutbox(sb: SupabaseClient, limit = 50) {
     .select("id, match_id, user_id, body, created_at, matches(app, external_id, name)")
     .eq("sender", "user").is("delivered_at", null).order("created_at").limit(Math.min(limit, 200));
   if (error) return fail(500, "db", "Could not read the outbox.");
-  return { ok: true as const, messages: data ?? [] };
+  // Nothing is sent for an account a report put on hold.
+  const held = await reportHeldUsers(sb, [...new Set((data ?? []).map((m) => m.user_id as string))]);
+  return { ok: true as const, messages: (data ?? []).filter((m) => !held.has(m.user_id as string)) };
 }
 
 export async function ackOutbox(sb: SupabaseClient, messageId: string): Promise<Result<{ acked: true }>> {
@@ -174,15 +201,18 @@ export async function ackOutbox(sb: SupabaseClient, messageId: string): Promise<
 
 export async function clientBrief(sb: SupabaseClient, userId: string) {
   if (!uuid.safeParse(userId).success) return fail(404, "not_found", "Unknown client.");
-  const [{ data: profile }, { data: prefs }, { data: apps }, { data: photos }, { data: consent }] = await Promise.all([
+  const [{ data: profile }, { data: prefs }, { data: apps }, photoRows, flagged, { data: consent }] = await Promise.all([
     sb.from("profiles").select("first_name, birthday, gender, interested_in, city, job, height_cm, interests, voice, onboarding_done_at, internal").eq("user_id", userId).maybeSingle(),
     sb.from("preferences").select("age_min, age_max, distance_km, looking_for, dealbreakers").eq("user_id", userId).maybeSingle(),
     sb.from("app_accounts").select("app, status, user_paused").eq("user_id", userId),
-    sb.from("profile_photos").select("path, position").eq("user_id", userId).order("position"),
+    livePhotoRows<{ id: string; path: string; position: number }>(sb, userId, "id, path, position"),
+    flaggedPhotoIds(userId, sb),
     sb.from("consents").select("version, accepted_at").eq("user_id", userId).order("accepted_at", { ascending: false }).limit(1)
   ]);
   if (!profile) return fail(404, "not_found", "Unknown client.");
-  const signed = await Promise.all((photos ?? []).map(async (p) => {
+  // Removed photos are gone; photos flagged for review stay out of the brief until a person approves them.
+  const photos = photoRows.filter((p) => !flagged.has(p.id));
+  const signed = await Promise.all(photos.map(async (p) => {
     const { data } = await sb.storage.from("profile-photos").createSignedUrl(p.path, 3600);
     return { position: p.position, url: data?.signedUrl ?? null };
   }));

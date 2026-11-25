@@ -8,12 +8,12 @@ import { requestCode, verifyCodeInline, type LoginState } from "@/app/login/acti
  * The email-code sign-in, placed inside onboarding after the first questions so a visitor sees
  * what NoSwipe asks for before being asked for an email. Calls onSignedIn once the code checks out.
  */
-export function AccountStep({ onSignedIn }: { onSignedIn: () => void }) {
+export function AccountStep({ onSignedIn, onCodeSent }: { onSignedIn: () => void; onCodeSent?: (sent: boolean) => void }) {
   const [attempt, setAttempt] = useState(0);
-  return <Inner key={attempt} onSignedIn={onSignedIn} restart={() => setAttempt((n) => n + 1)} />;
+  return <Inner key={attempt} onSignedIn={onSignedIn} onCodeSent={onCodeSent} restart={() => { onCodeSent?.(false); setAttempt((n) => n + 1); }} />;
 }
 
-function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () => void }) {
+function Inner({ onSignedIn, onCodeSent, restart }: { onSignedIn: () => void; onCodeSent?: (sent: boolean) => void; restart: () => void }) {
   const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestCode, { step: "email" });
   const [verified, verifyAction, verifying] = useActionState<LoginState, FormData>(verifyCodeInline, { step: "code" });
   const fired = useRef(false);
@@ -21,12 +21,14 @@ function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () =>
   const autoSubmit = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(autoSubmit.current), []);
   const [finishing, setFinishing] = useState(false);
+  // The server says "New code sent." for every send; only worth showing once the visitor asked for another one.
+  const [resent, setResent] = useState(false);
   useEffect(() => {
     if (verified.step === "done" && !fired.current) { fired.current = true; setFinishing(true); onSignedIn(); }
   }, [verified.step, onSignedIn]);
 
   const codeSent = sent.step === "code" && Boolean(sent.email);
-  useEffect(() => { if (codeSent) trackEvent("ob_code_sent", { oncePerSession: true }); }, [codeSent]);
+  useEffect(() => { onCodeSent?.(codeSent); if (codeSent) trackEvent("ob_code_sent", { oncePerSession: true }); }, [codeSent, onCodeSent]);
 
   if (sent.step !== "code" || !sent.email) {
     return (
@@ -39,13 +41,13 @@ function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () =>
         <button type="submit" className="app-btn" disabled={sending} aria-busy={sending}>
           {sending ? <><span className="app-spinner" aria-hidden /> Sending…</> : "Email me a code"}
         </button>
-        <p className="app-fine" style={{ marginTop: 0 }}>No password. By continuing you agree to the <a href="/terms" target="_blank" rel="noreferrer">terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">privacy note</a>.</p>
+        <p className="app-fine" style={{ marginTop: 0 }}><a href="/terms" target="_blank" rel="noreferrer">Terms</a> · <a href="/privacy" target="_blank" rel="noreferrer">Privacy</a></p>
       </form>
     );
   }
   return (
     <form ref={verifyForm} action={verifyAction} className="app-form" style={{ marginTop: 22 }}>
-      <p className="app-ok" role="status">We emailed a code to <strong>{sent.email}</strong>. Type it here.</p>
+      <p className="app-sub" role="status">Code sent to <strong>{sent.email}</strong>{resent && sent.notice ? <><br />{sent.notice}</> : null}</p>
       <input type="hidden" name="email" value={sent.email} />
       <label className="app-field">
         <span>Code</span>
@@ -60,10 +62,10 @@ function Inner({ onSignedIn, restart }: { onSignedIn: () => void; restart: () =>
       <button type="submit" className="app-btn" disabled={verifying || finishing} aria-busy={verifying || finishing}>
         {verifying || finishing ? <><span className="app-spinner" aria-hidden /> {finishing ? "Saving…" : "Checking…"}</> : "Continue"}
       </button>
-      <p className="app-fine" style={{ marginTop: 0 }}>Nothing yet? Check spam or promotions.</p>
-      <button type="submit" className="app-link" formAction={sendAction} formNoValidate disabled={verifying || sending || finishing} aria-busy={sending}>{sending ? "Sending…" : "Send a new code"}</button>
-      {sent.notice && !sending ? <p className="app-ok" role="status">{sent.notice}</p> : null}
-      <button type="button" className="app-link" onClick={restart} disabled={verifying || finishing}>Use a different email</button>
+      <div className="app-auth-links">
+        <button type="submit" className="app-link" formAction={sendAction} formNoValidate onClick={() => setResent(true)} disabled={verifying || sending || finishing} aria-busy={sending}>{sending ? "Sending…" : "Resend code"}</button>
+        <button type="button" className="app-link" onClick={restart} disabled={verifying || finishing}>Change email</button>
+      </div>
     </form>
   );
 }

@@ -6,15 +6,37 @@ export const APPS = ["tinder", "hinge", "bumble"] as const;
 export type App = (typeof APPS)[number];
 export const APP_LABELS: Record<App, string> = { tinder: "Tinder", hinge: "Hinge", bumble: "Bumble" };
 
-export type AppStatus = "setting_up" | "live" | "paused";
+/**
+ * What the team set for one app. setting_up -> needs_client_action -> active -> paused -> closed is the workflow the
+ * operators follow (supabase/2026-11-20-fulfilment.sql). `live` is the older name for `active`; rows written before the
+ * migration keep it and every reader treats the two the same.
+ */
+// `awaiting_login` is a retired state (clients no longer hand an app over); old rows keep it and read as setting_up.
+export const APP_STATUSES = ["awaiting_login", "setting_up", "needs_client_action", "active", "live", "paused", "closed"] as const;
+export type AppStatus = (typeof APP_STATUSES)[number];
+/** The statuses the operator console offers (the legacy `live` is read, never written by a person). */
+export const WORKFLOW_STATUSES = ["setting_up", "needs_client_action", "active", "paused", "closed"] as const;
 export type Sender = "match" | "as_user_ai" | "user" | "system_internal";
 
-export type AppAccountRow = { app: App; status: AppStatus; user_paused: boolean };
+export type AppAccountRow = { app: App; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null };
 /** What the user sees: their own pause toggle wins over whatever the team set. */
 export function effectiveStatus(account: Pick<AppAccountRow, "status" | "user_paused">): AppStatus {
-  return account.user_paused ? "paused" : account.status;
+  if (account.user_paused) return "paused";
+  return account.status === "awaiting_login" ? "setting_up" : account.status;
 }
-export const STATUS_LABELS: Record<AppStatus, string> = { setting_up: "Setting up", live: "Live", paused: "Paused" };
+/** `live` and `active` mean the same thing. */
+export function isActiveStatus(status: AppStatus): boolean {
+  return status === "active" || status === "live";
+}
+/** Nothing runs for the user: they paused it, the team paused it, or it is closed. */
+export function isHaltedStatus(status: AppStatus): boolean {
+  return status === "paused" || status === "closed";
+}
+export const STATUS_LABELS: Record<AppStatus, string> = {
+  awaiting_login: "Setting up", setting_up: "Setting up", needs_client_action: "Needs you", active: "Running", live: "Running", paused: "Paused", closed: "Closed"
+};
+export const REASON_MIN = 3;
+export const REASON_MAX = 200;
 
 // --- chats and takeover ----------------------------------------------------------------------
 
@@ -33,7 +55,7 @@ export type SendDecision = { ok: true } | { ok: false; reason: "taken_over" | "a
 /** Can the automation write a message as the user right now? Never during a takeover or a pause. */
 export function canAiSend(mode: ChatMode, appStatus: AppStatus): SendDecision {
   if (mode === "user") return { ok: false, reason: "taken_over" };
-  if (appStatus === "paused") return { ok: false, reason: "app_paused" };
+  if (appStatus === "paused" || appStatus === "closed") return { ok: false, reason: "app_paused" };
   return { ok: true };
 }
 /** The user may type only after taking over. */
@@ -104,13 +126,14 @@ export const GOAL_LABELS: Record<(typeof GOALS)[number], string> = {
 export const VOICES = ["warm", "playful", "direct"] as const;
 export const VOICE_LABELS: Record<(typeof VOICES)[number], string> = { warm: "Warm", playful: "Playful", direct: "Direct" };
 
-// Every answer is optional. Blank means "not given" and is stored as null or an empty list. The one rule that
-// stays is 18+: a birthday that is given must be 18 to 99 (the consent step also has an explicit 18+ box).
+// Every answer except the birthday is optional. Blank means "not given" and is stored as null or an empty list.
+// The birthday is required and must be 18 to 99 (the consent step also has an explicit 18+ box).
 const blank = z.literal("");
 const optInt = (min: number, max: number) => z.number().int().min(min).max(max).nullable();
 export const stepSchemas = {
   name: z.object({ firstName: text(60) }),
-  birthday: z.object({ birthday: z.union([blank, z.string().refine((v) => { const a = ageFromBirthday(v); return a !== null && a >= 18 && a <= 99; }, "You need to be 18 or older.")]) }),
+  // Birthday is required: it is the age gate (Stripe dating policy). 18 to 99 only.
+  birthday: z.object({ birthday: z.string().min(1, "Add your birthday. NoSwipe is only for adults 18 or older.").refine((v) => { const a = ageFromBirthday(v); return a !== null && a >= 18 && a <= 99; }, "You need to be 18 or older.") }),
   who: z.object({ gender: z.union([blank, z.enum(GENDERS)]), interestedIn: z.array(z.enum(INTERESTED_IN)).max(3) }),
   about: z.object({
     job: text(120),
@@ -133,7 +156,7 @@ export const CONSENT_STATEMENT = "NoSwipe creates and runs dating profiles for y
 
 // --- dates ------------------------------------------------------------------------------------
 
-export type DateRow = { id: string; who: string; venue: string; address: string | null; starts_at: string; summary: string | null; status: string };
+export type DateRow = { id: string; who: string; venue: string; address: string | null; starts_at: string; summary: string | null; status: string; client_response?: "pending" | "confirmed" | "declined" | null; /** The match this date came from: its source app and when you matched (set when the date belongs to a match). */ app?: App; matched_at?: string; match_id?: string | null };
 
 function icsEscape(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");

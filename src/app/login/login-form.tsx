@@ -28,7 +28,7 @@ function Steps({ initialError, restart }: { initialError?: string; restart: () =
   }
   return (
     <form action={verifyAction} className="app-form">
-      <p className="app-ok" role="status">We sent a link and a code to <strong>{sent.email}</strong>. Open the link, or type the code here.</p>
+      <p className="app-sub" role="status">Code sent to <strong>{sent.email}</strong></p>
       <input type="hidden" name="email" value={sent.email} />
       <label className="app-field">
         <span>Code</span>
@@ -38,10 +38,10 @@ function Steps({ initialError, restart }: { initialError?: string; restart: () =
       <button type="submit" className="app-btn" disabled={verifying} aria-busy={verifying}>
         {verifying ? <><span className="app-spinner" aria-hidden /> Checking…</> : "Sign in"}
       </button>
-      <p className="app-fine" style={{ marginTop: 0 }}>Nothing yet? Check spam or promotions.</p>
-      <button type="submit" className="app-link" formAction={sendAction} formNoValidate disabled={verifying || sending} aria-busy={sending}>{sending ? "Sending…" : "Send a new code"}</button>
-      {sent.notice && !sending ? <p className="app-ok" role="status">{sent.notice}</p> : null}
-      <button type="button" className="app-link" onClick={restart} disabled={verifying}>Use a different email</button>
+      <div className="app-auth-links">
+        <button type="submit" className="app-link" formAction={sendAction} formNoValidate disabled={verifying || sending} aria-busy={sending}>{sending ? "Sending…" : sent.notice ? "Sent" : "Resend code"}</button>
+        <button type="button" className="app-link" onClick={restart} disabled={verifying}>Change email</button>
+      </div>
     </form>
   );
 }

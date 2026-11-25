@@ -1,6 +1,9 @@
+import Image from "next/image";
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CountryNotice } from "@/components/country-notice";
 import { CtaLink } from "@/components/cta-link";
 import { HeroPhone } from "@/components/hero-phone";
 import { MatchCards } from "@/components/match-cards";
@@ -13,32 +16,55 @@ import { faqs } from "@/content/faq";
 
 const strip = ["Tinder", "Hinge", "Bumble", "Swipes for you", "Chats for you", "Books the date", "Your type only", "You just show up"];
 
-export function LandingPage() {
+/** "a" = the original hero; "b" = the message-matched hero of the home hero A/B test (src/lib/hero-experiment.ts). */
+export function LandingPage({ variant = "a" }: { variant?: "a" | "b" }) {
+  const b = variant === "b";
   return (
     <>
       <SiteHeader />
       <main>
-        <section className="shell hero" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <h1 id="hero-title"><span className="line">Stop swiping.</span><span className="line">Start <span className="mark">dating.</span></span></h1>
-            <p className="hero-sub">A dating app concierge that swipes, chats and books for you. <strong>You just show up.</strong></p>
-            <div className="hero-cta" id="hero-cta">
-              <CtaLink location="hero">Get started</CtaLink>
+        {b ? (
+          <section className="shell hero hero-b" aria-labelledby="hero-title">
+            <div className="hero-copy">
+              <h1 id="hero-title">We create your dating profiles and run them for you.</h1>
+              <p className="hero-sub">Tinder, Hinge and Bumble, with your real photos and your voice. We swipe, chat and book the dates. <strong>You just show up.</strong></p>
+              <div className="hero-cta" id="hero-cta">
+                <CtaLink location="hero">Get started</CtaLink>
+                <CountryNotice />
+              </div>
             </div>
-          </div>
-          <div className="hero-art">
-            <span className="blob blob-a" aria-hidden="true" />
-            <span className="blob blob-b" aria-hidden="true" />
-            <HeroPhone />
-          </div>
-        </section>
+            <figure className="hero-proof">
+              <Image src="/proof/demo-home.png" width={390} height={691} priority alt="The NoSwipe Home screen: your apps, chats that need you and upcoming dates, shown with sample people." />
+              <figcaption>A real screen from the app, shown with sample people and sample chats. <Link href="/demo">Look around the demo</Link></figcaption>
+            </figure>
+          </section>
+        ) : (
+          <>
+            <section className="shell hero" aria-labelledby="hero-title">
+            <div className="hero-copy">
+              <h1 id="hero-title"><span className="line">Skip the swipe.</span><span className="line">Make <span className="mark">plans.</span></span></h1>
+              <p className="hero-sub">A dating concierge for Hinge, Tinder and Bumble. We handle swiping, chats and date plans. <strong>You just show up.</strong></p>
+              <div className="hero-cta" id="hero-cta">
+                <CtaLink location="hero">Get started</CtaLink>
+                <a className="btn btn-white" href="/demo">Try the interactive demo</a>
+                <CountryNotice />
+                <p className="fine">Explore sample matches and date plans, and try taking over a chat. No signup needed for the demo.</p>
+              </div>
+            </div>
+            <div className="hero-art">
+              <span className="blob blob-a" aria-hidden="true" />
+              <span className="blob blob-b" aria-hidden="true" />
+              <HeroPhone />
+            </div>
+            </section>
 
-        <div className="strip" aria-hidden="true">
-          <div className="strip-track">{[...strip, ...strip].map((item, i) => <span key={i}>{item}</span>)}</div>
-        </div>
+            <div className="strip" aria-hidden="true">
+              <div className="strip-track">{[...strip, ...strip].map((item, i) => <span key={i}>{item}</span>)}</div>
+            </div>
+          </>
+        )}
 
         <HowSteps />
-        <p className="shell short-demo"><a href="/demo">See a demo</a></p>
 
         <div className="shell short-more">
           <Acc title="What you get" id="get">
@@ -61,6 +87,18 @@ export function LandingPage() {
             <FaqItems faqs={faqs.map((item) => ({ question: item.q, answer: item.a }))} />
           </Acc>
         </div>
+
+        <nav className="shell related-guides" aria-label="Dating apps done for you">
+          <p className="kicker">Dating apps, done for you</p>
+          <div>
+            <Link href="/someone-to-run-my-dating-apps">Someone to run my dating apps</Link>
+            <Link href="/tinder-done-for-you">Tinder done for you</Link>
+            <Link href="/hinge-done-for-you">Hinge done for you</Link>
+            <Link href="/bumble-done-for-you">Bumble done for you</Link>
+            <Link href="/too-busy-for-dating-apps">Too busy for dating apps?</Link>
+            <Link href="/dating-app-management-service">Dating app management service</Link>
+          </div>
+        </nav>
 
         <Testimonials />
 

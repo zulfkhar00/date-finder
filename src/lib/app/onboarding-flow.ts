@@ -47,3 +47,16 @@ export function mergeGuestBasics(current: Draft, saved: GuestSaved | null): Draf
   if (!saved || !basicsBlank(basicsOf(current))) return current;
   return { ...current, ...basicsOf(saved.d) };
 }
+
+/** Heading and line for the email-code screen. Once the code is on its way the screen has to say so: a heading that still asks for the email reads as if nothing happened. */
+export function accountCopy(codeSent: boolean): { title: string; sub: string } {
+  return codeSent
+    ? { title: "Check your email", sub: "Enter the code we just sent. It can take a minute to arrive; look in spam if you don't see it." }
+    : { title: "Where should we send your code?", sub: "Nice. Your answers are ready. Enter your email to save your profile. No password, just a code." };
+}
+
+/** Label for the main button. The basics screen never says "Skip": the birthday is required there, so Skip would only show an error. */
+export function primaryLabel(key: string, blank: boolean): string {
+  if (key === "consent") return "Create my profiles";
+  return blank && key !== "basics" ? "Skip for now" : "Continue";
+}

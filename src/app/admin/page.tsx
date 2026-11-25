@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireAdminPage } from "@/lib/admin-auth";
+import { getCheckoutPanel, type CheckoutPanel } from "./_lib/checkout-data";
+import { QualityNote } from "./_components/quality-note";
+import { CheckoutPanelCard } from "./_components/checkout-panel";
 import { AdminDataError, getOverview, type OverviewData } from "./_lib/data";
 import { formatInt, percent } from "./_lib/format";
 import { AlarmsRow } from "./_components/alarms";
@@ -15,19 +18,37 @@ const RANGES = { "7d": 7, "30d": 30, all: null } as const;
 type RangeKey = keyof typeof RANGES;
 const RANGE_LABELS: Record<RangeKey, string> = { "7d": "Last 7 days", "30d": "Last 30 days", all: "All time" };
 
+function overviewHref(range: RangeKey, includeSuspect: boolean) {
+  const q = new URLSearchParams();
+  if (range !== "30d") q.set("range", range);
+  if (includeSuspect) q.set("suspect", "1");
+  const qs = q.toString();
+  return `/admin${qs ? `?${qs}` : ""}`;
+}
+
 export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const access = await requireAdminPage();
   if ("unconfigured" in access) return <SetupNotice missing={access.unconfigured} />;
 
-  const rangeParam = (await searchParams).range;
+  const params = await searchParams;
+  const rangeParam = params.range;
+  const includeSuspect = params.suspect === "1";
   const range: RangeKey = typeof rangeParam === "string" && Object.hasOwn(RANGES, rangeParam) ? (rangeParam as RangeKey) : "30d";
 
   let data: OverviewData | null = null;
   let problem: "schema" | "query" | null = null;
   try {
-    data = await getOverview(RANGES[range], 30);
+    data = await getOverview(RANGES[range], 30, includeSuspect);
   } catch (error) {
     problem = error instanceof AdminDataError && error.schemaMissing ? "schema" : "query";
+  }
+
+  // The Checkout panel is its own read: if it fails the rest of the overview still renders.
+  let checkout: CheckoutPanel | null = null;
+  try {
+    checkout = await getCheckoutPanel(new Date(), includeSuspect);
+  } catch {
+    checkout = null;
   }
 
   const prev = data?.previous ?? null;
@@ -38,11 +59,11 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
       <div className={styles.pageHead}>
         <div>
           <h1>Overview</h1>
-          <p className={styles.sub}>Real traffic only: founders, test emails, Stripe test-mode checkouts and probe sessions are excluded. Visitors are browser tab sessions from funnel_events; checkouts and paid come from reservations. Days are UTC.</p>
+          <p className={styles.sub}>Real traffic only: bots and (by default) suspect sessions, founders, test emails, Stripe test-mode checkouts and probe sessions are excluded. Visitors are browser tab sessions from funnel_events; checkouts and paid come from reservations. Days are UTC.</p>
         </div>
         <nav className={styles.segmented} aria-label="Date range">
           {(Object.keys(RANGES) as RangeKey[]).map((key) => (
-            <Link key={key} href={key === "30d" ? "/admin" : `/admin?range=${key}`} className={`${styles.segment} ${key === range ? styles.segmentActive : ""}`} aria-current={key === range ? "page" : undefined}>
+            <Link key={key} href={overviewHref(key, includeSuspect)} className={`${styles.segment} ${key === range ? styles.segmentActive : ""}`} aria-current={key === range ? "page" : undefined}>
               {RANGE_LABELS[key]}
             </Link>
           ))}
@@ -55,6 +76,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
       {data ? (
         <>
           <AlarmsRow alarms={data.alarms} />
+          <QualityNote includeSuspect={data.includeSuspect} note={data.filteredNote} suspectCount={data.suspectSessions} hrefToggle={overviewHref(range, !data.includeSuspect)} qualityColumn={data.qualityColumn} />
 
           <section className={styles.kpis} aria-label="Key numbers">
             <Kpi label="Visitors" value={formatInt(totals.visitors)} hint={RANGE_LABELS[range]} delta={<DeltaBadge current={totals.visitors} previous={prev?.visitors} />} />
@@ -77,6 +99,8 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
 
           <DimTable title="Top channels" dimension="Source" rows={data.topChannels} note={data.trafficCaptured ? undefined : "Source data is not captured yet (apply supabase/2026-11-03-traffic.sql); everything shows as (not captured)."} limit={5} />
           <p className={styles.sub}><Link href="/admin/traffic" className={styles.rowLink}>Open full traffic report</Link></p>
+
+          {checkout ? <CheckoutPanelCard panel={checkout} /> : <p className={styles.sub}>The Checkout panel could not be loaded.</p>}
 
           <div className={styles.grid2}>
             <FunnelTable title="Funnel by variant" dimension="Variant" rows={groupFunnel(data.funnel, "variant")} />

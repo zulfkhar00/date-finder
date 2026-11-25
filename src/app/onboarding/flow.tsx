@@ -11,10 +11,18 @@ import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } fro
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
-import { GUEST_KEY, NETWORK_ERROR, ageForCheckout, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
-import { decidePop, stepFromState, stepState } from "@/lib/app/step-history";
+import { GUEST_KEY, NETWORK_ERROR, accountCopy, ageForCheckout, primaryLabel, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
+import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
+import { CountryNotice } from "@/components/country-notice";
+import { CountryBlocked } from "@/components/app/country-blocked";
+import { COUNTRY_BLOCKED_CODE } from "@/lib/paid-countries";
 import { readCheckoutResponse, type EmbeddedPayment as Payment } from "@/lib/checkout-presentation";
+
+/** The browser's IANA zone, sent silently with the basics (the server validates it). Undefined when the browser will not say. */
+function browserTimezone(): string | undefined {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; }
+}
 
 // Stripe.js only loads when the payment step opens.
 const EmbeddedPayment = dynamic(() => import("@/components/embedded-payment").then((m) => m.EmbeddedPayment), { ssr: false });
@@ -24,8 +32,8 @@ type StepDef = { key: StepKey; title: string; sub?: string; event?: "ob_apps" | 
 // Everything but the consent box is optional. The questions that matter most come first; the photo upload is last
 // so nobody has to find photos before they have an account and a profile.
 const STEPS: StepDef[] = [
-  { key: "basics", title: "A bit about you", sub: "All optional. Add a birthday only if you are 18 or older." },
-  { key: "apps", title: "Which apps?", sub: "Optional. We create and run your profile on each one you pick.", event: "ob_apps" },
+  { key: "basics", title: "A bit about you", sub: "NoSwipe is only for adults 18 or older. Your birthday is required; everything else is optional." },
+  { key: "apps", title: "Which apps?", sub: "Optional. We create your profile on each one you pick and run it for you. You just show up.", event: "ob_apps" },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this.", event: "ob_about" },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },
   { key: "photos", title: "Add your photos", sub: "Optional. Profiles do better with a few real photos of you, best one first. You can also add them later in Profile.", event: "ob_photos" },
@@ -36,7 +44,7 @@ const LAST_FORM = CONSENT_STEP;
 // Visitors who are not signed in answer the basics first; the email code comes at this step (the apps step once signed in).
 const GUEST_ACCOUNT_STEP = 1;
 
-export function OnboardingFlow({ guest, email, draft: initial, photos: initialPhotos, startStep, paid }: { guest: boolean; email: string; draft: Draft; photos: Photo[]; startStep: number; paid: boolean }) {
+export function OnboardingFlow({ guest, email, draft: initial, photos: initialPhotos, startStep, paid, paidOffered = true }: { guest: boolean; email: string; draft: Draft; photos: Photo[]; startStep: number; paid: boolean; paidOffered?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(startStep);
   const [d, setD] = useState(initial);
@@ -45,9 +53,14 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const opening = useRef(false);
+  const adopting = useRef(false);
   const saving = useRef(false);
   const [error, setError] = useState("");
+  const [birthdayError, setBirthdayError] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(null);
+  // Paid service is only offered in some countries (PAID_COUNTRIES). The server decides; a 403 from /api/checkout also lands here.
+  const [countryBlocked, setCountryBlocked] = useState(!paidOffered);
   const heading = useRef<HTMLHeadingElement>(null);
   const tracked = useRef(false);
 
@@ -82,8 +95,12 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   }
   function goBack() {
     setError("");
+    if (step > LAST_FORM) { router.push("/home"); return; }
     if (depth.current > 0) { window.history.back(); return; }
-    setStep((s) => Math.max(s - 1, 0));
+    if (step > 0) { setStep((s) => s - 1); return; }
+    // First screen: nothing earlier to show, so Back leaves onboarding (to where the visitor came from, else the landing page).
+    if (leaveOnboardingTarget({ historyLength: window.history.length, referrer: document.referrer, origin: window.location.origin }) === "back") window.history.back();
+    else router.push("/");
   }
   // One funnel event per screen shown (once per tab session), so the next report shows where each step loses people.
   const viewed = STEPS[step]?.event;
@@ -98,12 +115,25 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       if (guest) {
         if (saved) { setD(saved.d); setStep(Math.min(Math.max(saved.step, 0), GUEST_ACCOUNT_STEP)); }
       } else if (saved) {
-        // Signed in, but saving the first answers failed: put them back on screen instead of asking again.
+        // Signed in with the first answers still in this tab: put them back on screen instead of asking again.
         setD((x) => mergeGuestBasics(x, saved));
+        // Setting the session cookie makes Next re-render this page as a member before the code step's
+        // onSignedIn can run, so the answers are saved here as well (once, only onto a still-blank profile).
+        if (startStep === 0 && !adopting.current) {
+          adopting.current = true;
+          void (async () => {
+            let ok = false;
+            for (let attempt = 0; attempt < 2 && !ok; attempt++) ok = await withTimeout(adoptGuestAnswers(basicsOf(saved.d), browserTimezone())).then((r) => r.ok, () => false);
+            if (!ok) return; // stays on the basics screen with the answers filled in; Continue saves them
+            try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
+            trackEvent("reserve_step_3", { oncePerSession: true });
+            if (stepNow.current === 0) setStep(1);
+          })();
+        }
       }
     } catch { /* storage unavailable */ }
     setReady(true);
-  }, [guest]);
+  }, [guest, startStep]);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!guest || !ready) return;
@@ -112,7 +142,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   }, [guest, ready, d, step]);
 
   const def = STEPS[step];
-  const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setError(""); };
+  const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setError(""); setBirthdayError(""); };
   const progress = Math.round(((step + 1) / STEPS.length) * 100);
 
   async function next() {
@@ -124,10 +154,15 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         // Not signed in yet: check the answers here, keep them in the page, save them after the email code.
         for (const k of ["name", "birthday", "who"] as const) {
           const parsed = stepSchemas[k].safeParse(payloadFor(k, d));
-          if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check your answers."); return; }
+          if (!parsed.success) {
+            const message = parsed.error.issues[0]?.message ?? "Check your answers.";
+            // Say it next to the field and move the cursor there, not in a line below the fold.
+            if (k === "birthday") { setBirthdayError(message); document.querySelector<HTMLInputElement>('input[type="date"]')?.focus(); } else setError(message);
+            return;
+          }
         }
       } else if (def.key === "basics") {
-        const r = await withTimeout(saveBasics(basicsOf(d), step + 1));
+        const r = await withTimeout(saveBasics(basicsOf(d), step + 1, browserTimezone()));
         if (!r.ok) { setError(r.error); return; }
         try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ }
       } else if (def.key === "photos") {
@@ -157,7 +192,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     // Two tries. If both fail the answers stay in this tab and are shown again on the first member screen.
     let saved = false;
     for (let attempt = 0; attempt < 2 && !saved; attempt++) {
-      saved = await withTimeout(adoptGuestAnswers(basicsOf(d))).then((r) => r.ok, () => false);
+      saved = await withTimeout(adoptGuestAnswers(basicsOf(d), browserTimezone())).then((r) => r.ok, () => false);
     }
     if (saved) { try { window.sessionStorage.removeItem(GUEST_KEY); } catch { /* storage unavailable */ } }
     trackEvent("reserve_step_3", { oncePerSession: true });
@@ -180,6 +215,7 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
         })
       });
       const result = await res.json();
+      if (res.status === 403 && result.code === COUNTRY_BLOCKED_CODE) { setCountryBlocked(true); return; }
       if (!res.ok) throw new Error(result.error || "Checkout could not open.");
       const checkout = readCheckoutResponse(result);
       if (checkout.mode === "embedded") setPayment(checkout); else window.location.assign(checkout.url);
@@ -191,7 +227,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
     }
   }
 
-  const canBack = step > 0 && step <= LAST_FORM && !busy && !photoBusy;
+  // Every screen has a working Back: the first leaves onboarding, the activation step (profile already saved) goes to Home.
+  const canBack = !busy && !photoBusy;
   // Only the consent box is required. Every other step can be skipped.
   const canContinue = def.key === "consent" ? agreed : def.key === "photos" ? !photoBusy : true;
   const isBlank =
@@ -211,17 +248,20 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
       <div className="ob-top">
         <button type="button" className="ob-back" onClick={goBack} disabled={!canBack} aria-label="Back"><ArrowLeft size={24} /></button>
         <div className="ob-bar" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={step + 1} aria-label={`Step ${step + 1} of ${STEPS.length}`}><span style={{ width: `${progress}%` }} /></div>
+        {guest ? <a href="/login" className="ob-signin">Sign in</a> : null}
       </div>
       {accountStep ? (
         <div className="ob-body">
-          <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>Where should we send your code?</h1>
-          <p className="app-sub">Nice. Your answers are ready. Enter your email to save your profile. No password, just a code.</p>
-          <AccountStep onSignedIn={signedIn} />
+          <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{accountCopy(codeSent).title}</h1>
+          <p className="app-sub">{accountCopy(codeSent).sub}</p>
+          <AccountStep onSignedIn={signedIn} onCodeSent={setCodeSent} />
+          <p className="app-fine" style={{ marginTop: 16, textAlign: "center" }}>Already have an account? <a href="/login">Sign in</a></p>
         </div>
       ) : (
       <form className="ob-body" onSubmit={(e) => { e.preventDefault(); if (def.key === "pay") void openCheckout(); else if (canContinue) void next(); }}>
         <h1 ref={heading} tabIndex={-1} style={{ outline: "none" }}>{def.title}</h1>
         {def.sub ? <p className="app-sub">{def.sub}</p> : null}
+        {step === 0 && !paidOffered ? <CountryNotice className="app-card ob-country" show /> : null}
         <div style={{ marginTop: 22 }}>
           {def.key === "photos" ? <PhotoManager initial={initialPhotos} onChange={(p) => setPhotoCount(p.length)} onBusyChange={setPhotoBusy} /> :
            def.key === "consent" ? (
@@ -230,6 +270,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
               <label className="ob-check"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /><span>I understand and agree. I&rsquo;m 18 or older, and any photos I add are of me.</span></label>
               <p className="app-fine">See the <a href="/terms" target="_blank" rel="noreferrer">terms</a> and <a href="/privacy" target="_blank" rel="noreferrer">privacy note</a>. You can delete everything from your profile any time.</p>
             </>
+           ) : def.key === "pay" && countryBlocked ? (
+            <CountryBlocked />
            ) : def.key === "pay" ? (
             <>
               <div className="app-card"><Lock size={22} aria-hidden /><p style={{ marginTop: 8, fontWeight: 700 }}>Your profile is saved.</p><p className="app-sub">One quick, secure checkout turns it on. You see the exact price and what it covers before you pay anything.</p></div>
@@ -237,21 +279,23 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
            ) : def.key === "basics" ? (
             <div style={{ display: "grid", gap: 22 }}>
               <StepFields step="name" d={d} set={set} compact />
-              <StepFields step="birthday" d={d} set={set} compact />
+              <StepFields step="birthday" d={d} set={set} compact error={birthdayError} />
               <StepFields step="who" d={d} set={set} />
             </div>
            ) : <StepFields step={def.key} d={d} set={set} />}
         </div>
         {error ? <p className="app-error" role="alert" style={{ marginTop: 14 }}>{error}</p> : null}
         <div className="ob-foot" style={{ marginTop: 26 }}>
-          {def.key === "pay" ? (
+          {def.key === "pay" && countryBlocked ? (
+            <button type="button" className="app-btn" onClick={() => router.replace("/home")}>Take me to my home</button>
+          ) : def.key === "pay" ? (
             <>
               <button type="submit" className="app-btn" disabled={busy} aria-busy={busy}>{busy ? <><span className="app-spinner" aria-hidden /> Opening checkout…</> : <><Lock size={18} aria-hidden /> Continue to checkout</>}</button>
               <button type="button" className="app-link" onClick={() => router.replace("/home")} disabled={busy}>Not now, take me to my home</button>
             </>
           ) : (
             <button type="submit" className="app-btn" disabled={busy || !canContinue} aria-busy={busy}>
-              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : def.key === "consent" ? "Create my profiles" : isBlank ? "Skip for now" : "Continue"}
+              {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : primaryLabel(def.key, isBlank)}
             </button>
           )}
         </div>

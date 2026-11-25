@@ -62,7 +62,9 @@ assert.equal(ageFromBirthday("nope", now), null);
 assert.equal(stepSchemas.birthday.safeParse({ birthday: "2015-01-01" }).success, false, "under 18 is rejected");
 assert.equal(stepSchemas.birthday.safeParse({ birthday: "1996-05-14" }).success, true);
 assert.equal(stepSchemas.name.safeParse({ firstName: "  " }).success, true, "name is optional");
-assert.equal(stepSchemas.birthday.safeParse({ birthday: "" }).success, true, "birthday is optional");
+assert.equal(stepSchemas.birthday.safeParse({ birthday: "" }).success, false, "birthday is required (age gate)");
+assert.equal(stepSchemas.birthday.safeParse({ birthday: "2012-06-01" }).success, false, "under 18 is blocked");
+assert.equal(stepSchemas.birthday.safeParse({ birthday: "1998-06-01" }).success, true, "adult birthday passes");
 assert.equal(stepSchemas.birthday.safeParse({ birthday: "not-a-date" }).success, false, "a given birthday must be valid");
 assert.equal(stepSchemas.who.safeParse({ gender: "", interestedIn: [] }).success, true, "who is optional");
 assert.equal(stepSchemas.about.safeParse({ job: "", heightCm: null, interests: [] }).success, true, "about is optional");
@@ -127,7 +129,7 @@ import { reservationSchema, onboardingSchema } from "../src/lib/reservation";
 import { CLIENT_EVENTS } from "../src/lib/attribution";
 
 for (const [k, v] of Object.entries(RESUME_COPY)) assert.equal(RESUME_FORBIDDEN.test(v), false, `resume copy "${k}" uses a banned word`);
-assert.ok(RESUME_COPY.title.startsWith("One step left: activate NoSwipe so it starts swiping and chatting for you"));
+assert.ok(RESUME_COPY.title.startsWith("One step left: activate NoSwipe so our team starts setting up your apps"));
 assert.ok((CLIENT_EVENTS as readonly string[]).includes("resume_card_view") && (CLIENT_EVENTS as readonly string[]).includes("resume_card_click"));
 assert.match(readFileSync("supabase/2026-11-11-resume-card-events.sql", "utf8"), /resume_card_click[\s\S]*enable row level security[\s\S]*revoke all on public\.funnel_events from public, anon, authenticated/);
 

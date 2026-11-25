@@ -1,12 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin-auth";
-import { APPS, APP_LABELS, MODE_LABELS, chatMode, effectiveStatus, type App } from "@/lib/app/domain";
+import { APPS, APP_LABELS, MODE_LABELS, STATUS_LABELS, WORKFLOW_STATUSES, chatMode, effectiveStatus, isHaltedStatus, type App, type AppStatus } from "@/lib/app/domain";
+import { listEvents } from "@/lib/fulfilment/service";
+import { getRunPanel } from "@/lib/activity/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { LocalTime } from "../../_components/local-time";
 import { SetupNotice } from "../../_components/notices";
 import { formatDateTime } from "../../_lib/format";
-import { addDateAction, addMatchAction, addMessageAction, setAppStatusAction, setNeedsYouAction } from "../actions";
-import { OpForm, TzOffset } from "../op-form";
+import { resetDemoAction, setDemoAction, decideFlaggedPhotoAction, addDateAction, addMatchAction, addMessageAction, generatePackAction, addNoteAction, setAppStatusAction, setNeedsYouAction, setRunAction, setTimezoneAction } from "../actions";
+import { flagLabel } from "@/lib/starter-pack/photo-flags-core";
+import { listFlaggedForUser, livePhotoRows } from "@/lib/starter-pack/photo-flags";
+import { PACK_VERSION } from "@/lib/starter-pack/types";
+import { OpForm, TzName, TzOffset } from "../op-form";
+import { getDemoStatus } from "@/lib/demo/service";
 import styles from "../../admin.module.css";
 
 export const dynamic = "force-dynamic";
@@ -17,21 +24,40 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sb = getSupabaseAdmin();
-  const [{ data: profile }, { data: prefs }, { data: apps }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, { data: photos }, auth] = await Promise.all([
+  const [{ data: pack }, { data: profile }, { data: prefs }, { data: appsNew }, { data: matches }, { data: dates }, { data: takeovers }, { data: consents }, photos, flaggedPhotos, auth] = await Promise.all([
+    sb.from("starter_packs").select("status, content, attempts, last_error, tokens, model, generated_at, next_attempt_at, updated_at").eq("user_id", id).eq("version", PACK_VERSION).maybeSingle(),
     sb.from("profiles").select("*").eq("user_id", id).maybeSingle(),
     sb.from("preferences").select("*").eq("user_id", id).maybeSingle(),
-    sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id),
+    sb.from("app_accounts").select("app, status, user_paused, client_action_reason, status_changed_at").eq("user_id", id),
     sb.from("matches").select("*").eq("user_id", id).order("matched_at", { ascending: false }),
     sb.from("dates").select("*").eq("user_id", id).order("starts_at"),
     sb.from("takeovers").select("match_id, ended_at").eq("user_id", id),
     sb.from("consents").select("version, accepted_at").eq("user_id", id).order("accepted_at", { ascending: false }).limit(1),
-    sb.from("profile_photos").select("path, position").eq("user_id", id).order("position"),
+    livePhotoRows<{ path: string; position: number }>(sb, id, "path, position"),
+    listFlaggedForUser(sb, id),
     sb.auth.admin.getUserById(id)
   ]);
+  // The new columns exist after supabase/2026-11-20-fulfilment.sql; before it, read the old ones so the page still works.
+  const apps: { app: string; status: AppStatus; user_paused: boolean; client_action_reason?: string | null; status_changed_at?: string | null }[] | null = appsNew ?? ((await sb.from("app_accounts").select("app, status, user_paused").eq("user_id", id)).data as never);
+  const log = await listEvents(sb, id);
+  const run = await getRunPanel(sb, id);
+  const demo = await getDemoStatus(sb, id);
+  const formatUsd = (micro: number) => `$${(micro / 1_000_000).toFixed(2)}`;
+  // Reply helper usage: counts only, never the chats or the drafts. Read separately so the page works before supabase/2026-11-21-reply-helper.sql is applied.
+  const [replyThreads, replyRuns, replyToday] = await Promise.all([
+    sb.from("reply_threads").select("id", { count: "exact", head: true }).eq("user_id", id),
+    sb.from("reply_helper_runs").select("id", { count: "exact", head: true }).eq("user_id", id),
+    sb.from("reply_helper_runs").select("id", { count: "exact", head: true }).eq("user_id", id).eq("day", new Date().toISOString().slice(0, 10))
+  ]);
+  const replyReady = !replyThreads.error && !replyRuns.error;
+  const held = (profile?.report_hold as string | null | undefined) ?? null;
   if (!profile) notFound();
   const matchIds = (matches ?? []).map((m) => m.id);
   const { data: msgs } = matchIds.length ? await sb.from("messages").select("id, match_id, sender, body, sent_at, delivered_at").in("match_id", matchIds).order("sent_at", { ascending: false }).limit(300) : { data: [] };
-  const urls = photos?.length ? (await sb.storage.from("profile-photos").createSignedUrls(photos.map((p) => p.path), 600)).data ?? [] : [];
+  const signedUrls = (await sb.storage.from("profile-photos").createSignedUrls([...photos.map((p) => p.path), ...flaggedPhotos.map((p) => p.path)], 600)).data ?? [];
+  const urlFor = new Map(signedUrls.map((u) => [u.path, u.signedUrl]));
+  const flaggedPaths = new Set(flaggedPhotos.map((p) => p.path));
+  const urls = photos.filter((p) => !flaggedPaths.has(p.path)).map((p) => ({ path: p.path, signedUrl: urlFor.get(p.path) ?? null }));
 
   return (
     <main className={styles.main}>
@@ -41,9 +67,67 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <h1>{profile.first_name || "Unnamed"} {profile.internal ? <span className={styles.badge}>internal</span> : null}</h1>
           <p className={styles.sub}>{auth.data.user?.email} · {profile.city ?? "no city"} · {profile.job ?? "no job"} · consent {consents?.[0] ? formatDateTime(consents[0].accepted_at) : "not given"}</p>
         </div>
+        <Link href={`/admin/clients/${id}/kit`} className={styles.button} data-testid="open-kit">Account kit and checklist</Link>
       </div>
 
+      {flaggedPhotos.length ? (
+        <section className={styles.card} aria-label="Flagged photos" data-testid="flagged-photos">
+          <h2 className={styles.subhead}>Flagged photos <span className={styles.badge} data-tone="warn">{flaggedPhotos.length}</span></h2>
+          <p className={styles.sub}>The model held these back for a person to look at. They are not used in the pack. The user only sees &ldquo;One photo can&rsquo;t be used&rdquo;. Approve if it was a false positive, or remove it.</p>
+          <div style={{ display: "grid", gap: 14 }}>
+            {flaggedPhotos.map((f) => (
+              <div key={f.photoId} style={{ display: "grid", gap: 10, borderTop: "1px solid var(--a-line)", paddingTop: 12 }}>
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                  {urlFor.get(f.path) ? <img src={urlFor.get(f.path) ?? undefined} alt="Flagged photo" style={{ height: 160, maxWidth: "100%", borderRadius: 8 }} /> : <span className={styles.muted}>Photo unavailable</span>}
+                  <div><strong>{flagLabel(f.flags)}</strong>{f.flaggedAt ? <p className={styles.sub}>Flagged {formatDateTime(f.flaggedAt)}</p> : null}</div>
+                </div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  <OpForm action={decideFlaggedPhotoAction.bind(null, id, "approve")} label="Approve" pendingLabel="Approving…"><input type="hidden" name="photoId" value={f.photoId} /></OpForm>
+                  <OpForm action={decideFlaggedPhotoAction.bind(null, id, "remove")} label="Remove" pendingLabel="Removing…"><input type="hidden" name="photoId" value={f.photoId} /></OpForm>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {urls.length ? <section className={styles.card}><div style={{ display: "flex", gap: 8, overflowX: "auto" }}>{urls.map((u) => <img key={u.path} src={u.signedUrl ?? undefined} alt="" style={{ height: 120, borderRadius: 8 }} />)}</div></section> : null}
+
+      <section className={styles.card}>
+        <h2 className={styles.subhead}>Starter pack</h2>
+        <p className={styles.sub}>
+          {pack ? <><span className={styles.badge}>{pack.status}</span> · tries {pack.attempts} · {pack.tokens} tokens · {pack.model ?? "no model yet"}{pack.generated_at ? ` · written ${formatDateTime(pack.generated_at)}` : ""}{pack.last_error ? ` · last error: ${pack.last_error}` : ""}{pack.next_attempt_at && pack.status === "pending" ? ` · next try ${formatDateTime(pack.next_attempt_at)}` : ""}</> : <span className={styles.muted}>No pack yet. The 10-minute sweep creates it, or start it here.</span>}
+        </p>
+        <PackPreview content={pack?.content} />
+        <OpForm action={generatePackAction.bind(null, id)} label={pack ? "Write the pack again" : "Write the pack now"}><span className={styles.muted}>Uses the daily pack budget. Reload the page after a minute.</span></OpForm>
+      </section>
+
+      {profile.internal ? (
+        <section className={styles.card} data-testid="live-demo">
+          <h2 className={styles.subhead}>Live demo mode {demo.enabled ? <span className={styles.badge}>on</span> : <span className={styles.badge}>off</span>}</h2>
+          <p className={styles.sub}>
+            Internal accounts only. Turns this account&rsquo;s real app into a live simulation for filming: fictional matches with synthetic photos, chats that move while the page is open, a date that gets booked. Everything it writes is tagged demo and left out of every metric. Closing the page stops it. Model spend is capped at {formatUsd(demo.capMicro)} a day; past that the chats use written lines.
+          </p>
+          {!demo.migrated ? <div className={styles.notice}>Run supabase/2026-11-24-live-demo.sql first.</div> : (
+            <>
+              <p className={styles.sub}>{demo.matches} demo match{demo.matches === 1 ? "" : "es"} · {demo.messages} messages · {demo.dates} date{demo.dates === 1 ? "" : "s"} · model spend today {formatUsd(demo.spentMicro)}{demo.lastTickAt ? <> · last tick <LocalTime iso={demo.lastTickAt} /></> : null}</p>
+              <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                {demo.enabled
+                  ? <OpForm action={setDemoAction.bind(null, id, false)} label="Demo mode: on (turn off)" pendingLabel="Turning off…"><TzName /></OpForm>
+                  : <OpForm action={setDemoAction.bind(null, id, true)} label="Demo mode: off (turn on)" pendingLabel="Setting up…"><TzName /></OpForm>}
+                <OpForm action={resetDemoAction.bind(null, id)} label="Reset demo" pendingLabel="Resetting…"><TzName /></OpForm>
+              </div>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      <section className={styles.card} data-testid="reply-usage">
+        <h2 className={styles.subhead}>Reply helper</h2>
+        <p className={styles.sub}>
+          {replyReady ? <><strong>{replyThreads.count ?? 0}</strong> reply session{(replyThreads.count ?? 0) === 1 ? "" : "s"} saved · {replyRuns.count ?? 0} model run{(replyRuns.count ?? 0) === 1 ? "" : "s"} in total · {replyToday.count ?? 0} today. Counts only: the chats and drafts are the user&rsquo;s and are not shown here.</> : <span className={styles.muted}>Not enabled yet (run supabase/2026-11-21-reply-helper.sql).</span>}
+        </p>
+      </section>
 
       <section className={styles.card}>
         <h2 className={styles.subhead}>Who they want</h2>
@@ -52,23 +136,93 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         </p>
       </section>
 
-      <section className={styles.card}>
+      <section className={styles.card} data-testid="client-timezone">
+        <h2 className={styles.subhead}>Time zone</h2>
+        <OpForm action={setTimezoneAction.bind(null, id)} label="Save time zone" pendingLabel="Saving…">
+          <label className={styles.field}>IANA zone (e.g. America/Los_Angeles, Europe/London)
+            <input className={styles.input} name="timezone" defaultValue={(profile.timezone as string | null) ?? ""} maxLength={64} placeholder="America/Los_Angeles" /></label>
+        </OpForm>
+        <p className={styles.sub}>The phone rig uses this for the client&rsquo;s quiet hours and daily caps. Captured from their browser at onboarding; blank means unknown and the rig falls back to its default.</p>
+      </section>
+
+      <section className={styles.card} data-testid="app-workflow">
         <h2 className={styles.subhead}>App accounts</h2>
+        <p className={styles.sub}>Setting up (we create the profile), then Running (Active), Paused or Closed; Needs client action whenever the client has to do something (they read your reason on their Home screen). Every change is logged with your email and the time. A report hold overrides all of this until it is lifted.</p>
+        {held ? <div className={styles.notice}>A report put this account on hold ({held}). The client sees the hold, not the status below.</div> : null}
         {APPS.map((app) => {
           const row = (apps ?? []).find((a) => a.app === app);
+          const current = row?.status === "live" ? "active" : row?.status === "awaiting_login" || !row?.status ? "setting_up" : row.status;
           return (
             <div key={app} style={{ borderTop: "1px solid var(--a-line)", padding: "12px 0" }}>
-              <strong>{APP_LABELS[app]}</strong> {row ? <span className={styles.badge}>{row.user_paused ? "paused by user" : row.status}</span> : <span className={styles.muted}>not chosen by the user</span>}
-              <OpForm action={setAppStatusAction.bind(null, id)} label="Set status">
+              <strong>{APP_LABELS[app]}</strong> {row ? <span className={styles.badge}>{row.user_paused ? "paused by user" : STATUS_LABELS[row.status]}</span> : <span className={styles.muted}>not chosen by the user</span>}
+              {row?.status === "needs_client_action" && row.client_action_reason ? <p className={styles.sub}>Client sees: {row.client_action_reason}</p> : null}
+              {row?.status_changed_at ? <p className={styles.sub}>Changed <LocalTime iso={row.status_changed_at} /></p> : null}
+              <OpForm action={setAppStatusAction.bind(null, id)} label="Save status" pendingLabel="Saving…">
                 <input type="hidden" name="app" value={app} />
-                <label className={styles.field}>Status
-                  <select className={styles.select} name="status" defaultValue={row?.status ?? "setting_up"}>
-                    <option value="setting_up">Setting up</option><option value="live">Live</option><option value="paused">Paused (team)</option>
-                  </select></label>
+                <div className={styles.filters}>
+                  <label className={styles.field}>Status
+                    <select className={styles.select} name="status" defaultValue={current}>
+                      {WORKFLOW_STATUSES.map((st) => <option key={st} value={st}>{st === "paused" ? "Paused (team)" : STATUS_LABELS[st]}</option>)}
+                    </select></label>
+                  <label className={styles.field} style={{ flex: "2 1 220px" }}>Reason the client sees (needed for Needs you)
+                    <input className={styles.input} name="reason" maxLength={200} defaultValue={row?.status === "needs_client_action" ? row.client_action_reason ?? "" : ""} placeholder="Add 2 more photos / Log in on a fresh browser profile" /></label>
+                </div>
+                <label className={styles.field}>Operator note (internal, never shown to the client)
+                  <input className={styles.input} name="note" maxLength={2000} /></label>
               </OpForm>
             </div>
           );
         })}
+      </section>
+
+      <section className={styles.card} data-testid="run-panel">
+        <h2 className={styles.subhead}>Run</h2>
+        <p className={styles.sub}>Which phone and which internal account label run each app, and what the phone reported in the last 7 days. The client sees the activity counts, never the phone or the label. Set the state above (Setting up, Running, Paused, Needs you).</p>
+        {run.setupNeeded ? <div className={styles.notice}>The Run panel is not set up yet. Apply <code>supabase/2026-11-21-account-runs.sql</code>.</div> : null}
+        {APPS.map((app) => {
+          const row = (apps ?? []).find((a) => a.app === app);
+          if (!row) return null;
+          const asg = run.assignments[app];
+          const t = run.totals[app];
+          return (
+            <div key={app} style={{ borderTop: "1px solid var(--a-line)", padding: "12px 0", display: "grid", gap: 8 }} data-testid={`run-${app}`}>
+              <div><strong>{APP_LABELS[app]}</strong> <span className={styles.badge}>{row.user_paused ? "paused by user" : STATUS_LABELS[row.status]}</span> {asg?.phoneId ? <span className={styles.badge}>{asg.phoneId}</span> : <span className={styles.muted}>no phone assigned</span>}</div>
+              <p className={styles.sub}>
+                {t ? <>7 days: {t.swipes} swipes · {t.matches} matches · {t.chats} chat events · {t.dates} dates{t.lastAt ? <> · last report <LocalTime iso={t.lastAt} /></> : null}</> : "Nothing reported by the phone yet."}
+              </p>
+              <OpForm action={setRunAction.bind(null, id)} label="Save run" pendingLabel="Saving…">
+                <input type="hidden" name="app" value={app} />
+                <div className={styles.filters}>
+                  <label className={styles.field}>Phone id<input className={styles.input} name="phoneId" maxLength={80} defaultValue={asg?.phoneId ?? ""} placeholder="pi-rack-1-phone-3" /></label>
+                  <label className={styles.field}>Account label (internal)<input className={styles.input} name="accountRef" maxLength={120} defaultValue={asg?.accountRef ?? ""} placeholder="hinge-017" /></label>
+                </div>
+              </OpForm>
+            </div>
+          );
+        })}
+        {run.recent.length ? (
+          <ul className={styles.logList} style={{ marginTop: 10 }} data-testid="run-recent">
+            {run.recent.map((e, i) => <li key={i}><span className={styles.muted}><LocalTime iso={e.occurred_at} /> · {APP_LABELS[e.app]}</span><br />{e.kind === "swipes" ? `${e.count} swipes` : e.kind === "match" ? "new match" : e.kind === "chat" ? "chat worked" : e.kind === "date_booked" ? "date booked" : `needs you${e.reason ? `: ${e.reason}` : ""}`}</li>)}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className={styles.card} data-testid="fulfilment-log">
+        <h2 className={styles.subhead}>Notes and status log</h2>
+        {log.setupNeeded ? <div className={styles.notice}>The log is not set up yet. Apply <code>supabase/2026-11-20-fulfilment.sql</code>.</div> : null}
+        <OpForm action={addNoteAction.bind(null, id)} label="Add note" pendingLabel="Saving…">
+          <label className={styles.field}>Internal note<textarea className={styles.textarea} style={{ minHeight: 80 }} name="note" required maxLength={2000} /></label>
+        </OpForm>
+        {log.events.length ? (
+          <ul className={styles.logList} style={{ marginTop: 14 }}>
+            {log.events.map((e) => (
+              <li key={e.id}>
+                <span className={styles.muted}><LocalTime iso={e.at} /> · {e.actor}{e.app ? ` · ${APP_LABELS[e.app as App] ?? e.app}` : ""}</span><br />
+                {e.action === "status" ? <>{(e.from_status ?? "none").replace(/_/g, " ")} → <strong>{(e.to_status ?? "").replace(/_/g, " ")}</strong>{e.reason ? <> · client sees &ldquo;{e.reason}&rdquo;</> : null}{e.note ? <> · {e.note}</> : null}</> : <>{e.note}</>}
+              </li>
+            ))}
+          </ul>
+        ) : <p className={styles.muted} style={{ marginTop: 10 }}>Nothing logged yet.</p>}
       </section>
 
       <section className={styles.card}>
@@ -88,7 +242,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         {!matches?.length ? <div className={styles.empty}>No matches yet. Add one above.</div> : matches.map((m) => {
           const mode = chatMode((takeovers ?? []).filter((t) => t.match_id === m.id));
           const acct = (apps ?? []).find((a) => a.app === m.app);
-          const paused = acct ? effectiveStatus(acct) === "paused" : false;
+          const paused = acct ? isHaltedStatus(effectiveStatus(acct)) : false;
           const thread = (msgs ?? []).filter((x) => x.match_id === m.id && x.sender !== "system_internal").slice(0, 6).reverse();
           return (
             <div key={m.id} style={{ borderTop: "1px solid var(--a-line)", padding: "14px 0", display: "grid", gap: 10 }}>
@@ -129,5 +283,22 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         </OpForm>
       </section>
     </main>
+  );
+}
+
+type PackJson = { profiles?: { app: string; prompts?: { prompt: string; answer: string }[]; bio: string }[]; openers?: { line: string }[]; replies?: { situation: string; template: string }[]; datePlan?: { headline: string; venues: { type: string }[]; when: string; budget: string } } | null;
+
+function PackPreview({ content }: { content: unknown }) {
+  const c = content as PackJson;
+  if (!c || typeof c !== "object") return null;
+  return (
+    <div style={{ fontSize: 13, display: "grid", gap: 8, margin: "10px 0" }}>
+      {(c.profiles ?? []).map((p) => (
+        <div key={p.app}><strong>{p.app}</strong>: {p.bio}{(p.prompts ?? []).map((q) => <div key={q.prompt} className={styles.muted}>{q.prompt}: {q.answer}</div>)}</div>
+      ))}
+      <div><strong>Openers</strong>{(c.openers ?? []).map((o) => <div key={o.line} className={styles.muted}>{o.line}</div>)}</div>
+      <div><strong>Replies</strong>{(c.replies ?? []).map((r) => <div key={r.situation} className={styles.muted}>{r.situation}: {r.template}</div>)}</div>
+      {c.datePlan ? <div><strong>Date</strong> <span className={styles.muted}>{c.datePlan.headline} · {c.datePlan.venues.map((v) => v.type).join(" / ")} · {c.datePlan.when} · {c.datePlan.budget}</span></div> : null}
+    </div>
   );
 }

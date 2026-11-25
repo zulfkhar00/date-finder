@@ -8,7 +8,7 @@ export const conciergePages: AiPage[] = [
     metaTitle: "Dating App Concierge: Swipes, Chats, Books Dates",
     h1: "What is a dating app concierge?",
     eyebrow: "Dating concierge",
-    description: "A dating app concierge handles the swiping, chatting and scheduling for you. How NoSwipe does it with AI, worldwide, on your own accounts.",
+    description: "A dating app concierge handles the swiping, chatting and scheduling for you. How NoSwipe does it with AI, on your own accounts.",
     answer: "A dating app concierge is a service that does the day-to-day work of online dating for you: the profile, the swiping, the conversations and the scheduling. NoSwipe is an AI dating concierge that swipes, chats and books dates on your own Tinder, Hinge and Bumble accounts, so you just show up.",
     publishedIso: published,
     sections: [
@@ -28,7 +28,7 @@ export const conciergePages: AiPage[] = [
       {
         title: "Where NoSwipe is available",
         paragraphs: [
-          "NoSwipe is online and works worldwide wherever Tinder, Hinge and Bumble work. There is no city list and no local team to wait for."
+          "NoSwipe is online. The free tools work anywhere; the paid service is available in the United States, Canada, the United Kingdom, Australia and New Zealand. There is no city list and no local team to wait for."
         ]
       },
       {
@@ -41,7 +41,7 @@ export const conciergePages: AiPage[] = [
     faqs: [
       { question: "What is a dating app concierge?", answer: "A service that handles your profile, swiping, chatting and date scheduling on dating apps so you only turn up to the date." },
       { question: "Is NoSwipe a dating concierge?", answer: "Yes. It is an AI dating concierge for Tinder, Hinge and Bumble that works on your own accounts with your real photos." },
-      { question: "Is NoSwipe available in my country?", answer: "NoSwipe is online and not tied to one city or country. It works wherever the dating apps you use work." },
+      { question: "Is NoSwipe available in my country?", answer: "The free tools, including sign-up and your starter pack, work anywhere. The paid service is available only to people in the United States, Canada, the United Kingdom, Australia and New Zealand for now." },
       { question: "How much does it cost?", answer: "Early access is a one-time, refundable $1.00 payment that does not start a service. Any ongoing price is shown before you decide to join." },
       { question: "Do I stay in control?", answer: "Yes. You set your type and dealbreakers, can read every chat, take over any chat and pause any app at any time." }
     ],

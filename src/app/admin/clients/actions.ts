@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { adminEmailOrNull } from "@/lib/admin-auth";
 import * as core from "@/lib/automation/core";
+import { setRun } from "@/lib/activity/service";
+import * as operator from "@/lib/operator/service";
+import { addNoteEvent } from "@/lib/fulfilment/service";
+import { disableDemo, enableDemo, resetDemo } from "@/lib/demo/service";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { startRegeneration } from "@/lib/starter-pack/service";
+import { decideFlaggedPhoto } from "@/lib/starter-pack/photo-flags";
 
 export type OpState = { ok?: string; error?: string };
 const NOT_ALLOWED: OpState = { error: "Not authorized." };
@@ -19,8 +25,41 @@ function done<T extends { ok: boolean }>(result: T | core.Failure, userId: strin
 // work, so the same rules (no AI sends during a takeover or pause) apply as for the worker API.
 
 export async function setAppStatusAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
-  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
-  return done(await core.setAppStatus(getSupabaseAdmin(), userId, String(formData.get("app")), { status: formData.get("status") }), userId, "Status saved");
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await core.setAppStatus(getSupabaseAdmin(), userId, String(formData.get("app")), { status: formData.get("status"), reason: formData.get("reason") ?? undefined, note: formData.get("note") ?? undefined }, admin);
+  if (result.ok && !result.logged) {
+    revalidatePath(`/admin/clients/${userId}`);
+    return { error: "Status saved, but the change could not be logged. Run supabase/2026-11-20-fulfilment.sql." };
+  }
+  revalidatePath("/admin/fulfilment");
+  return done(result, userId, "Status saved");
+}
+
+/** The Run panel: which phone and internal account label run this client's app. */
+export async function setRunAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const app = String(formData.get("app") ?? "");
+  const phoneId = String(formData.get("phoneId") ?? "").trim();
+  const accountRef = String(formData.get("accountRef") ?? "").trim();
+  const sb = getSupabaseAdmin();
+  const result = await setRun(sb, admin, userId, app, { phoneId: phoneId || null, accountRef: accountRef || null });
+  if (!result.ok) return { error: result.message };
+  await addNoteEvent(sb, admin, userId, `Run set: phone ${phoneId || "none"}, account ${accountRef || "none"}.`, app);
+  await operator.syncPhoneStep(sb, admin, userId, app, Boolean(phoneId));
+  revalidatePath(`/admin/clients/${userId}`);
+  revalidatePath("/admin/fulfilment");
+  return { ok: "Run saved" };
+}
+
+export async function addNoteAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await addNoteEvent(getSupabaseAdmin(), admin, userId, formData.get("note"), String(formData.get("app") ?? ""));
+  if (!result.ok) return { error: result.message };
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: "Note saved" };
 }
 
 export async function addMatchAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
@@ -65,4 +104,121 @@ export async function addDateAction(userId: string, _prev: OpState, formData: Fo
     matchId: uuid.test(match) ? match : null, who: formData.get("who"), venue: formData.get("venue"),
     address: String(formData.get("address") ?? "") || null, startsAt, summary: String(formData.get("summary") ?? "") || null
   }), userId, "Date booked (the user is emailed if they allow it)");
+}
+
+/** Writes (or rewrites) the user's starter pack now. Honours the daily caps; ignores the user's 3-per-day regenerate limit. */
+export async function generatePackAction(userId: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const { data: profile } = await getSupabaseAdmin().from("profiles").select("onboarding_done_at").eq("user_id", userId).maybeSingle();
+  if (!profile?.onboarding_done_at) return { error: "This user has not finished onboarding." };
+  const started = await startRegeneration(userId, "admin");
+  if (!started.ok) {
+    const why = { unconfigured: "ANTHROPIC_API_KEY is not set.", busy: "A pack is already being written for this user.", cap: "The daily pack cap is reached; it is queued for tomorrow.", limit: "Limit reached.", unavailable: "Couldn't start. Try again." }[started.reason];
+    return { error: why };
+  }
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: "Started. Reload in a minute." };
+}
+
+/**
+ * A person's decision on a photo the model flagged. Approve: the flag was a false positive; the photo is cleared for good
+ * and the pack is written again so it can use it. Remove: soft-delete (the user stops seeing it; the flag stays on record).
+ */
+export async function decideFlaggedPhotoAction(userId: string, decision: "approve" | "remove", _prev: OpState, formData: FormData): Promise<OpState> {
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const photoId = String(formData.get("photoId") ?? "");
+  if (!uuid.test(photoId)) return { error: "Unknown photo." };
+  const result = await decideFlaggedPhoto(getSupabaseAdmin(), userId, photoId, decision);
+  if (!result.ok) return { error: result.error };
+  // Best effort: a capped or busy pack run must not turn a saved decision into an error.
+  if (decision === "approve") await startRegeneration(userId, "admin").catch(() => undefined);
+  revalidatePath(`/admin/clients/${userId}`);
+  revalidatePath("/admin/clients");
+  return { ok: decision === "approve" ? "Approved. The photo can be used." : "Removed." };
+}
+
+// ---------- operator kit and creation checklist ----------
+
+function kitDone(result: { ok: boolean } | operator.Failure, userId: string, message: string): OpState {
+  if (!result.ok) return { error: (result as operator.Failure).message };
+  revalidatePath(`/admin/clients/${userId}/kit`);
+  revalidatePath(`/admin/clients/${userId}`);
+  revalidatePath("/admin/fulfilment");
+  return { ok: message };
+}
+
+export async function generateKitAction(userId: string, app: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.generateKit(getSupabaseAdmin(), admin, userId, app), userId, "Kit generated");
+}
+
+export async function regenerateSectionAction(userId: string, app: string, section: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.regenerateSection(getSupabaseAdmin(), admin, userId, app, section), userId, "Rebuilt");
+}
+
+export async function setTimezoneAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.setKitTimezone(getSupabaseAdmin(), admin, userId, String(formData.get("timezone") ?? "")), userId, "Time zone saved");
+}
+
+export async function tickStepAction(userId: string, app: string, step: string, done: boolean, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await operator.tickStep(getSupabaseAdmin(), admin, userId, app, step, done);
+  return kitDone(result, userId, result.ok && result.activated ? "Checklist complete: the app is now active" : done ? "Done" : "Undone");
+}
+
+export async function requestActionAction(userId: string, app: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.requestClientAction(getSupabaseAdmin(), admin, userId, app, String(formData.get("template") ?? ""), String(formData.get("custom") ?? "")), userId, "The client sees this on Home");
+}
+
+export async function clientActionDoneAction(userId: string, app: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await operator.clientActionDone(getSupabaseAdmin(), admin, userId, app);
+  return kitDone(result, userId, result.ok && result.activated ? "Back on track: the checklist was complete, so the app is active" : "Back to setting up");
+}
+
+export async function restartSetupAction(userId: string, app: string, _prev: OpState, _formData: FormData): Promise<OpState> {
+  void _formData;
+  const admin = await adminEmailOrNull();
+  if (!admin || !uuid.test(userId)) return NOT_ALLOWED;
+  return kitDone(await operator.restartSetup(getSupabaseAdmin(), admin, userId, app), userId, "Setup restarted");
+}
+
+// ---------- live demo mode (internal accounts only; see src/lib/demo) ----------
+
+function demoMessage(code: string): string {
+  return code === "not_internal" ? "Demo mode is only for internal accounts." : code === "migration" ? "Run supabase/2026-11-24-live-demo.sql first." : "Demo mode failed. Try again.";
+}
+
+/** Turns demo mode on (cleans and seeds the opening state) or off (stops new activity, keeps the chats). */
+export async function setDemoAction(userId: string, on: boolean, _prev: OpState, formData: FormData): Promise<OpState> {
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const sb = getSupabaseAdmin();
+  const timezone = String(formData.get("timezone") ?? "");
+  const result = on ? await enableDemo(sb, userId, { timezone }) : await disableDemo(sb, userId);
+  if (!result.ok) return { error: demoMessage(result.code) };
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: on ? "Demo mode is on. Open the app and refresh." : "Demo mode is off. The chats stay until you reset." };
+}
+
+/** Deletes every demo row, photo and added app; starts over from the opening state if demo mode is on. */
+export async function resetDemoAction(userId: string, _prev: OpState, formData: FormData): Promise<OpState> {
+  if (!(await adminEmailOrNull()) || !uuid.test(userId)) return NOT_ALLOWED;
+  const result = await resetDemo(getSupabaseAdmin(), userId, { timezone: String(formData.get("timezone") ?? "") });
+  if (!result.ok) return { error: demoMessage(result.code) };
+  revalidatePath(`/admin/clients/${userId}`);
+  return { ok: result.reseeded ? "Reset. Demo mode started over." : "Reset. All demo data is gone." };
 }

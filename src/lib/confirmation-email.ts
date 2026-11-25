@@ -2,6 +2,8 @@
 // `npm test` can import it directly (scripts/check-email.mjs). Sending lives in src/lib/email.ts.
 
 export const CONFIRMATION_EMAIL_LINK = "https://noswipe.app";
+// The clickable HTML link carries UTM so a return visit from the email is not counted as direct.
+const CONFIRMATION_EMAIL_HTML_LINK = "https://noswipe.app/?utm_source=email&utm_medium=email&utm_campaign=confirmation";
 // Absolute and PNG: Gmail blocks SVG and relative images. Served from public/brand on the site.
 export const EMAIL_LOGO_URL = "https://www.noswipe.app/brand/email-logo.png";
 
@@ -33,7 +35,7 @@ export function buildConfirmationEmail(): ConfirmationEmail {
 <p style="margin:0 0 16px;">You're on the early-access list. Sign in at noswipe.app to see your profile and your apps.</p>
 <p style="margin:0 0 16px;">NoSwipe sets up and runs your dating profiles, and chats as you. You can pause any app or take over any chat from the app at any time.</p>
 <p style="margin:0 0 16px;">Nothing to do until then.</p>
-<p style="margin:0 0 32px;"><a href="${CONFIRMATION_EMAIL_LINK}" style="color:#111111;">noswipe.app</a></p>
+<p style="margin:0 0 32px;"><a href="${CONFIRMATION_EMAIL_HTML_LINK}" style="color:#111111;">noswipe.app</a></p>
 <p style="margin:0;font-size:13px;color:#666666;">${footer}</p>
 </div>
 </body>

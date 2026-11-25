@@ -6,8 +6,11 @@ import { datingAppLabels, onboardingSchema, reservationSchema, type Onboarding }
 import { getStripe, getSiteUrl } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { internalEmailReason } from "@/lib/internal-traffic";
+import { firstTouchColumns, parseFirstTouch, trafficFromRequest } from "@/lib/traffic";
 import { reuseOpenCheckout } from "@/lib/checkout-reuse";
 import { CHECKOUT_LINE_ITEM, checkoutPresentation, checkoutResponse } from "@/lib/checkout-presentation";
+import { paidAccessFor } from "@/lib/paid-access";
+import { COUNTRY_BLOCKED_CODE, COUNTRY_BLOCKED_COPY } from "@/lib/paid-countries";
 
 export const runtime = "nodejs";
 
@@ -23,6 +26,13 @@ export async function POST(request: Request) {
 
   const parsed = reservationSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: "Please complete every required question." }, { status: 400 });
+
+  // Paid service is offered in a short list of countries (PAID_COUNTRIES). Checked before anything is created, so a
+  // refused visitor leaves no reservation and no Stripe session. Free sign-up never comes through here.
+  const access = await paidAccessFor(request.headers);
+  if (!access.allowed) {
+    return NextResponse.json({ error: COUNTRY_BLOCKED_COPY, code: COUNTRY_BLOCKED_CODE }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   let stripe, supabase, siteUrl;
   try {
@@ -79,7 +89,10 @@ export async function POST(request: Request) {
   // anything else (constraint, network, auth) falls through to the 500 below.
   // Newest first: `ref` (2026-10-28), then `onboarding`, then the UTM columns.
   const withOnboarding = onboarding ? { onboarding } : {};
+  // First touch comes from the server-set ns_ft cookie (absent for DNT/GPC visitors, crawlers and cookie-less browsers).
+  const firstTouch = parseFirstTouch(request.headers.get("cookie"));
   const rows = [
+    ...(firstTouch ? [{ ...baseRow, ...attributionColumns(attribution), ...refColumn(attribution), ...withOnboarding, ...firstTouchColumns(firstTouch) }] : []),
     { ...baseRow, ...attributionColumns(attribution), ...refColumn(attribution), ...withOnboarding },
     ...(attribution?.ref ? [{ ...baseRow, ...attributionColumns(attribution), ...withOnboarding }] : []),
     ...(onboarding ? [{ ...baseRow, ...attributionColumns(attribution) }] : []),
@@ -107,6 +120,8 @@ export async function POST(request: Request) {
       managed_payments: { enabled: false },
       payment_method_types: ["card"],
       customer_email: input.email,
+      // The billing country is what the webhook checks against PAID_COUNTRIES: an IP country can be faked, this cannot.
+      billing_address_collection: "required",
       client_reference_id: reservation.id,
       metadata: { reservation_id: reservation.id },
       line_items: [{ price_data: { currency: "usd", unit_amount: 100, product_data: { name: CHECKOUT_LINE_ITEM.name, description: CHECKOUT_LINE_ITEM.description } }, quantity: 1 }],
@@ -125,7 +140,10 @@ export async function POST(request: Request) {
       await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
       throw updateError ?? new Error("Reservation was not attached to checkout");
     }
-    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref, dedupeKey: `checkout_created:${session.id}` });
+    await recordFunnelEvent(supabase, { event: "checkout_created", sessionId: funnelSessionId, variant: attribution?.variant, utmCampaign: attribution?.utm_campaign, ref: attribution?.ref, firstTouch,
+      // Country (geo header) and device (UA) of the person opening checkout, so drop-offs can be split by them.
+      traffic: (({ device, country }) => ({ device, country }))(trafficFromRequest({}, request.headers)),
+      dedupeKey: `checkout_created:${session.id}` });
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Checkout creation failed", error instanceof Error ? error.message : "unknown error");

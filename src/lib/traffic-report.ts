@@ -5,7 +5,10 @@
 // funnel session tied to them, plus our own probe sessions (internalSessionIds in real-funnel).
 // Importing real-funnel pulls in "server-only", so run the tests with --conditions=react-server.
 
+import { counts as qualityCounts, sessionQualities, type SessionQuality } from "@/lib/bot-quality";
+import { CHECKOUT_DIAGNOSTIC_EVENTS } from "@/lib/checkout-events";
 import { internalSessionIds, splitReservations, type ReservationRow } from "@/lib/real-funnel";
+import { isHeroLabel } from "@/lib/hero-experiment";
 import { DIRECT_CHANNEL, NOT_CAPTURED_CHANNEL, resolveChannel, normalizeChannel } from "@/lib/traffic";
 
 export const MIN = 60_000;
@@ -22,6 +25,7 @@ export type TrafficEvent = {
   utm_campaign: string | null;
   dedupe_key: string | null;
   ref?: string | null;
+  in_app_source?: string | null;
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_content?: string | null;
@@ -29,6 +33,8 @@ export type TrafficEvent = {
   landing_path?: string | null;
   device?: string | null;
   country?: string | null;
+  /** human / suspect / bot (supabase/2026-11-22-session-quality.sql); null on rows from before it. */
+  quality?: string | null;
 };
 
 export type Session = {
@@ -37,10 +43,14 @@ export type Session = {
   lastAt: number;
   captured: boolean;
   channel: string;
+  /** Raw referrer host of the visit (not folded into a channel), for the top-referrers table. */
+  refHost: string | null;
   landing: string | null;
   device: string | null;
   country: string | null;
   ref: string | null;
+  /** Home hero test bucket (hero-a / hero-b) from the first event that carried one; null when never in the test. */
+  heroVariant: string | null;
   pageView: boolean;
   getStarted: boolean;
   opened: boolean;
@@ -56,25 +66,32 @@ export type TrafficModel = {
   stripeToSession: Map<string, string>;
   /** Earliest event that carries any traffic column, ms; null when nothing has been captured yet. */
   captureSince: number | null;
+  /** Stripe Checkout Session id -> first-touch source stored on the reservation (empty before the first-touch migration). */
+  firstTouchByStripe: Map<string, string>;
+  /** Quality of every session seen (bots and suspects included), whether or not it is in `sessions`. */
+  qualities: Map<string, SessionQuality>;
+  includeSuspect: boolean;
 };
 
-const SERVER_EVENTS = new Set(["checkout_created", "paid"]);
+const SERVER_EVENTS = new Set(["checkout_created", "paid", ...CHECKOUT_DIAGNOSTIC_EVENTS]);
 
 /** Groups raw events into one record per visit (tab session) and drops internal / test traffic. */
-export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[]): TrafficModel {
+export function buildTrafficModel(events: TrafficEvent[], allReservations: ReservationRow[], firstTouchByStripe: Map<string, string> = new Map(), options: { includeSuspect?: boolean; nowMs?: number } = {}): TrafficModel {
+  const includeSuspect = options.includeSuspect ?? false;
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
   const internal = internalSessionIds(events, badStripeSessions);
   const sorted = [...events].sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
 
+  const qualities = sessionQualities(events.filter((e) => !(e.session_id && internal.has(e.session_id))), options.nowMs ?? Date.now());
   const stripeToSession = new Map<string, string>();
   const sessions = new Map<string, Session>();
-  const raw = new Map<string, { utm: string | null; ref: string | null }>();
+  const raw = new Map<string, { utm: string | null; ref: string | null; app: string | null }>();
   let captureSince: number | null = null;
 
   for (const e of sorted) {
     const at = Date.parse(e.created_at);
     if (Number.isNaN(at)) continue;
-    const hasTraffic = Boolean(e.device || e.utm_source || e.referrer_host || e.landing_path || e.country);
+    const hasTraffic = Boolean(e.device || e.in_app_source || e.utm_source || e.referrer_host || e.landing_path || e.country);
     if (hasTraffic && (captureSince === null || at < captureSince)) captureSince = at;
     if (!e.session_id || internal.has(e.session_id)) continue;
     if (SERVER_EVENTS.has(e.event)) {
@@ -83,19 +100,21 @@ export function buildTrafficModel(events: TrafficEvent[], allReservations: Reser
     }
     let s = sessions.get(e.session_id);
     if (!s) {
-      s = { id: e.session_id, firstAt: at, lastAt: at, captured: false, channel: NOT_CAPTURED_CHANNEL, landing: null, device: null, country: null, ref: null, pageView: false, getStarted: false, opened: false, step2: false, step3: false, done: false };
+      s = { id: e.session_id, firstAt: at, lastAt: at, captured: false, channel: NOT_CAPTURED_CHANNEL, refHost: null, landing: null, device: null, country: null, ref: null, heroVariant: null, pageView: false, getStarted: false, opened: false, step2: false, step3: false, done: false };
       sessions.set(e.session_id, s);
-      raw.set(e.session_id, { utm: null, ref: null });
+      raw.set(e.session_id, { utm: null, ref: null, app: null });
     }
     const r = raw.get(e.session_id)!;
     s.lastAt = Math.max(s.lastAt, at);
     if (hasTraffic) s.captured = true;
     r.utm ??= e.utm_source?.trim() || null;
     r.ref ??= e.referrer_host?.trim() || null;
+    r.app ??= e.in_app_source?.trim() || null;
     s.landing ??= e.landing_path ?? null;
     s.device ??= e.device ?? null;
     s.country ??= e.country ?? null;
     s.ref ??= e.ref ?? null;
+    if (!s.heroVariant && isHeroLabel(e.variant)) s.heroVariant = e.variant;
     if (e.event === "page_view") s.pageView = true;
     else if (e.event === "get_started") s.getStarted = true;
     else if (e.event === "reserve_start") s.opened = true;
@@ -104,12 +123,13 @@ export function buildTrafficModel(events: TrafficEvent[], allReservations: Reser
     else if (e.event === "onboarding_complete") s.done = true;
   }
   for (const s of sessions.values()) {
-    // Crawlers that run JS (Lighthouse, site audits) are not visitors.
-    if (s.device === "bot") { sessions.delete(s.id); continue; }
+    // Crawlers that run JS (Lighthouse, site audits) are not visitors; suspect sessions are left out unless asked for.
+    if (s.device === "bot" || !qualityCounts(qualities.get(s.id)?.quality, { includeSuspect })) { sessions.delete(s.id); continue; }
     const r = raw.get(s.id)!;
-    if (s.captured) s.channel = resolveChannel(r.utm, r.ref);
+    s.refHost = r.ref;
+    if (s.captured) s.channel = resolveChannel(r.utm, r.ref, r.app);
   }
-  return { sessions, reservations: real, stripeToSession, captureSince };
+  return { sessions, reservations: real, stripeToSession, captureSince, firstTouchByStripe, qualities, includeSuspect };
 }
 
 // ---------- Periods ----------
@@ -128,6 +148,10 @@ export type PeriodStats = {
   landing: DimRow[];
   devices: DimRow[];
   countries: DimRow[];
+  /** External referrer hosts of this period's visitors (raw hosts, e.g. l.instagram.com), most visitors first. */
+  referrerHosts: { key: string; visitors: number }[];
+  /** Checkouts and paid by the FIRST touch stored on the reservation (not this visit's source). */
+  firstTouch: { key: string; checkouts: number; paid: number }[];
   stacked: StackedSeries;
   /** Median seconds from first visit to payment, over paid reservations linked to a visit. null = no sample. */
   medianPaidSeconds: number | null;
@@ -165,10 +189,16 @@ export function periodStats(model: TrafficModel, fromMs: number, toMs: number, t
   };
 
   let capturedVisitors = 0;
+  const hosts = new Map<string, number>();
+  const firstTouch = new Map<string, { key: string; checkouts: number; paid: number }>();
+  const ftRow = (key: string) => { let r = firstTouch.get(key); if (!r) { r = { key, checkouts: 0, paid: 0 }; firstTouch.set(key, r); } return r; };
   const visitorSessions: Session[] = [];
   for (const s of model.sessions.values()) {
     if (!inRange(s.firstAt)) continue;
-    if (s.pageView) { bump(s, "visitors"); visitorSessions.push(s); if (s.captured) capturedVisitors += 1; }
+    if (s.pageView) {
+      bump(s, "visitors"); visitorSessions.push(s); if (s.captured) capturedVisitors += 1;
+      if (s.refHost) hosts.set(s.refHost, (hosts.get(s.refHost) ?? 0) + 1);
+    }
     if (s.getStarted) bump(s, "getStarted");
     if (s.opened) bump(s, "opened");
     if (s.step2) bump(s, "step2");
@@ -180,9 +210,11 @@ export function periodStats(model: TrafficModel, fromMs: number, toMs: number, t
   for (const r of model.reservations) {
     const sid = r.stripe_checkout_session_id ? model.stripeToSession.get(r.stripe_checkout_session_id) : undefined;
     const s = sid ? model.sessions.get(sid) ?? null : null;
-    if (inRange(Date.parse(r.created_at))) bump(s, "checkouts");
+    const ft = r.stripe_checkout_session_id ? model.firstTouchByStripe.get(r.stripe_checkout_session_id) : undefined;
+    if (inRange(Date.parse(r.created_at))) { bump(s, "checkouts"); if (ft) ftRow(ft).checkouts += 1; }
     if (r.status === "paid" && r.paid_at && inRange(Date.parse(r.paid_at))) {
       bump(s, "paid");
+      if (ft) ftRow(ft).paid += 1;
       if (s) {
         const secs = (Date.parse(r.paid_at) - s.firstAt) / 1000;
         if (secs >= 0) paidDurations.push(secs);
@@ -213,6 +245,8 @@ export function periodStats(model: TrafficModel, fromMs: number, toMs: number, t
   return {
     fromMs, toMs, totals,
     channels: finish("channel"), landing: finish("landing"), devices: finish("device"), countries: finish("country"),
+    referrerHosts: [...hosts].map(([key, visitors]) => ({ key, visitors })).sort((a, b) => b.visitors - a.visitors || a.key.localeCompare(b.key)),
+    firstTouch: [...firstTouch.values()].sort((a, b) => b.paid - a.paid || b.checkouts - a.checkouts || a.key.localeCompare(b.key)),
     stacked: { buckets, bucketMs, channels: names, values },
     medianPaidSeconds: median(paidDurations),
     paidSamples: paidDurations.length,

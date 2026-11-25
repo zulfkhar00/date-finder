@@ -1,0 +1,461 @@
+// Local stand-ins for Supabase (GoTrue + PostgREST + the finalize_reservation RPC), Stripe, Resend and
+// Telegram, so the signup -> onboarding -> pay -> confirmation flow can run with no network and no
+// real credentials. Everything lives in memory. NOT Stripe: payment is simulated by /__stripe/pay.
+//
+//   node scripts/e2e-mock/mock-services.mjs            (port 54399)
+//
+// Control endpoints: GET /__state, GET /__outbox, /__stripe/pay?session=cs_test_..., /__stripe/fail?session=...&code=&decline=&country=&repeat=, /__stripe/expire?session=...
+import http from "node:http";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PORT = Number(process.env.MOCK_PORT || 54399);
+const APP = process.env.APP_ORIGIN || "http://localhost:3000";
+const WHSEC = process.env.STRIPE_WEBHOOK_SECRET || "whsec_mockmockmockmockmockmockmock";
+const JWT_SECRET = "mock-jwt-secret";
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+// ---- schema facts copied from supabase/*.sql so the mock rejects what Postgres would reject ----
+const sqlDir = path.join(here, "../../supabase");
+const eventList = (() => {
+  const sql = fs.readFileSync(path.join(sqlDir, "2026-11-21-reply-helper.sql"), "utf8"); // the newest migration that defines the event list
+  const body = sql.slice(sql.indexOf("check (event in ("));
+  return [...body.matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]);
+})();
+const CHECKS = {
+  reservations: (r) =>
+    ["women", "men", "all_genders", "discuss"].includes(r.dating_preference) &&
+    ["committed", "meaningful", "exploring"].includes(r.relationship_goal) &&
+    ["monthly", "twice_monthly", "weekly"].includes(r.date_frequency) &&
+    typeof r.email === "string" && r.email.length >= 3 && typeof r.city === "string" && r.city.length >= 2,
+  funnel_events: (r) => eventList.includes(r.event),
+  // supabase/2026-11-20-fulfilment.sql
+  app_accounts: (r) => ["setting_up", "needs_client_action", "active", "live", "paused", "closed"].includes(r.status) && (r.client_action_reason == null || (r.client_action_reason.length >= 1 && r.client_action_reason.length <= 200))
+};
+const UNIQUE = { reservations: ["stripe_checkout_session_id", "stripe_payment_intent_id", "queue_position"], funnel_events: ["dedupe_key"], fulfilment_events: ["dedupe_key"], profiles: ["user_id"], preferences: ["user_id"], consents: [], app_accounts: [["user_id", "app"]], starter_packs: [["user_id", "version"]], starter_pack_runs: [], reply_threads: [], reply_helper_runs: [] };
+const PK = { profiles: "user_id", preferences: "user_id", photo_flags: "photo_id" };
+
+const db = { reservations: [], funnel_events: [], profiles: [], preferences: [], app_accounts: [], consents: [], profile_photos: [], matches: [], messages: [], takeovers: [], dates: [], starter_packs: [], starter_pack_runs: [], reply_threads: [], reply_helper_runs: [], photo_flags: [], reports: [], reports_events: [], fulfilment_events: [] };
+let runSeq = 0;
+const users = new Map(); // id -> {id,email,otp,otp_hash}
+const outbox = { email: [], telegram: [] };
+const stripe = { sessions: new Map(), violations: [] };
+let queue = 0;
+
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+function jwt(user) {
+  const now = Math.floor(Date.now() / 1000);
+  const head = b64({ alg: "HS256", typ: "JWT" });
+  const body = b64({ sub: user.id, email: user.email, role: "authenticated", aud: "authenticated", iat: now, exp: now + 3600, session_id: crypto.randomUUID() });
+  return `${head}.${body}.${crypto.createHmac("sha256", JWT_SECRET).update(`${head}.${body}`).digest("base64url")}`;
+}
+const userJson = (u) => ({ id: u.id, aud: "authenticated", role: "authenticated", email: u.email, email_confirmed_at: u.created, confirmed_at: u.created, app_metadata: { provider: "email", providers: ["email"] }, user_metadata: {}, created_at: u.created, updated_at: u.created });
+const sessionJson = (u) => ({ access_token: jwt(u), token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: `r-${u.id}`, user: userJson(u) });
+
+const read = (req) => new Promise((res) => { const c = []; req.on("data", (d) => c.push(d)); req.on("end", () => res(Buffer.concat(c).toString())); });
+const send = (res, status, body, headers = {}) => { res.writeHead(status, { "Content-Type": "application/json", ...headers }); res.end(body === undefined ? "" : JSON.stringify(body)); };
+const rand = (n) => crypto.randomBytes(n).toString("base64url").replace(/[^A-Za-z0-9]/g, "a").slice(0, n);
+
+// ---- PostgREST ----
+function matcher(params) {
+  const tests = [];
+  for (const [key, val] of params) {
+    if (["select", "order", "limit", "offset", "on_conflict", "columns"].includes(key)) continue;
+    let op = val, neg = false;
+    if (op.startsWith("not.")) { neg = true; op = op.slice(4); }
+    const [name, ...rest] = op.split(".");
+    const arg = rest.join(".");
+    const fn = (row) => {
+      const v = row[key];
+      switch (name) {
+        case "eq": return String(v) === arg;
+        case "neq": return String(v) !== arg;
+        case "lt": return v != null && v < (isNaN(arg) ? arg : Number(arg));
+        case "gte": return v != null && v >= (isNaN(arg) ? arg : Number(arg));
+        case "gt": return v != null && v > (isNaN(arg) ? arg : Number(arg));
+        case "is": return arg === "null" ? v == null : String(v) === arg;
+        case "in": return arg.slice(1, -1).split(",").map((s) => s.replace(/^"|"$/g, "")).includes(String(v));
+        default: throw new Error(`mock PostgREST: unsupported filter ${key}=${val}`);
+      }
+    };
+    tests.push((row) => (neg ? !fn(row) : fn(row)));
+  }
+  return (row) => tests.every((t) => t(row));
+}
+const violates = (table, row, others) => {
+  for (const col of UNIQUE[table] ?? []) {
+    const cols = Array.isArray(col) ? col : [col];
+    if (cols.every((c) => row[c] != null) && others.some((o) => o !== row && cols.every((c) => o[c] === row[c]))) return `duplicate key value violates unique constraint (${cols.join(",")})`;
+  }
+  return null;
+};
+function project(rows, select) {
+  if (!select || select === "*" || select.includes("(")) return rows;
+  const cols = select.split(",").map((s) => s.trim());
+  return rows.map((r) => Object.fromEntries(cols.map((c) => [c, r[c] ?? null])));
+}
+
+async function rest(req, res, url) {
+  const table = url.pathname.replace("/rest/v1/", "");
+  const params = url.searchParams;
+  const prefer = req.headers.prefer || "";
+  const wantsObject = (req.headers.accept || "").includes("vnd.pgrst.object");
+  if (table.startsWith("rpc/")) return rpc(req, res, table.slice(4));
+  if (!(table in db)) return send(res, 404, { code: "PGRST205", message: `Could not find the table 'public.${table}'` });
+  const rows = db[table];
+  const respond = (out, status = 200, extra = {}) => {
+    if (wantsObject) {
+      if (out.length !== 1) return send(res, 406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" });
+      return send(res, status, out[0], extra);
+    }
+    return send(res, status, out, extra);
+  };
+  const raw = req.method === "GET" || req.method === "HEAD" || req.method === "DELETE" ? "" : await read(req);
+  const body = raw ? JSON.parse(raw) : null;
+  const now = new Date().toISOString();
+
+  if (req.method === "GET" || req.method === "HEAD") {
+    let out = rows.filter(matcher(params));
+    // RLS stand-in: a signed-in user's JWT only ever reads their own rows (supabase/2026-11-04-app.sql own-select policies).
+    const bearer = (req.headers.authorization || "").replace("Bearer ", "");
+    if (bearer && bearer !== "mock-service-key" && bearer !== "mock-anon-key" && bearer.split(".").length === 3) {
+      try {
+        const sub = JSON.parse(Buffer.from(bearer.split(".")[1], "base64url").toString()).sub;
+        if (sub) out = out.filter((r) => r.user_id === sub);
+      } catch { /* not a user JWT */ }
+    }
+    const order = params.get("order");
+    if (order) { const [col, dir] = order.split("."); out = [...out].sort((a, b) => (a[col] > b[col] ? 1 : a[col] < b[col] ? -1 : 0) * (dir === "desc" ? -1 : 1)); }
+    const total = out.length;
+    if (params.get("limit")) out = out.slice(0, Number(params.get("limit")));
+    const headers = { "Content-Range": `0-${Math.max(total - 1, 0)}/${total}` };
+    if (req.method === "HEAD") { res.writeHead(200, headers); return res.end(); }
+    return respond(project(out, params.get("select")), 200, headers);
+  }
+  if (req.method === "POST") {
+    const list = Array.isArray(body) ? body : [body];
+    const upsert = prefer.includes("resolution=");
+    const onConflict = params.get("on_conflict") || PK[table];
+    const inserted = [];
+    for (const input of list) {
+      const row = { ...input };
+      if (!(PK[table]) && !row.id) row.id = table === "starter_pack_runs" || table === "reply_helper_runs" ? ++runSeq : crypto.randomUUID();
+      if (table === "starter_packs") Object.assign(row, { version: 1, status: "pending", content: null, attempts: 0, last_error: null, tokens: 0, model: null, lease_until: null, next_attempt_at: null, generated_at: null, updated_at: now, ...input });
+      if (table === "starter_pack_runs") Object.assign(row, { day: now.slice(0, 10), kind: "auto", tokens: 0, ...input });
+      if (table === "reply_helper_runs") Object.assign(row, { day: now.slice(0, 10), kind: "new", tokens: 0, outcome: null, finished_at: null, ...input });
+      if (table === "reply_threads") Object.assign(row, { updated_at: now, runs: 1, ...input });
+      row.created_at ??= now;
+      if (table === "fulfilment_events") row.at ??= now;
+      if (table === "reservations") { row.status ??= "pending"; row.stripe_checkout_session_id ??= null; row.stripe_payment_intent_id ??= null; row.queue_position ??= null; }
+      if (table === "profiles") { row.onboarding_step ??= 0; row.onboarding_done_at ??= null; }
+      if (CHECKS[table] && !CHECKS[table](row)) return send(res, 400, { code: "23514", message: `new row for relation "${table}" violates check constraint` });
+      const conflictCols = onConflict ? onConflict.split(",") : [];
+      const existing = conflictCols.length ? rows.find((o) => conflictCols.every((c) => o[c] != null && o[c] === row[c])) : undefined;
+      if (upsert && existing) {
+        if (prefer.includes("merge-duplicates")) Object.assign(existing, row, { id: existing.id, created_at: existing.created_at });
+        continue; // ignore-duplicates: not returned
+      }
+      const dup = violates(table, row, rows);
+      if (dup) return send(res, 409, { code: "23505", message: dup });
+      rows.push(row); inserted.push(row);
+    }
+    if (prefer.includes("return=representation")) return respond(project(inserted, params.get("select")), 201);
+    return send(res, 201);
+  }
+  if (req.method === "PATCH") {
+    const hit = rows.filter(matcher(params));
+    for (const row of hit) {
+      const next = { ...row, ...body };
+      if (CHECKS[table] && !CHECKS[table](next)) return send(res, 400, { code: "23514", message: "check constraint" });
+      Object.assign(row, body);
+    }
+    if (prefer.includes("return=representation")) return respond(project(hit, params.get("select")));
+    return send(res, 204);
+  }
+  if (req.method === "DELETE") {
+    const test = matcher(params);
+    const keep = rows.filter((r) => !test(r));
+    const removed = rows.filter((r) => test(r));
+    const gone = rows.length - keep.length;
+    rows.length = 0; rows.push(...keep);
+    return send(res, prefer.includes("return=representation") ? 200 : 204, prefer.includes("return=representation") ? project(removed, params.get("select")) : undefined, { "x-deleted": String(gone) });
+  }
+  return send(res, 405, { message: "unsupported" });
+}
+
+async function rpc(req, res, name) {
+  const args = JSON.parse((await read(req)) || "{}");
+  if (name !== "finalize_reservation") return send(res, 404, { code: "PGRST202", message: `rpc ${name} not mocked` });
+  // Mirrors supabase/schema.sql finalize_reservation.
+  const r = db.reservations.find((x) => x.id === args.p_reservation_id);
+  const fail = (m) => send(res, 400, { code: "P0001", message: m });
+  if (!r || r.stripe_checkout_session_id !== args.p_session_id) return fail("Reservation or checkout session mismatch");
+  if (["paid", "refunded"].includes(r.status)) return r.stripe_payment_intent_id === args.p_payment_intent_id ? send(res, 200, r.queue_position) : fail("Payment intent mismatch");
+  if (r.status !== "pending") return fail("Reservation is no longer pending");
+  Object.assign(r, { status: "paid", queue_position: ++queue, stripe_payment_intent_id: args.p_payment_intent_id, paid_at: new Date().toISOString() });
+  return send(res, 200, r.queue_position);
+}
+
+// ---- GoTrue ----
+async function auth(req, res, url) {
+  const p = url.pathname.replace("/auth/v1", "");
+  const body = req.method === "POST" ? JSON.parse((await read(req)) || "{}") : {};
+  if (p === "/admin/users" && req.method === "GET") return send(res, 200, { users: [...users.values()].map(userJson), aud: "authenticated" });
+  if (p === "/admin/users" && req.method === "POST") {
+    if ([...users.values()].some((u) => u.email === body.email)) return send(res, 422, { code: 422, error_code: "email_exists", msg: "A user with this email address has already been registered" });
+    const u = { id: crypto.randomUUID(), email: body.email, password: body.password, created: new Date().toISOString() };
+    users.set(u.id, u);
+    return send(res, 200, userJson(u));
+  }
+  if (p === "/admin/generate_link") {
+    const u = [...users.values()].find((x) => x.email === body.email);
+    if (!u) return send(res, 404, { code: 404, error_code: "user_not_found", msg: "User not found" });
+    u.otp = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    u.hash = rand(40);
+    return send(res, 200, { ...userJson(u), action_link: `${APP}/auth/callback?token_hash=${u.hash}&type=email`, email_otp: u.otp, hashed_token: u.hash, verification_type: "magiclink", redirect_to: APP, properties: { action_link: "", email_otp: u.otp, hashed_token: u.hash, redirect_to: APP, verification_type: "magiclink" } });
+  }
+  if (p === "/verify") {
+    const u = [...users.values()].find((x) => x.email === body.email && x.otp && x.otp === body.token) || [...users.values()].find((x) => x.hash && x.hash === body.token_hash);
+    if (!u) return send(res, 403, { code: 403, error_code: "otp_expired", msg: "Token has expired or is invalid" });
+    u.otp = u.hash = undefined;
+    return send(res, 200, sessionJson(u));
+  }
+  if (p === "/user") {
+    const token = (req.headers.authorization || "").replace("Bearer ", "");
+    try {
+      const [h, b, s] = token.split(".");
+      if (crypto.createHmac("sha256", JWT_SECRET).update(`${h}.${b}`).digest("base64url") !== s) throw new Error("sig");
+      const claims = JSON.parse(Buffer.from(b, "base64url").toString());
+      const u = users.get(claims.sub);
+      if (!u) throw new Error("nouser");
+      return send(res, 200, userJson(u));
+    } catch { return send(res, 401, { code: 401, error_code: "bad_jwt", msg: "invalid JWT" }); }
+  }
+  if (p === "/token" && url.searchParams.get("grant_type") === "password") {
+    const u = [...users.values()].find((x) => x.email === body.email && x.password && x.password === body.password);
+    return u ? send(res, 200, sessionJson(u)) : send(res, 400, { code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials" });
+  }
+  if (p === "/token") {
+    const u = users.get(String(body.refresh_token || "").replace(/^r-/, ""));
+    return u ? send(res, 200, sessionJson(u)) : send(res, 400, { error_code: "refresh_token_not_found", msg: "bad refresh token" });
+  }
+  if (p === "/logout") return send(res, 204);
+  return send(res, 404, { msg: `auth ${p} not mocked` });
+}
+
+// ---- Stripe (API surface used by src/app/api/checkout/route.ts) ----
+function form(body) {
+  const out = {};
+  for (const [k, v] of new URLSearchParams(body)) {
+    const keys = k.replace(/\]/g, "").split("[");
+    let o = out;
+    keys.forEach((key, i) => { if (i === keys.length - 1) o[key] = v; else o = o[key] ??= {}; });
+  }
+  return out;
+}
+async function stripeApi(req, res, url) {
+  const key = (req.headers.authorization || "").replace("Bearer ", "");
+  if (!key.startsWith("sk_test_")) { stripe.violations.push(`non-test key used: ${key.slice(0, 7)}`); return send(res, 401, { error: { message: "mock refuses non-test keys" } }); }
+  const p = url.pathname.replace("/stripe", "");
+  const raw = req.method === "POST" ? await read(req) : "";
+  if (p === "/v1/checkout/sessions" && req.method === "POST") {
+    const f = form(raw);
+    const id = `cs_test_${rand(40)}`;
+    const embedded = f.ui_mode === "embedded_page" || f.ui_mode === "embedded";
+    const s = {
+      id, object: "checkout.session", livemode: false, mode: f.mode, status: "open", payment_status: "unpaid", currency: "usd",
+      amount_total: Number(f.line_items?.["0"]?.price_data?.unit_amount) * Number(f.line_items?.["0"]?.quantity || 1),
+      customer_email: f.customer_email, client_reference_id: f.client_reference_id, metadata: f.metadata || {}, payment_intent: null,
+      ui_mode: f.ui_mode || "hosted", return_url: f.return_url, success_url: f.success_url,
+      client_secret: embedded ? `${id}_secret_${rand(40)}` : null, url: embedded ? null : `https://checkout.stripe.com/c/pay/${id}#mock`
+    };
+    stripe.sessions.set(id, s);
+    return send(res, 200, s);
+  }
+  // List by PaymentIntent (the webhook asks which Checkout Session owns a failed PaymentIntent).
+  if (p === "/v1/checkout/sessions" && req.method === "GET") {
+    const pi = url.searchParams.get("payment_intent");
+    const data = [...stripe.sessions.values()].filter((s) => !pi || s.payment_intent === pi);
+    return send(res, 200, { object: "list", data, has_more: false, url: "/v1/checkout/sessions" });
+  }
+  const m = p.match(/^\/v1\/checkout\/sessions\/(cs_test_[A-Za-z0-9]+)(\/expire)?$/);
+  if (m) {
+    const s = stripe.sessions.get(m[1]);
+    if (!s) return send(res, 404, { error: { type: "invalid_request_error", code: "resource_missing", message: "No such checkout.session" } });
+    if (m[2]) { s.status = "expired"; return send(res, 200, s); }
+    return send(res, 200, s);
+  }
+  return send(res, 404, { error: { message: `stripe ${p} not mocked` } });
+}
+
+async function stripeSign(payload) {
+  const t = Math.floor(Date.now() / 1000);
+  const sig = crypto.createHmac("sha256", WHSEC).update(`${t}.${payload}`).digest("hex");
+  return `t=${t},v1=${sig}`;
+}
+
+async function pay(sessionId) {
+  const s = stripe.sessions.get(sessionId);
+  if (!s) return { status: 404, body: { error: "unknown session" } };
+  s.status = "complete"; s.payment_status = "paid"; s.payment_intent = `pi_test_${rand(24)}`;
+  const event = { id: `evt_test_${rand(20)}`, object: "event", type: "checkout.session.completed", livemode: false, api_version: "2025-01-01", created: Math.floor(Date.now() / 1000), data: { object: s } };
+  const payload = JSON.stringify(event);
+  const r = await fetch(`${APP}/api/stripe/webhook`, { method: "POST", headers: { "Content-Type": "application/json", "stripe-signature": await stripeSign(payload) }, body: payload });
+  return { status: 200, body: { webhookStatus: r.status, sessionId, paymentIntent: s.payment_intent } };
+}
+
+
+// ---- Storage (private photo bucket): just enough for upload, download and signed URLs ----
+const objects = new Map(); // "bucket/path" -> Buffer
+async function storage(req, res, url) {
+  const p = decodeURIComponent(url.pathname.replace("/storage/v1", ""));
+  const chunks = [];
+  if (req.method === "POST" || req.method === "PUT") await new Promise((r) => { req.on("data", (d) => chunks.push(d)); req.on("end", r); });
+  const body = Buffer.concat(chunks);
+  if (p.startsWith("/object/sign/") && req.method === "POST") {
+    const bucket = p.slice("/object/sign/".length);
+    const { paths = [] } = JSON.parse(body.toString() || "{}");
+    return send(res, 200, paths.map((path) => ({ path, error: null, signedURL: `/object/sign/${bucket}/${path}?token=mock` })));
+  }
+  if (p.startsWith("/object/sign/") && req.method === "GET") {
+    const buf = objects.get(p.slice("/object/sign/".length));
+    if (!buf) return send(res, 404, { message: "Object not found" });
+    res.writeHead(200, { "Content-Type": "image/png", "Access-Control-Allow-Origin": "*" }); return res.end(buf);
+  }
+  if (p.startsWith("/object/") && req.method === "POST") {
+    // multipart or raw: keep the file part (the images are only ever displayed back)
+    const key = p.slice("/object/".length);
+    const text = body.toString("binary");
+    const start = text.indexOf("\r\n\r\n");
+    const payload = text.startsWith("--") && start > 0 ? Buffer.from(text.slice(start + 4, text.lastIndexOf("\r\n--")), "binary") : body;
+    objects.set(key, payload);
+    return send(res, 200, { Key: key, Id: crypto.randomUUID() });
+  }
+  if (p.startsWith("/object/") && req.method === "GET") {
+    const buf = objects.get(p.slice("/object/".length).replace(/^authenticated\//, ""));
+    if (!buf) return send(res, 404, { message: "Object not found" });
+    res.writeHead(200, { "Content-Type": "image/png" }); return res.end(buf);
+  }
+  if (p.startsWith("/object/") && req.method === "DELETE") { objects.delete(p.slice("/object/".length)); return send(res, 200, {}); }
+  return send(res, 200, []);
+}
+
+// ---- Anthropic (stub model for the starter pack). Deterministic text; never the real API. ----
+// Control: GET /__anthropic?mode=ok|rate_limit|refuse|flag|unreadable&delay=<ms> (unreadable: the Reply helper answers 'unreadable', as for a blurry screenshot) (flag: the photo call flags photo 2 for review). Request contents are never recorded, only counts.
+const anthropic = { mode: "ok", delayMs: 0, calls: 0, vision: 0, reply: 0, replyImages: 0 };
+function stubPack(apps) {
+  const bios = { hinge: "Night-shift nurse who climbs on weekends and has opinions about ramen.", tinder: "Night-shift nurse. Climbs on weekends, eats ramen after, replies faster than you would expect.", bumble: "Nurse, climber, ramen critic. Message me a place that deserves a second visit.", general: "Nurse who climbs and eats ramen. Ask me about either." };
+  return {
+    profiles: apps.map((app) => app === "hinge"
+      ? { app, bio: bios.hinge, prompts: [
+          { prompt: "Typical Sunday", answer: "Bouldering until my forearms quit, then ramen and a nap that gets out of hand." },
+          { prompt: "I geek out on", answer: "Anything that makes a twelve-hour shift go faster, usually snacks." },
+          { prompt: "The way to win me over is", answer: "Tell me the best thing you ate this week and defend it." }] }
+      : { app, bio: bios[app] }),
+    openers: [
+      ["What's the best thing you ate this week?", "Easy to answer, shows interest."], ["Settle this for me: ramen at midnight, yes or no?", "Light and opinionated."],
+      ["Which of your photos has the best story behind it?", "Works when they have several photos."], ["Two truths and a lie about your weekend. Go.", "Playful, gets a longer reply."],
+      ["You look like someone with a strong coffee opinion. Am I right?", "Safe and warm."]].map(([line, why]) => ({ line, why })),
+    replies: [
+      { situation: "They answer with one word", template: "Fair. Give me one thing that made today better and I will match it." },
+      { situation: "The chat is going well and you want to meet", template: "I am enjoying this. Coffee this week, somewhere easy to leave if we hate each other?" },
+      { situation: "They ask what you are looking for", template: "Something real, without rushing it. Honest answer: you?" }],
+    datePlan: { headline: "Coffee and a short walk", venues: [{ type: "a quiet coffee place with outdoor seating", why: "Easy to hear each other, easy to leave." }, { type: "a short walk through a busy park", why: "Keeps it light if the coffee runs out." }], when: "Saturday, about 11am", budget: "$10-20 each", backup: "An indoor bookshop cafe if it rains.", tip: "Meet in public and tell a friend where you are." }
+  };
+}
+function stubReply(prompt) {
+  const es = /jaja|¿/.test(prompt);
+  const tweak = /noticeably more playful/.test(prompt) ? "playful" : /more direct/.test(prompt) ? "direct" : /Make all three shorter/.test(prompt) ? "shorter" : /clearly different from the earlier drafts/.test(prompt) ? "again" : "first";
+  const sets = {
+    first: [["Answer + ask", "Sacrament, and I will defend it. What is your midnight food crime?"], ["Light tease", "Bold words from someone who has clearly never had good tonkotsu at 1am."], ["Sincere", "Honestly it is how I decompress after a long shift. What do you do to unwind?"]],
+    again: [["Curious", "Okay, now I need your ranking: ramen, pizza, or breakfast for dinner?"], ["Dry", "I respect the confidence. Wrong, but I respect it."], ["Warm", "Long shifts make everything taste better. Tell me your comfort meal and I will tell you mine."]],
+    playful: [["Playful", "A crime? Officer, I plead guilty and I want a second bowl."], ["Teasing", "You say crime like you have not already checked the ramen map near you."], ["Cheeky", "Fine, I will let you win this one. Only if you pick the place."]],
+    direct: [["Direct", "Ramen at midnight is great. What are you up to this week?"], ["Plain", "Agree to disagree on midnight ramen. Want to argue it over a meal?"], ["Straight", "I like talking to you. Free for coffee this week?"]],
+    shorter: [["Short", "Sacrament. Your turn."], ["Short tease", "Never had good tonkotsu, clearly."], ["Short sincere", "It helps after shifts. You?"]]
+  };
+  const set = es ? [["Pregunta", "Jaja, ¿y tú qué cenas a medianoche?"], ["Broma", "Eso es un crimen que acepto con gusto."], ["Sincera", "La verdad, me encanta cenar tarde después del turno."]] : sets[tweak];
+  return {
+    status: "ok", language: es ? "Spanish" : "English",
+    read: es ? "Ella es cálida y te hace preguntas. Buen ritmo." : "She is warm, joking back and asking you questions. Good momentum.",
+    transcript: [{ from: "them", text: es ? "jaja ¿qué haces?" : "ramen at midnight is a crime" }, { from: "me", text: es ? "nada, cenando ramen" : "Counterpoint: it is a sacrament" }],
+    replies: set.map(([angle, text]) => ({ angle, text })),
+    dateMove: { ready: true, line: es ? "Me gusta hablar contigo. ¿Un café esta semana, en un sitio fácil para irse?" : "I am enjoying this. Coffee this week, somewhere easy to leave if we hate each other?", plans: [
+      { title: es ? "Café y paseo" : "Coffee and a short walk", detail: es ? "Sábado a media mañana en una cafetería tranquila con terraza, luego un paseo corto." : "Saturday late morning at a quiet coffee place with outdoor seating, then a short walk. Public and easy to leave." },
+      { title: es ? "Ramen temprano" : "Early ramen counter", detail: es ? "Jueves sobre las 18:00 en un local informal de ramen. Corto y público." : "Thursday around 6pm at a casual ramen counter in the centre. Short, public, easy to wrap up." }] }
+  };
+}
+async function anthropicApi(req, res, url) {
+  if (url.pathname !== "/anthropic/v1/messages") return send(res, 404, { type: "error", error: { type: "not_found_error", message: "not mocked" } });
+  const body = JSON.parse((await read(req)) || "{}");
+  anthropic.calls += 1;
+  if (anthropic.delayMs) await new Promise((r) => setTimeout(r, anthropic.delayMs));
+  if (anthropic.mode === "rate_limit") return send(res, 429, { type: "error", error: { type: "rate_limit_error", message: "mock rate limit" } }, { "retry-after": "1" });
+  const parts = body.messages?.[0]?.content ?? [];
+  const images = parts.filter((c) => c.type === "image").length;
+  const prompt = parts.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  const reply = (text, stop = "end_turn") => send(res, 200, { id: `msg_mock_${rand(8)}`, type: "message", role: "assistant", model: body.model, content: [{ type: "text", text }], stop_reason: stop, stop_sequence: null, usage: { input_tokens: 1500 + images * 1500, output_tokens: 900 } });
+  if (anthropic.mode === "refuse") return reply("", "refusal");
+  if (typeof body.system === "string" && body.system.includes("reply helper inside NoSwipe")) {
+    anthropic.reply += 1; anthropic.replyImages += images;
+    if (anthropic.mode === "unreadable") return reply(JSON.stringify({ status: "unreadable" }));
+    return reply(JSON.stringify(stubReply(prompt)));
+  }
+  if (images > 0) {
+    anthropic.vision += 1;
+    const roles = ["keep", "lead", "drop", "keep", "keep", "keep"];
+    const reasons = { lead: "Clear face, good light, and you look relaxed. Start here.", keep: "Adds variety without repeating the lead.", drop: "Close to the lead shot; it adds little, so leave it out." };
+    return reply(JSON.stringify({ ranking: Array.from({ length: images }, (_, i) => ({ photo: i + 1, role: roles[i % 6], reason: reasons[roles[i % 6]], flags: anthropic.mode === "flag" && i === 1 ? ["not_a_real_person_or_not_the_user"] : [] })), add: ["A photo doing something you like outdoors", "One with friends, easy to tell which is you"] }));
+  }
+  const apps = [...prompt.matchAll(/^\s*- "(hinge|tinder|bumble|general)":/gm)].map((m) => m[1]);
+  return reply(JSON.stringify(stubPack(apps.length ? apps : ["general"])));
+}
+
+// Simulated failure: a declined card (payment_intent.payment_failed, delivered `repeat` times with the
+// SAME event id, like a Stripe retry) or an expiry (checkout.session.expired). Mirrors the real payload shape.
+async function deliver(event) {
+  const payload = JSON.stringify(event);
+  const r = await fetch(`${APP}/api/stripe/webhook`, { method: "POST", headers: { "Content-Type": "application/json", "stripe-signature": await stripeSign(payload) }, body: payload });
+  return r.status;
+}
+async function failPayment(q) {
+  const s = stripe.sessions.get(q.get("session"));
+  if (!s) return { status: 404, body: { error: "unknown session" } };
+  s.payment_intent ??= `pi_test_${rand(24)}`;
+  const intent = { id: s.payment_intent, object: "payment_intent", status: "requires_payment_method", livemode: false, last_payment_error: {
+    type: "card_error", code: q.get("code") || "card_declined", decline_code: q.get("decline") || undefined,
+    payment_method: { id: `pm_test_${rand(14)}`, type: "card", card: { brand: q.get("brand") || "visa", country: q.get("country") || "IN", funding: "debit", last4: "0002" } } } };
+  const event = { id: q.get("evt") || `evt_test_${rand(20)}`, object: "event", type: "payment_intent.payment_failed", livemode: false, api_version: "2025-01-01", created: Math.floor(Date.now() / 1000), data: { object: intent } };
+  const statuses = [];
+  for (let i = 0; i < Number(q.get("repeat") || 1); i += 1) statuses.push(await deliver(event));
+  return { status: 200, body: { webhookStatuses: statuses, eventId: event.id, paymentIntent: s.payment_intent } };
+}
+async function expireSession(q) {
+  const s = stripe.sessions.get(q.get("session"));
+  if (!s) return { status: 404, body: { error: "unknown session" } };
+  s.status = "expired";
+  const event = { id: `evt_test_${rand(20)}`, object: "event", type: "checkout.session.expired", livemode: false, api_version: "2025-01-01", created: Math.floor(Date.now() / 1000) + 86400, data: { object: s } };
+  return { status: 200, body: { webhookStatus: await deliver(event) } };
+}
+
+http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (process.env.MOCK_LOG && !url.pathname.startsWith("/__")) { const t0 = Date.now(); res.on("finish", () => console.log(`${req.method} ${url.pathname}${url.search.slice(0, 90)} -> ${res.statusCode} ${Date.now() - t0}ms`)); }
+  try {
+    if (url.pathname.startsWith("/rest/v1/")) return await rest(req, res, url);
+    if (url.pathname.startsWith("/auth/v1/")) return await auth(req, res, url);
+    if (url.pathname.startsWith("/storage/v1/")) return await storage(req, res, url);
+    if (url.pathname.startsWith("/stripe/")) return await stripeApi(req, res, url);
+    if (url.pathname === "/resend/emails") { const b = JSON.parse(await read(req)); outbox.email.push({ at: new Date().toISOString(), to: b.to, subject: b.subject, text: b.text }); return send(res, 200, { id: `mock_${rand(10)}` }); }
+    if (url.pathname.includes("/sendMessage")) { const b = JSON.parse(await read(req)); outbox.telegram.push({ at: new Date().toISOString(), text: b.text }); return send(res, 200, { ok: true, result: {} }); }
+    if (url.pathname.startsWith("/anthropic/")) return await anthropicApi(req, res, url);
+    if (url.pathname === "/__anthropic") { Object.assign(anthropic, { mode: url.searchParams.get("mode") || "ok", delayMs: Number(url.searchParams.get("delay") || 0) }); return send(res, 200, anthropic); }
+    if (url.pathname === "/__outbox") return send(res, 200, outbox);
+    if (url.pathname === "/__state") return send(res, 200, { anthropic: { calls: anthropic.calls, vision: anthropic.vision, reply: anthropic.reply, replyImages: anthropic.replyImages, mode: anthropic.mode }, db, stripeSessions: [...stripe.sessions.values()], stripeViolations: stripe.violations, eventList });
+    if (url.pathname === "/__stripe/fail") { const r = await failPayment(url.searchParams); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
+    if (url.pathname === "/__stripe/expire") { const r = await expireSession(url.searchParams); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
+    if (url.pathname === "/__stripe/pay") { const r = await pay(url.searchParams.get("session")); return send(res, r.status, r.body, { "Access-Control-Allow-Origin": "*" }); }
+    return send(res, 404, { message: `mock: ${url.pathname}` });
+  } catch (e) { console.error("mock error", req.method, url.pathname, e.message); send(res, 500, { message: e.message }); }
+}).listen(PORT, "127.0.0.1", () => console.log(`mock services on :${PORT}`));

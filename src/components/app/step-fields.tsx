@@ -7,12 +7,11 @@ import type { Draft } from "@/lib/app/draft";
 export const GENDER_LABELS: Record<string, string> = { man: "Man", woman: "Woman", nonbinary: "Non-binary" };
 export const INTEREST_LABELS: Record<string, string> = { men: "Men", women: "Women", nonbinary: "Non-binary people" };
 const APP_NOTES: Record<App, string> = { tinder: "Swipe-first", hinge: "Prompts and conversation", bumble: "Her move, or yours" };
-
 export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" className="app-chip" aria-pressed={on} onClick={onClick}>{on ? <Check size={16} strokeWidth={3} aria-hidden /> : null}{children}</button>;
 }
 
-type Props = { step: StepName; d: Draft; set: (patch: Partial<Draft>) => void; compact?: boolean };
+type Props = { step: StepName; d: Draft; set: (patch: Partial<Draft>) => void; compact?: boolean; /** Shown under the birthday field, which is also marked invalid. */ error?: string };
 
 function List3({ label, values, onChange, placeholders }: { label: string; values: string[]; onChange: (v: string[]) => void; placeholders: string[] }) {
   return (
@@ -25,7 +24,7 @@ function List3({ label, values, onChange, placeholders }: { label: string; value
   );
 }
 
-export function StepFields({ step, d, set, compact }: Props) {
+export function StepFields({ step, d, set, compact, error }: Props) {
   const toggle = <T extends string>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   if (step === "name") return (
     <label className="app-field"><span className={compact ? undefined : "sr-only"}>First name</span>
@@ -33,7 +32,8 @@ export function StepFields({ step, d, set, compact }: Props) {
   );
   if (step === "birthday") return (
     <label className="app-field"><span className={compact ? undefined : "sr-only"}>Birthday</span>
-      <input type="date" autoComplete="bday" value={d.birthday} max={new Date().toISOString().slice(0, 10)} onChange={(e) => set({ birthday: e.target.value })} /></label>
+      <input type="date" autoComplete="bday" value={d.birthday} max={new Date().toISOString().slice(0, 10)} onChange={(e) => set({ birthday: e.target.value })} aria-invalid={error ? true : undefined} aria-describedby={error ? "birthday-error" : undefined} />
+      {error ? <p id="birthday-error" className="app-error" role="alert">{error}</p> : null}</label>
   );
   if (step === "who") return (
     <div style={{ display: "grid", gap: 22 }}>

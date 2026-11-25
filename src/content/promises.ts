@@ -60,7 +60,29 @@ export const promises: Record<string, string> = {
   "/tinder-openers-that-get-replies": "Skip “hey”. Ask about one thing in her photos.",
   "/dating-app-message-assistant": "It writes your replies. You can edit anything.",
   "/hire-someone-to-do-my-dating-apps": "Yes. NoSwipe, a dating app concierge, runs your apps.",
-  "/matches-but-no-dates": "Suggest a plan sooner. Keep chats short."
+  "/matches-but-no-dates": "Suggest a plan sooner. Keep chats short.",
+  "/ai-dating-assistant-for-busy-professionals": "Hand off the swiping and scheduling. Keep the dates.",
+  "/bumble-opening-lines": "Use one detail from her profile. Ask one easy question.",
+  "/dating-app-burnout": "Cut the volume, shorten chats, and move to plans.",
+  "/best-time-to-use-dating-apps": "No official best time. Test your own window.",
+  "/done-for-you-dating-profile": "Photo order, bio and prompts, written from your real details.",
+  "/how-many-dating-apps-should-you-use": "Two is enough for most people. Reply fast.",
+  "/ai-dating-assistant-privacy": "Private photos, no AI training. Ask every tool five questions.",
+  "/first-date-safety-from-dating-apps": "Public place, a friend told, your own transport.",
+  "/dating-app-dealbreakers-and-preferences": "Keep two or three real dealbreakers. Bend the rest.",
+  "/getting-back-on-dating-apps": "Refresh your profile, go slowly, keep it low pressure.",
+  "/someone-to-run-my-dating-apps": "Yes. We create your profiles and run them. You show up.",
+  "/dating-app-management-service": "We create and run your dating profiles. You just show up.",
+  "/tinder-done-for-you": "We create and run your Tinder. You just show up.",
+  "/hinge-done-for-you": "We write your Hinge prompts and run it. You show up.",
+  "/bumble-done-for-you": "We create and run your Bumble. You just show up.",
+  "/hire-a-dating-assistant": "Coach, drafting tool or full service: pick the job first.",
+  "/dating-concierge-online": "An online concierge runs your profiles. No meetings, no city list.",
+  "/too-busy-for-dating-apps": "Hand off the swiping and chats. Keep the dates.",
+  "/dating-app-ghostwriter": "A ghostwriter drafts. We create and run your profiles.",
+  "/virtual-dating-assistant-cost": "Price follows who does the work. Ask for the total.",
+  "/dating-profile-manager": "We create your profile and keep it fresh.",
+  "/ai-that-chats-for-you-on-dating-apps": "Yes, in your voice. You can read and take over."
 };
 
 export const fallbackPromise = "Dating apps, done for you. You just show up.";

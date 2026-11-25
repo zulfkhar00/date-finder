@@ -1,10 +1,18 @@
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, Sparkles, User } from "lucide-react";
-import { AppBadge, Avatar, Empty, ModePill, RowLink, StatusPill } from "@/components/app/ui";
+import type { ComponentProps } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, User } from "lucide-react";
+import { Avatar, AppChip, Empty, ModePill, RowLink } from "@/components/app/ui";
+import { Ago } from "@/components/app/ago";
 import { IcsButton } from "@/components/app/ics-button";
 import { When } from "@/components/app/when";
+import { StarterPack } from "@/components/app/starter-pack";
+import { ReplyHelperCard } from "@/components/app/reply-helper-card";
 import type { ChatSummary, SetupItem } from "@/lib/app/data";
 import { APP_LABELS, APPS, splitDates, type AppAccountRow, type DateRow } from "@/lib/app/domain";
+import { type CopyContext } from "@/lib/app/status-copy";
+import { AccountCards, realAccountApi, type AccountApi } from "@/components/app/accounts";
+import { DateActions } from "@/components/app/date-actions";
+import type { ActivityRow } from "@/lib/app/activity";
 
 // Presentational screens. The real pages (server components, real data) and /demo (sample data) both render
 // these, so the two are the same pixels. `base` is "" for the app and "/demo" for the demo.
@@ -16,13 +24,13 @@ export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps
     <section className="app-card app-next" aria-label="What happens next">
       {compact ? null : <h2 style={{ fontSize: 17, fontWeight: 800 }}>What happens next</h2>}
       <ol className="app-steps">
-        <li><span aria-hidden>1</span><div><strong>We set up your profile</strong><p>{names ? `On ${names}, from your photos and answers.` : "On the apps you pick, from your photos and answers."}</p></div></li>
-        <li><span aria-hidden>2</span><div><strong>Matches and chats appear here</strong><p>NoSwipe chats as you. Read along any time, or take over.</p></div></li>
-        <li><span aria-hidden>3</span><div><strong>Dates land in Dates</strong><p>With the place and the time, plus an email if you have those on.</p></div></li>
+        <li><span aria-hidden>1</span><div><strong>We create your dating profiles</strong><p>{names ? `On ${names}, from your photos and answers. You don't log in to anything.` : "On the apps you pick, from your photos and answers. You don't log in to anything."}</p></div></li>
+        <li><span aria-hidden>2</span><div><strong>We swipe and chat as you</strong><p>Matches and chats show up here as they happen. Read along, pause, or take over any time.</p></div></li>
+        <li><span aria-hidden>3</span><div><strong>Dates land in Dates, you just show up</strong><p>With the place and the time. You confirm or decline, and we email you if you have that on.</p></div></li>
       </ol>
       {gaps.length ? (
         <div className="app-next-gaps">
-          <strong>Speed it up</strong>
+          <strong>Help us start faster</strong>
           <ul>{gaps.map((g) => <li key={g.label}><Link href={g.href} className="app-link">{g.label}<ChevronRight size={16} aria-hidden /></Link></li>)}</ul>
         </div>
       ) : null}
@@ -30,48 +38,60 @@ export function NextSteps({ apps, gaps, compact }: { apps: AppAccountRow[]; gaps
   );
 }
 
-export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "" }: {
-  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string;
+export type HomePack = { view: ComponentProps<typeof StarterPack>["pack"]; photoUrls: Record<string, string | null>; hasCity: boolean; regenLeft: number; photoFlagged?: boolean };
+
+function NextGaps({ gaps }: { gaps: SetupItem[] }) {
+  return (
+    <section className="app-card app-next" aria-label="Make it better" style={{ marginTop: 14 }}>
+      <div className="app-next-gaps" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+        <strong>Make your profile better</strong>
+        <ul>{gaps.map((g) => <li key={g.label}><Link href={g.href} className="app-link">{g.label}<ChevronRight size={16} aria-hidden /></Link></li>)}</ul>
+      </div>
+    </section>
+  );
+}
+
+/** What the Home status rows need to say the truth about each app: paid or not, a report hold, and how long the client has waited. */
+export type HomeFulfilment = CopyContext;
+
+export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWeek, gaps = [], base = "", pack, fulfilment = { paid: true }, afterNeeds, activity = null, nowMs = 0, accountApi = realAccountApi }: {
+  name: string; apps: AppAccountRow[]; chats: ChatSummary[]; upcoming: DateRow[]; needsYou: ChatSummary[]; matchesThisWeek: number; gaps?: SetupItem[]; base?: string; pack?: HomePack; fulfilment?: HomeFulfilment;
+  /** What the phone rig did in the last 48 h (null = the feed is not set up yet), the page time used for "today", and the Pause / Take over / Resume calls (the demo passes stubs). */
+  activity?: readonly ActivityRow[] | null; nowMs?: number; accountApi?: AccountApi;
+  /** Extra block right under "Needs you" (the owner preview puts dates waiting for an OK here). */
+  afterNeeds?: React.ReactNode;
 }) {
   const quiet = chats.length === 0 && upcoming.length === 0;
   const accounts = APPS.flatMap((app) => apps.filter((a) => a.app === app));
+  const hasChatsByApp = Object.fromEntries(APPS.map((a) => [a, chats.some((c) => c.app === a)]));
+  const packNode = pack && !base ? <StarterPack pack={pack.view} apps={apps} photoUrls={pack.photoUrls} hasCity={pack.hasCity} regenLeft={pack.regenLeft} photoFlagged={pack.photoFlagged} /> : null;
   return (
     <>
       <h1 className="app-h1">Hi {name || "there"}.</h1>
-      <p className="app-sub">Here&rsquo;s your week.</p>
-
-      {quiet && !base ? <div style={{ marginTop: 18 }}><NextSteps apps={apps} gaps={gaps} /></div> : null}
+      <p className="app-sub">We create your dating profiles and run them for you. You just show up.</p>
 
       <h2 className="app-h2">Your apps</h2>
       {accounts.length === 0 ? (
-        <Empty title="No apps yet">Pick the apps you want us to run in your profile. <Link href={`${base}/profile`} className="app-link">Add an app</Link></Empty>
+        <Empty title="No apps yet"><Link href={`${base}/profile`} className="app-link">Pick your apps</Link></Empty>
       ) : (
-        <ul className="app-list">
-          {accounts.map((a) => (
-            <li key={a.app} className="app-row">
-              <AppBadge app={a.app} />
-              <div className="app-row-body">
-                <div className="app-row-title">{APP_LABELS[a.app]} <StatusPill account={a} /></div>
-                <div className="app-row-sub" style={{ whiteSpace: "normal" }}>
-                  {a.user_paused ? "You paused this app." : a.status === "setting_up" ? `We're setting up your ${APP_LABELS[a.app]}. You'll see matches here.` : a.status === "live" ? "Running." : "Paused by the team."}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <AccountCards apps={accounts} ctx={fulfilment} activity={activity} nowMs={nowMs} base={base} api={accountApi} hasChatsByApp={hasChatsByApp} />
       )}
 
-      <h2 className="app-h2">This week</h2>
+      {quiet && !base ? (
+        <div style={{ marginTop: 18 }}>
+          {packNode ? <>{packNode}{gaps.length ? <NextGaps gaps={gaps} /> : null}</> : <NextSteps apps={apps} gaps={gaps} />}
+        </div>
+      ) : null}
+
+      {quiet && !base && matchesThisWeek === 0 ? null : <><h2 className="app-h2">This week</h2>
       <div className="app-stats">
         <div className="app-stat" data-c="coral"><span>Matches</span><strong>{matchesThisWeek}</strong></div>
         <div className="app-stat" data-c="lilac"><span>Active chats</span><strong>{chats.length}</strong></div>
         <div className="app-stat" data-c="lime"><span>Upcoming dates</span><strong>{upcoming.length}</strong></div>
-      </div>
+      </div></>}
 
-      <h2 className="app-h2">Needs you</h2>
-      {needsYou.length === 0 ? (
-        <Empty title="Nothing needs you right now" icon={<Sparkles size={24} />}>When a chat needs your call, it shows up here.</Empty>
-      ) : (
+      {needsYou.length === 0 ? null : (<>
+        <h2 className="app-h2">Needs you</h2>
         <ul className="app-list">
           {needsYou.map((c) => (
             <li key={c.id}>
@@ -86,12 +106,12 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
             </li>
           ))}
         </ul>
-      )}
+      </>)}
 
-      <h2 className="app-h2">Upcoming dates</h2>
-      {upcoming.length === 0 ? (
-        <Empty title="No dates booked yet" icon={<CalendarDays size={24} />}>Booked dates land here with the place and time.</Empty>
-      ) : (
+      {afterNeeds}
+
+      {upcoming.length === 0 ? null : (<>
+        <h2 className="app-h2">Upcoming dates</h2>
         <ul className="app-list">
           {upcoming.slice(0, 3).map((d) => (
             <li key={d.id}>
@@ -106,7 +126,9 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
             </li>
           ))}
         </ul>
-      )}
+      </>)}
+
+      {!quiet && packNode ? <div style={{ marginTop: 26 }}>{packNode}</div> : null}
 
       {chats.length > 0 ? (
         <>
@@ -117,8 +139,8 @@ export function HomeView({ name, apps, chats, upcoming, needsYou, matchesThisWee
                 <RowLink href={`${base}/chats/${c.id}`}>
                   <Avatar name={c.name} url={c.photoUrl} />
                   <div className="app-row-body">
-                    <div className="app-row-title">{c.name} <ModePill mode={c.mode} paused={c.paused} /></div>
-                    <div className="app-row-sub">{c.last?.body ?? "Matched. First message coming up."}</div>
+                    <div className="app-row-title">{c.name} <AppChip app={c.app} /> <ModePill mode={c.mode} paused={c.paused} /></div>
+                    <div className="app-row-sub">{c.last?.body ?? "Matched. We're writing the first message."}</div>
                   </div>
                   <MessageCircle className="app-row-end" size={20} aria-hidden="true" />
                 </RowLink>
@@ -135,25 +157,29 @@ export function ChatsView({ chats, apps = [], gaps = [], base = "" }: { chats: C
   return (
     <>
       <h1 className="app-h1">Chats</h1>
-      <p className="app-sub">Your conversations, as they happen. Open one to read along or take over.</p>
+      <p className="app-sub">The chats we&rsquo;re having as you. Open one to read along or take over.</p>
+      {base ? null : <div style={{ marginTop: 18 }}><ReplyHelperCard empty={chats.length === 0} /></div>}
       <div style={{ marginTop: 18 }}>
         {chats.length === 0 ? (
           <>
-            <Empty title="No chats yet" icon={<MessageCircle size={24} />}>When you match with someone, the conversation shows up here. You can read along and jump in any time.</Empty>
+            <Empty title="No chats yet" icon={<MessageCircle size={24} />}>When we match with someone as you, the conversation shows up here. You can read along and jump in any time.</Empty>
             {base ? null : <div style={{ marginTop: 14 }}><NextSteps apps={apps} gaps={gaps} /></div>}
           </>
         ) : (
           <ul className="app-list">
             {chats.map((c) => (
               <li key={c.id}>
-                <RowLink href={`${base}/chats/${c.id}`}>
+                <RowLink href={`${base}/chats/${c.id}`} unread={Boolean(c.unread)}>
                   <Avatar name={c.name} url={c.photoUrl} large />
                   <div className="app-row-body">
-                    <div className="app-row-title">{c.name}{c.age ? `, ${c.age}` : ""} <span className="app-muted" style={{ fontWeight: 600, fontSize: 13 }}>{APP_LABELS[c.app]}</span></div>
+                    <div className="app-row-title">{c.name}{c.age ? `, ${c.age}` : ""} <AppChip app={c.app} /></div>
                     <div className="app-row-sub">{c.last ? `${c.last.sender === "match" ? "" : "You: "}${c.last.body}` : "No messages yet"}</div>
-                    <div style={{ marginTop: 6 }}><ModePill mode={c.mode} paused={c.paused} /></div>
+                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><ModePill mode={c.mode} paused={c.paused} />{c.hasProfile ? <Ago iso={c.matched_at} prefix="Matched " /> : null}</div>
                   </div>
-                  {c.last ? <span className="app-row-end" style={{ fontSize: 12, fontWeight: 700, alignSelf: "flex-start", marginTop: 6 }}><When iso={c.last.sent_at} style="time" /></span> : null}
+                  <div style={{ display: "grid", justifyItems: "end", gap: 6, alignSelf: "flex-start", marginTop: 6 }}>
+                    {c.last ? <span className="app-row-end" style={{ fontSize: 12, fontWeight: 700 }}><When iso={c.last.sent_at} style="time" /></span> : null}
+                    {c.unread ? <span className="app-unread" aria-label={`${c.unread} unread`}>{c.unread}</span> : null}
+                  </div>
                 </RowLink>
               </li>
             ))}
@@ -164,35 +190,37 @@ export function ChatsView({ chats, apps = [], gaps = [], base = "" }: { chats: C
   );
 }
 
-export function DatesView({ dates, apps = [], gaps = [], base = "" }: { dates: DateRow[]; apps?: AppAccountRow[]; gaps?: SetupItem[]; base?: string }) {
+export function DatesView({ dates, apps = [], gaps = [], base = "", dateApi }: { dates: DateRow[]; apps?: AppAccountRow[]; gaps?: SetupItem[]; base?: string; dateApi?: ComponentProps<typeof DateActions>["api"] }) {
   const { upcoming, past } = splitDates(dates);
-  const row = (d: DateRow) => (
-    <li key={d.id}>
+  const pending = upcoming.filter((d) => (d.client_response ?? "pending") === "pending");
+  const row = (d: DateRow, withActions = false) => (
+    <li key={d.id} className={withActions ? "app-card date-card" : undefined}>
       <RowLink href={`${base}/dates/${d.id}`}>
         <span className="app-badge" style={{ background: "var(--lime)", color: "var(--grape)" }} aria-hidden="true"><CalendarDays size={22} /></span>
         <div className="app-row-body">
-          <div className="app-row-title">{d.who}</div>
+          <div className="app-row-title">{d.who} {d.app ? <AppChip app={d.app} /> : null} {d.client_response === "confirmed" ? <span className="app-pill" data-tone="lime"><i />Confirmed</span> : upcoming.includes(d) ? <span className="app-pill" data-tone="coral"><i />To confirm</span> : null}</div>
           <div className="app-row-sub">{d.venue}</div>
           <div className="app-row-sub"><When iso={d.starts_at} style="full" /></div>
         </div>
         <ChevronRight className="app-row-end" size={20} aria-hidden="true" />
       </RowLink>
+      {withActions ? <DateActions id={d.id} who={d.who} api={dateApi} /> : null}
     </li>
   );
   return (
     <>
       <h1 className="app-h1">Dates</h1>
-      <p className="app-sub">Who, where and when.</p>
+      <p className="app-sub">Dates we booked for you. Confirm the ones you&rsquo;ll be at, or decline and we&rsquo;ll rearrange.</p>
       <div style={{ marginTop: 18 }}>
         {dates.length === 0 ? (
           <>
-            <Empty title="No dates booked yet" icon={<CalendarDays size={24} />}>When a date is booked, it shows up here with the place, the time and what you two talked about.</Empty>
+            <Empty title="No dates booked yet" icon={<CalendarDays size={24} />}>When we book you a date, it shows up here with the place, the time and what you two talked about. We start within 72 hours of you activating.</Empty>
             {base ? null : <div style={{ marginTop: 14 }}><NextSteps apps={apps} gaps={gaps} /></div>}
           </>
         ) : (
           <>
-            {upcoming.length ? <ul className="app-list">{upcoming.map(row)}</ul> : <Empty title="Nothing coming up">Your past dates are below.</Empty>}
-            {past.length ? <><h2 className="app-h2">Past</h2><ul className="app-list">{past.map(row)}</ul></> : null}
+            {upcoming.length ? <ul className="app-list">{upcoming.map((d) => row(d, pending.includes(d) && (!base || Boolean(dateApi))))}</ul> : <Empty title="Nothing coming up">Your past dates are below.</Empty>}
+            {past.length ? <><h2 className="app-h2">Past</h2><ul className="app-list">{past.map((d) => row(d))}</ul></> : null}
           </>
         )}
       </div>
@@ -200,24 +228,25 @@ export function DatesView({ dates, apps = [], gaps = [], base = "" }: { dates: D
   );
 }
 
-export function DateDetailView({ date, base = "" }: { date: DateRow & { match_id: string | null }; base?: string }) {
+export function DateDetailView({ date, base = "", tag, actions, hideIcs }: { date: DateRow & { match_id: string | null }; base?: string; tag?: string; actions?: React.ReactNode; hideIcs?: boolean }) {
   return (
     <>
       <Link href={`${base}/dates`} className="app-link" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none", marginLeft: -6 }}><ChevronLeft size={20} aria-hidden /> Dates</Link>
       <div className="app-hero" style={{ marginTop: 6 }}>
         <div>
-          <span className="tag">{date.status === "cancelled" ? "Cancelled" : "Booked"}</span>
+          <span className="tag">{tag ?? (date.status === "cancelled" ? "Cancelled" : "Booked")}</span>
           <h1>Date with {date.who}</h1>
         </div>
       </div>
       <ul className="app-list" style={{ marginTop: 12 }}>
-        <li className="app-detail"><User size={22} aria-hidden /><div><small>Who</small><strong>{date.who}</strong></div></li>
+        <li className="app-detail"><User size={22} aria-hidden /><div><small>Who</small><strong>{date.who}</strong>{date.app ? <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><AppChip app={date.app} />{date.matched_at ? <Ago iso={date.matched_at} prefix="Matched " /> : null}</div> : null}</div></li>
         <li className="app-detail"><MapPin size={22} aria-hidden /><div><small>Where</small><strong>{date.venue}</strong>{date.address ? <div className="app-muted" style={{ fontSize: 15 }}>{date.address}</div> : null}</div></li>
         <li className="app-detail"><Clock size={22} aria-hidden /><div><small>When</small><strong><When iso={date.starts_at} style="full" /></strong></div></li>
         {date.summary ? <li className="app-detail"><MessageCircle size={22} aria-hidden /><div><small>What you talked about</small><strong style={{ fontWeight: 600 }}>{date.summary}</strong></div></li> : null}
       </ul>
       <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
-        <IcsButton date={{ id: date.id, who: date.who, venue: date.venue, address: date.address, starts_at: date.starts_at, summary: date.summary, status: date.status }} />
+        {hideIcs ? null : <IcsButton date={{ id: date.id, who: date.who, venue: date.venue, address: date.address, starts_at: date.starts_at, summary: date.summary, status: date.status }} />}
+        {actions}
         {date.match_id ? <Link href={`${base}/chats/${date.match_id}`} className="app-btn ghost">Open the chat</Link> : null}
       </div>
     </>

@@ -1,0 +1,63 @@
+.form { display: grid; gap: 22px; margin-top: 8px; }
+.group { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 8px; }
+.legend, .label { font-size: 15px; font-weight: 800; padding: 0; }
+.hint { font-size: 14px; color: var(--grape-2); margin: 0; line-height: 1.5; }
+.optional { font-weight: 600; color: var(--grape-3); }
+
+.input, .select, .textarea {
+  width: 100%;
+  min-height: 52px;
+  border: 2.5px solid var(--grape);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  padding: 0 16px;
+  font: inherit;
+  font-size: 17px;
+  color: var(--grape);
+  outline: none;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+.textarea { min-height: 170px; padding: 12px 16px; resize: vertical; line-height: 1.5; }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible { background: var(--card); box-shadow: 0 0 0 4px var(--lime); }
+.invalid { border-color: var(--coral-deep); background: #fff1ee; }
+.fieldError { font-size: 14px; font-weight: 700; color: var(--coral-deep); margin: 0; }
+.counter { font-size: 13px; color: var(--grape-3); text-align: right; margin: 0; }
+
+.options { display: grid; gap: 8px; }
+.option {
+  display: flex; align-items: flex-start; gap: 12px; min-height: 52px; padding: 12px 14px;
+  border: 2.5px solid var(--grape); border-radius: var(--r-md); background: var(--card); cursor: pointer; font-weight: 700; font-size: 16px; line-height: 1.35;
+}
+.option:has(input:checked) { background: var(--lime); box-shadow: 0 3px 0 var(--grape); }
+.option:has(input:focus-visible) { outline: 3px solid var(--coral); outline-offset: 2px; }
+.option input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--grape); }
+.option small { display: block; font-weight: 600; color: var(--grape-2); font-size: 13px; }
+
+.danger { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; font-weight: 700; line-height: 1.4; cursor: pointer; }
+.danger input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--coral-deep); }
+.dangerBox { border: 2.5px solid var(--grape); background: #FFD6D0; border-radius: var(--r-lg); padding: 16px 18px; display: grid; gap: 8px; }
+.dangerBox h2 { font-family: var(--font-sans), sans-serif; font-size: 18px; font-weight: 800; margin: 0; }
+.dangerBox p, .dangerBox li { font-size: 15px; line-height: 1.55; color: var(--grape); margin: 0; }
+.dangerBox ul { margin: 0; padding-left: 20px; list-style: disc; display: grid; gap: 6px; }
+.dangerBox a { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+
+.honey { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+
+.summary { border: 2.5px solid var(--grape); background: #FFD6D0; border-radius: var(--r-md); padding: 12px 16px; font-weight: 700; font-size: 15px; }
+.summary:focus { outline: 3px solid var(--coral); outline-offset: 3px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.actions button { flex: 1 1 240px; }
+.fine { font-size: 14px; color: var(--grape-2); line-height: 1.55; margin: 0; }
+.fine a { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 3px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+
+.done { border: 3px solid var(--grape); border-radius: var(--r-xl); background: var(--lime); padding: 26px 22px; box-shadow: var(--shadow-lg); display: grid; gap: 14px; }
+.done h2 { font-family: var(--font-display), sans-serif; font-weight: 400; font-size: clamp(30px, 8vw, 44px); line-height: 1; margin: 0; outline: none; }
+.refLabel { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; }
+.ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: clamp(22px, 7vw, 32px); font-weight: 800; letter-spacing: 0.04em; border: 2.5px solid var(--grape); border-radius: var(--r-md); background: var(--card); padding: 10px 14px; margin: 0; overflow-wrap: anywhere; }
+.done p, .done li { font-size: 16px; line-height: 1.6; color: var(--grape); margin: 0; }
+.done ul { margin: 0; padding-left: 20px; list-style: disc; display: grid; gap: 6px; }
+.done .dangerBox h2 { font-family: var(--font-sans), sans-serif; font-weight: 800; font-size: 18px; line-height: 1.3; }

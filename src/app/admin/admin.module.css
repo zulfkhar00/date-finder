@@ -90,6 +90,7 @@
 
 /* Badges: one tone per meaning, all from the landing palette. */
 .badge { display: inline-block; padding: 1px 9px; border: 1.5px solid var(--a-ink); border-radius: var(--r-pill); font-size: 12px; font-weight: 700; background: var(--paper); color: var(--a-ink); white-space: nowrap; }
+.badge[data-tone="warn"] { background: var(--coral); }
 .badge_paid, .badge_content_posted { background: var(--lime); }
 .badge_pending, .badge_content_fix, .badge_content_review { background: var(--blush); }
 .badge_refunded, .badge_declined, .badge_content_failed { background: var(--coral); }
@@ -293,4 +294,45 @@
   .card { padding: 14px 12px; }
   .table th, .table td { padding: 8px 6px; }
   .button, .buttonGhost { min-height: 44px; }
+}
+
+/* Reports (/admin/reports) */
+.rowUrgent td { background: #fff1d6; }
+.rowOverdue td { background: #FFD6D0; }
+.rowUrgent td:first-child { box-shadow: inset 4px 0 0 var(--coral-deep); }
+.table tbody tr.rowUrgent:hover td, .table tbody tr.rowOverdue:hover td { filter: brightness(0.97); }
+.slaOk { font-weight: 700; }
+.slaOver { color: var(--coral-deep); font-weight: 800; }
+.kpiValue[data-tone="warn"] { color: var(--coral-deep); }
+.actionBox { border: 2px solid var(--a-line); border-radius: var(--r-sm); padding: 12px; min-width: 0; }
+.plainList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+/* Fulfilment queue: SLA badges and the per-client app status lines. */
+.badge_sla_green { background: var(--lime); }
+.badge_sla_amber { background: #FFD66B; }
+.badge_sla_red { background: var(--coral); color: var(--a-ink); }
+.badge_held { background: #ECE7F3; color: var(--grape-2); }
+.appLine { display: block; font-size: 12px; line-height: 1.5; }
+.appReason { color: var(--a-muted); font-size: 12px; display: block; max-width: 28ch; white-space: normal; }
+.logList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.logList li { border-top: 1px solid var(--a-line); padding-top: 8px; }
+
+/* Tagged links + "Where people come from" */
+.linkForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 14px 0; }
+.linkOut { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: var(--paper); border: 2px solid var(--a-ink); border-radius: var(--r-sm, 10px); padding: 10px 12px; overflow-wrap: anywhere; margin: 0 0 12px; user-select: all; }
+.statRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 4px 0 14px; }
+.stat { border: 2px solid var(--a-ink); border-radius: var(--r-md); background: var(--paper); padding: 10px 12px; }
+.statValue { font-size: 22px; font-weight: 800; line-height: 1.1; }
+.statLabel { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--a-muted); }
+.pct { display: block; font-size: 11px; color: var(--a-muted); font-weight: 700; }
+.subHead { font-size: 14px; margin: 18px 0 6px; }
+@media (max-width: 640px) { .linkForm { grid-template-columns: 1fr; } .input, .select { font-size: 16px; } }
+
+/* Step tables in "Where people come from": six columns must fit a 375 px card without side scrolling. */
+.stepTable th, .stepTable td { padding-left: 5px; padding-right: 5px; }
+@media (max-width: 640px) {
+  .stepTable th { font-size: 9.5px; letter-spacing: 0; padding: 8px 2px; }
+  .stepTable td { font-size: 12px; padding: 8px 2px; }
+  .stepTable .cellKey { max-width: 76px; font-size: 12px; overflow-wrap: anywhere; }
+  .stepTable .pct { font-size: 10px; }
 }

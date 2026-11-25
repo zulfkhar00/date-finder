@@ -1,7 +1,7 @@
 // Checks for browser back/forward handling inside onboarding. No browser needed: the decision is pure.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { decidePop, stepFromState, stepState } from "../src/lib/app/step-history";
+import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "../src/lib/app/step-history";
 
 const LAST_FORM = 5;
 assert.equal(stepFromState(stepState(3)), 3);
@@ -19,8 +19,17 @@ assert.deepEqual(decidePop(3, stepState(2), LAST_FORM, true), { action: "stay" }
 assert.deepEqual(decidePop(6, stepState(5), LAST_FORM, false), { action: "stay" }, "the pay step has no way back to the finished form");
 assert.deepEqual(decidePop(4, stepState(6), LAST_FORM, false), { action: "stay" }, "forward into pay needs the form to be finished");
 
+const O = "https://www.noswipe.app";
+assert.equal(leaveOnboardingTarget({ historyLength: 1, referrer: "", origin: O }), "/", "fresh tab: landing page");
+assert.equal(leaveOnboardingTarget({ historyLength: 4, referrer: `${O}/pricing`, origin: O }), "back", "came from our page: go back");
+assert.equal(leaveOnboardingTarget({ historyLength: 4, referrer: "https://www.google.com/", origin: O }), "/", "other site: landing page");
+assert.equal(leaveOnboardingTarget({ historyLength: 4, referrer: `${O}/login`, origin: O }), "/", "do not bounce back into login");
+assert.equal(leaveOnboardingTarget({ historyLength: 4, referrer: `${O}/onboarding`, origin: O }), "/", "referrer is onboarding");
+assert.equal(leaveOnboardingTarget({ historyLength: 4, referrer: "not a url", origin: O }), "/", "garbage referrer");
+
 const flow = readFileSync(new URL("../src/app/onboarding/flow.tsx", import.meta.url), "utf8");
 assert.match(flow, /pushState\(stepState\(n\)/, "each screen is a history entry");
 assert.match(flow, /addEventListener\("popstate"/, "back/forward is handled");
 assert.match(flow, /removeEventListener\("popstate"/, "the listener is removed on unmount");
+assert.doesNotMatch(flow, /canBack = step > 0/, "Back is enabled on the first screen");
 console.log("step history checks ok");

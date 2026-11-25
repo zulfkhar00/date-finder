@@ -71,7 +71,7 @@ In the matching Stripe test or live mode, create a **snapshot** webhook destinat
 https://noswipe.app/api/stripe/webhook
 ```
 
-For the first deployment, create this destination in **Stripe test mode**. Subscribe to `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, and `charge.refunded`. Reveal that destination's `whsec_...` signing secret, set it as `STRIPE_WEBHOOK_SECRET` in Dokploy, and redeploy the Application.
+For the first deployment, create this destination in **Stripe test mode**. Subscribe to `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `charge.refunded`, and `payment_intent.payment_failed` (the last one gives the decline code and card country shown in the admin Checkout panel; run `supabase/2026-11-20-checkout-forensics.sql` first). Reveal that destination's `whsec_...` signing secret, set it as `STRIPE_WEBHOOK_SECRET` in Dokploy, and redeploy the Application.
 
 ## 6. Verify before accepting live payments
 
@@ -167,3 +167,69 @@ Redeploy after setting them. **Check it** with a Stripe test-mode reservation us
 2. Set `CONTENT_SYNC_TOKEN` (32+ random characters) in the production environment and redeploy.
 
 An external sync job owned by the founders calls `POST /api/content/sync` every 5 minutes with that bearer token. It upserts every video, uploads previews through one-time signed upload URLs, receives the open requests, applies them to the queue, and reports them done on the next call. The page only reads; previews are served as 10-minute signed URLs.
+
+## 11. Starter pack (AI profile rewrite, photo order, openers, date plan)
+
+Written for every onboarded user by `claude-sonnet-5-5` (server only, `ANTHROPIC_API_KEY`). Nothing is sent to anyone and
+no dating app is touched: the user copies the text and pastes it into their own app.
+
+1. Run `supabase/2026-11-20-starter-packs.sql` (idempotent; tables `starter_packs`, `starter_pack_runs`; RLS on, browser roles
+   revoked, users can only SELECT their own pack). Until it is applied the Home screen shows "We're writing your pack" and
+   generation fails closed (no model call is made without the ledger).
+2. Env (all optional, defaults in brackets): `STARTER_PACK_DAILY_CAP` [60 model runs per UTC day],
+   `STARTER_PACK_DAILY_TOKEN_CAP` [2500000 input-token equivalents per UTC day], `STARTER_PACK_REGENERATE_PER_DAY` [3 per user].
+   `CRON_SECRET` must be set (same one as the digest).
+3. Trigger: finishing onboarding starts the pack right after the response (`after()`, which Vercel keeps alive with waitUntil; the
+   onboarding page's `maxDuration` is 60, the Hobby ceiling, and the text and photo calls run side by side to fit). A Home visit with
+   no pack nudges it again, so a killed run heals on the next visit. The sweep `GET /api/cron/starter-packs` creates packs for
+   onboarded users who have none (the backfill), retries failed packs an hour later (9 tries lifetime), and picks up packs queued
+   behind the daily cap after 00:05 UTC. `vercel.json` runs it once a day (06:20 UTC, Hobby limit). Auth is
+   `Authorization: Bearer $CRON_SECRET`, or `Bearer $STARTER_PACK_SWEEP_TOKEN` when that env is set, so a founders' server can call
+   it every 10 minutes: `*/10 * * * * curl -fsS -H "Authorization: Bearer $STARTER_PACK_SWEEP_TOKEN" https://noswipe.app/api/cron/starter-packs`.
+   One call handles one to two users (60 s limit).
+4. Backfill by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "https://noswipe.app/api/cron/starter-packs?limit=5"` (repeat until
+   `considered` is 0), or for one user `...?userId=<uuid>`. Admin: /admin/clients/<id> has "Write the pack now".
+
+
+## 11b. Reply helper (Chats tab)
+
+A signed-in user shows a Hinge/Tinder/Bumble conversation (1-4 screenshots or pasted text) at `/chats/reply` and gets three replies in
+their own voice, a one-line read, and a date suggestion with two plans when it is time. `claude-sonnet-5-5`, server only. Open to every
+signed-in user in every country (no payment or country gate). Nothing is sent to anyone.
+
+1. Run `supabase/2026-11-21-reply-helper.sql` (idempotent; tables `reply_threads`, `reply_helper_runs`; RLS on, browser roles revoked,
+   users can only SELECT their own threads; also adds `reply_helper_used` and `reply_copied` to the funnel event check). Until it is
+   applied the helper fails closed before any model call (the ledger is read first) and shows a friendly error.
+2. Env (optional, defaults in brackets): `REPLY_HELPER_DAILY_CAP` [150 model runs per UTC day], `REPLY_HELPER_DAILY_TOKEN_CAP`
+   [2500000 input-token equivalents], `REPLY_HELPER_PER_USER_PER_DAY` [20 sessions per user]. A rewrite (more playful, shorter, write
+   again) counts as a run. Failed runs are not refunded.
+3. Privacy: screenshots are shrunk in the browser, read in memory by `POST /api/app/reply`, sent to the model and dropped; no bucket, no
+   disk, no log. The thread keeps the model's output and the last <= 14 lines it read (so rewrites need no new upload); the user can delete it
+   (`DELETE /api/app/reply?id=`), and deleting the account cascades. The admin client page shows counts only.
+
+## Takedown process (reports, appeals)
+
+1. Run `supabase/2026-11-20-reports.sql` (idempotent; after `2026-11-04-app.sql` and `2026-11-20-photo-flags.sql`). It adds `reports`,
+   `reports_events`, three `profiles` hold columns and the private `report-uploads` bucket. Until then `/report` answers "email us" and
+   `/admin/reports` shows a setup notice.
+2. Public form: `/report` (no account, no CAPTCHA service; honeypot, per-address and global limits in the database). Optional env
+   `REPORT_HASH_SALT` keys the address hash (falls back to the server Supabase key). No email is sent to reporters.
+3. Admin: `/admin/reports` (queue, SLA timers, filters) and `/admin/reports/<id>` (actions, audit log, NCMEC panel).
+4. Ops alerts reuse the ops bot (`NOSWIPE_OPS_BOT_TOKEN`, `NOSWIPE_OPS_CHAT_ID`): one line per new report and per SLA breach. They go to
+   the errors topic until `NOSWIPE_OPS_REPORTS_TOPIC_ID` names a dedicated forum topic.
+5. SLA breach sweep: `GET /api/cron/report-sla` (`Authorization: Bearer $CRON_SECRET`). `vercel.json` runs it daily (Hobby limit); for
+   10-minute coverage call it from a founders' server: `*/10 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://noswipe.app/api/cron/report-sla`.
+   Opening `/admin/reports` runs the same sweep. Each breach is announced once.
+
+## Owner preview (`/app`)
+
+A clickable walkthrough of the whole product (onboarding, Home, Chats with reply drafts, Dates, Profile) on sample data, for the founders only.
+It lives under `/app`, is never indexed or in the sitemap, and keeps all its state in the browser (localStorage): it reads and writes no Supabase
+rows except the sign-in session, and sends nothing.
+
+- **Access:** `/app/login` (email + password, Supabase Auth, same `ns-session` cookie as the app, 30-day session, Profile → Sign out). The signed-in,
+  confirmed email must be in `ADMIN_EMAILS` (optionally also `OWNER_APP_EMAILS`, read only here). Every other visitor, signed in or not, gets the normal 404 on
+  every `/app/*` page; the login form gives the same generic error for a wrong password and for an address that is not allowed.
+- **Forgot password:** `/app/login` → "Forgot password?" emails a one-hour link (`/app/auth` → `/app/reset`) only to allowed addresses; the page says the same thing either way.
+- **Create or reset the login:** with the server-side `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the environment, run `node scripts/create-owner-login.mjs [file]`
+  (the file holds `email=` and `password=`, default `~/.config/noswipe/app-login.txt`, mode 600). Idempotent; never prints the password.

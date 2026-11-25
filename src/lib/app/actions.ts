@@ -3,16 +3,21 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeTimezone } from "@/lib/timezone";
 import { addSystemEvent } from "@/lib/automation/core";
 import { CONSENT_STATEMENT, CONSENT_VERSION, APPS, SEND_REFUSALS, VOICES, canUserSend, chatMode, stepSchemas, type StepName } from "@/lib/app/domain";
 import { createAppClient, userOrNull } from "@/lib/app/session";
 import { ensureProfile } from "@/lib/app/actions-core";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { schedulePackAfterOnboarding } from "@/lib/starter-pack/service";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const UNAUTH: ActionResult = { ok: false, error: "Your session ended. Sign in again." };
 const DB_ERR: ActionResult = { ok: false, error: "Couldn't save. Try again." };
 const uuid = z.string().uuid();
+/** The database does not have the column, table or status value yet (the migration has not run). */
+const isSchemaGap = (error: { code?: string | null } | null | undefined) => ["42703", "42P01", "PGRST204", "PGRST205", "23514"].includes(error?.code ?? "");
 
 async function ctx() {
   const user = await userOrNull();
@@ -45,9 +50,10 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
     const chosen = v.apps as string[];
     const { data: existing } = await sb.from("app_accounts").select("app, status").eq("user_id", user.id);
     const have = new Set((existing ?? []).map((a) => a.app));
+    // We create the profile ourselves: a picked app is just a new row that starts as "setting up".
     const add = chosen.filter((a) => !have.has(a)).map((app) => ({ user_id: user.id, app, status: "setting_up" }));
     if (add.length) ({ error } = await sb.from("app_accounts").insert(add));
-    const drop = (existing ?? []).filter((a) => !chosen.includes(a.app) && a.status === "setting_up").map((a) => a.app);
+    const drop = (existing ?? []).filter((a) => !chosen.includes(a.app) && (a.status === "setting_up" || a.status === "awaiting_login")).map((a) => a.app);
     if (!error && drop.length) ({ error } = await sb.from("app_accounts").delete().eq("user_id", user.id).in("app", drop));
   }
   if (error) return DB_ERR;
@@ -61,16 +67,18 @@ export async function saveStep(step: StepName, payload: unknown, stepIndex?: num
  * those answers are saved here, once, and only onto a brand-new profile: an existing account's
  * answers are never overwritten.
  */
-export async function adoptGuestAnswers(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }): Promise<ActionResult> {
+export async function adoptGuestAnswers(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, browserTimezone?: string): Promise<ActionResult> {
   const c = await ctx();
   if (!c) return UNAUTH;
   const { sb, user } = c;
-  const { data: row } = await sb.from("profiles").select("first_name, birthday, gender, onboarding_step, onboarding_done_at").eq("user_id", user.id).maybeSingle();
-  if (!row || row.onboarding_done_at || row.first_name || row.birthday || row.gender || (row.onboarding_step ?? 0) > 0) return { ok: true };
+  const { data: row } = await sb.from("profiles").select("first_name, birthday, gender, onboarding_step, onboarding_done_at, timezone").eq("user_id", user.id).maybeSingle();
+  if (!row || row.onboarding_done_at || row.first_name || row.birthday || row.gender || (row.onboarding_step ?? 0) > 0) { await rememberTimezone(sb, user.id, browserTimezone); return { ok: true }; }
   const name = stepSchemas.name.safeParse({ firstName: input.firstName });
   const birthday = stepSchemas.birthday.safeParse({ birthday: input.birthday });
   const who = stepSchemas.who.safeParse({ gender: input.gender, interestedIn: input.interestedIn });
   const patch: Record<string, unknown> = { onboarding_step: 1, updated_at: new Date().toISOString() };
+  const zone = normalizeTimezone(browserTimezone);
+  if (zone && !row.timezone) patch.timezone = zone;
   if (name.success && name.data.firstName) patch.first_name = name.data.firstName;
   if (birthday.success && birthday.data.birthday) patch.birthday = birthday.data.birthday;
   if (who.success) { if (who.data.gender) patch.gender = who.data.gender; patch.interested_in = who.data.interestedIn; }
@@ -78,8 +86,18 @@ export async function adoptGuestAnswers(input: { firstName: string; birthday: st
   return error ? DB_ERR : { ok: true };
 }
 
+/**
+ * The browser's own IANA zone, saved silently with the basics (no question asked). Validated here, only fills an empty value (an operator's
+ * edit or an earlier capture wins), and never blocks onboarding: a failure just leaves it null.
+ */
+async function rememberTimezone(sb: SupabaseClient, userId: string, browserTimezone: string | undefined): Promise<void> {
+  const zone = normalizeTimezone(browserTimezone);
+  if (!zone) return;
+  await sb.from("profiles").update({ timezone: zone }).eq("user_id", userId).is("timezone", null);
+}
+
 /** The one-screen basics (name, birthday, who): one check, one write, then on to the next step. */
-export async function saveBasics(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, stepIndex: number): Promise<ActionResult> {
+export async function saveBasics(input: { firstName: string; birthday: string; gender: string; interestedIn: string[] }, stepIndex: number, browserTimezone?: string): Promise<ActionResult> {
   const c = await ctx();
   if (!c) return UNAUTH;
   const name = stepSchemas.name.safeParse({ firstName: input.firstName });
@@ -91,6 +109,7 @@ export async function saveBasics(input: { firstName: string; birthday: string; g
   const { sb, user } = c;
   const { error } = await sb.from("profiles").update({ first_name: name.data.firstName || null, birthday: birthday.data.birthday || null, gender: who.data.gender || null, interested_in: who.data.interestedIn, updated_at: new Date().toISOString() }).eq("user_id", user.id);
   if (error) return DB_ERR;
+  await rememberTimezone(sb, user.id, browserTimezone);
   if (Number.isInteger(stepIndex) && stepIndex >= 0 && stepIndex <= 6) await sb.from("profiles").update({ onboarding_step: stepIndex }).eq("user_id", user.id).lt("onboarding_step", stepIndex);
   revalidatePath("/profile");
   return { ok: true };
@@ -118,7 +137,10 @@ export async function giveConsent(confirmAdult: boolean): Promise<ActionResult> 
     const { error } = await sb.from("consents").insert({ user_id: user.id, version: CONSENT_VERSION, statement: CONSENT_STATEMENT });
     if (error) return DB_ERR;
   }
-  await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
+  const { error: doneError } = await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
+  // Starter pack: written after this response, never blocking it. A repeat call is a no-op (one pack per user per
+  // version), and the 10-minute sweep covers anything that fails here.
+  if (!doneError) schedulePackAfterOnboarding(user.id);
   return { ok: true };
 }
 
@@ -194,12 +216,75 @@ export async function sendMyMessage(matchId: string, body: string): Promise<Acti
   return { ok: true };
 }
 
+/** Pause (paused = true) or Resume (false). Resume also hands back any chats the client took over with "Take over" on that app. */
 export async function setAppPaused(app: string, paused: boolean): Promise<ActionResult> {
   const c = await ctx();
   if (!c || !z.enum(APPS).safeParse(app).success) return UNAUTH;
   const { error } = await c.sb.from("app_accounts").update({ user_paused: paused, updated_at: new Date().toISOString() }).eq("user_id", c.user.id).eq("app", app);
   if (error) return DB_ERR;
-  revalidatePath("/profile"); revalidatePath("/home");
+  if (!paused) await endAppTakeovers(c.sb, c.user.id, app);
+  revalidatePath("/profile"); revalidatePath("/home"); revalidatePath("/chats");
+  return { ok: true };
+}
+
+/** Matches of one app that belong to this user. */
+async function appMatchIds(sb: ReturnType<typeof getSupabaseAdmin>, userId: string, app: string): Promise<string[]> {
+  const { data } = await sb.from("matches").select("id").eq("user_id", userId).eq("app", app);
+  return (data ?? []).map((m) => m.id as string);
+}
+
+async function endAppTakeovers(sb: ReturnType<typeof getSupabaseAdmin>, userId: string, app: string) {
+  const ids = await appMatchIds(sb, userId, app);
+  if (!ids.length) return;
+  // `source` exists after supabase/2026-11-21-account-runs.sql; before it nothing was ever started from Home, so there is nothing to hand back.
+  const { data: ended, error } = await sb.from("takeovers").update({ ended_at: new Date().toISOString() }).eq("user_id", userId).eq("source", "app").in("match_id", ids).is("ended_at", null).select("match_id");
+  if (error) return;
+  await Promise.all((ended ?? []).map((t) => addSystemEvent(sb, t.match_id as string, userId, { kind: "handed_back" })));
+}
+
+/**
+ * "Take over" on an app card: the client drives this app themselves for now. Nothing is sent as them (the app is paused) and every
+ * open chat on it moves to "you took over", so what they type goes out and nothing is written over it. Resume hands those chats back.
+ */
+export async function takeOverApp(app: string): Promise<ActionResult> {
+  const c = await ctx();
+  if (!c || !z.enum(APPS).safeParse(app).success) return UNAUTH;
+  const { error } = await c.sb.from("app_accounts").update({ user_paused: true, updated_at: new Date().toISOString() }).eq("user_id", c.user.id).eq("app", app);
+  if (error) return DB_ERR;
+  const ids = await appMatchIds(c.sb, c.user.id, app);
+  if (ids.length) {
+    const { data: open } = await c.sb.from("takeovers").select("match_id").in("match_id", ids).is("ended_at", null);
+    const taken = new Set((open ?? []).map((t) => t.match_id as string));
+    for (const id of ids.filter((m) => !taken.has(m))) {
+      let r = await c.sb.from("takeovers").insert({ match_id: id, user_id: c.user.id, source: "app" });
+      if (r.error && isSchemaGap(r.error)) r = await c.sb.from("takeovers").insert({ match_id: id, user_id: c.user.id });
+      // 23505: the chat was taken over a moment ago by another tap; that is the state we want.
+      if (r.error && r.error.code !== "23505") return DB_ERR;
+      if (!r.error) await addSystemEvent(c.sb, id, c.user.id, { kind: "took_over" });
+      await c.sb.from("matches").update({ needs_user: false, needs_reason: null }).eq("id", id);
+    }
+  }
+  revalidatePath("/profile"); revalidatePath("/home"); revalidatePath("/chats");
+  return { ok: true };
+}
+
+/** The client's answer to a date the team booked: confirm it, or decline it (a declined date leaves Dates and the team sees it in the log). */
+export async function respondToDate(id: string, response: "confirmed" | "declined"): Promise<ActionResult> {
+  const c = await ctx();
+  if (!c || !uuid.safeParse(id).success || (response !== "confirmed" && response !== "declined")) return UNAUTH;
+  const { data: date } = await c.sb.from("dates").select("id, who, status").eq("id", id).eq("user_id", c.user.id).maybeSingle();
+  if (!date) return { ok: false, error: "Date not found." };
+  if (date.status === "cancelled") return { ok: false, error: "This date was cancelled." };
+  const nowIso = new Date().toISOString();
+  const { error } = await c.sb.from("dates").update({ client_response: response, responded_at: nowIso, ...(response === "declined" ? { status: "cancelled" } : {}) }).eq("id", id).eq("user_id", c.user.id);
+  if (error) {
+    if (response === "declined" && isSchemaGap(error)) {
+      const r = await c.sb.from("dates").update({ status: "cancelled" }).eq("id", id).eq("user_id", c.user.id);
+      if (r.error) return DB_ERR;
+    } else return DB_ERR;
+  }
+  await c.sb.from("fulfilment_events").insert({ user_id: c.user.id, actor: "client", action: "note", note: response === "declined" ? `Client declined the date with ${date.who}.` : `Client confirmed the date with ${date.who}.` });
+  revalidatePath("/dates"); revalidatePath("/home"); revalidatePath(`/dates/${id}`);
   return { ok: true };
 }
 

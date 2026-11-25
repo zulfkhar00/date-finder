@@ -1,6 +1,6 @@
-import { DatesView } from "@/components/app/views";
 import { buildDemo } from "@/lib/app/demo-data";
+import { DemoDatesScreen } from "../demo-screens";
 
 export default function DemoDates() {
-  return <DatesView base="/demo" dates={buildDemo().dates} />;
+  return <DemoDatesScreen dates={buildDemo().dates} />;
 }
