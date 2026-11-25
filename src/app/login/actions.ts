@@ -1,8 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { buildLoginEmail } from "@/lib/app-emails";
+import { createSendLimiter, networkKey, sendLimitMessage, trustedClientIp } from "@/lib/app/code-send-limit";
 import { readAppConfig } from "@/lib/app/config";
 import { createAppClient } from "@/lib/app/session";
 import { canSendEmail, sendAppEmail } from "@/lib/email";
@@ -14,15 +16,16 @@ const emailSchema = z.email().max(254).transform((v) => v.trim().toLowerCase());
 const codeSchema = z.string().trim().regex(/^\d{6,10}$/);
 const SEND_FAILED = "Couldn't send the email right now. Wait a minute and try again.";
 
-// Best-effort per-instance throttle so one address can't be mailed in a loop.
+// Best-effort per-instance throttles: one email address can't be mailed in a loop, and one network can't mail many.
 const lastSent = new Map<string, number>();
+const networkSends = createSendLimiter();
 
 /**
  * Step 1: email a sign-in link and code. New addresses get an account on the spot (that is how
  * "we create accounts for them" works), created server-side with the service key so public
  * signup can stay off in Supabase. The email goes out from NoSwipe through Resend.
  */
-export async function requestCode(_prev: LoginState, formData: FormData): Promise<LoginState> {
+export async function requestCode(prev: LoginState, formData: FormData): Promise<LoginState> {
   const config = readAppConfig();
   if (!config) return { step: "email", error: "Sign-in is not available right now." };
   const parsed = emailSchema.safeParse(formData.get("email"));
@@ -32,6 +35,14 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
 
   const now = Date.now();
   if (now - (lastSent.get(email) ?? 0) < 45_000) return { step: "code", email, notice: "A code was just sent. Give it a minute, then try again." };
+  // Counted before anything is created or mailed. An unknown address (no proxy header) is not limited.
+  const ip = trustedClientIp(await headers());
+  const wait = ip ? networkSends.take(networkKey(ip), now) : 0;
+  if (wait) {
+    // A refused resend stays on the code screen, so the code already in the inbox can still be typed in.
+    const hasCode = prev.step === "code" && prev.email === email;
+    return { step: hasCode ? "code" : "email", email, error: sendLimitMessage(wait, hasCode) };
+  }
   lastSent.set(email, now);
   if (lastSent.size > 5000) lastSent.clear();
 

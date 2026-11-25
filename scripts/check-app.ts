@@ -127,6 +127,7 @@ console.log("app: all checks passed");
 import { CONFIRM_MAX_MS, RESUME_COPY, RESUME_FORBIDDEN, buildResumePayload, pollUntilPaid } from "../src/lib/app/resume";
 import { reservationSchema, onboardingSchema } from "../src/lib/reservation";
 import { CLIENT_EVENTS } from "../src/lib/attribution";
+import "./check-send-limit"; // sign-in code limit; imported here so `npm test` runs it
 
 for (const [k, v] of Object.entries(RESUME_COPY)) assert.equal(RESUME_FORBIDDEN.test(v), false, `resume copy "${k}" uses a banned word`);
 assert.ok(RESUME_COPY.title.startsWith("One step left: activate NoSwipe so our team starts setting up your apps"));

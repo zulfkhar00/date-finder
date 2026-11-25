@@ -59,6 +59,7 @@ function Inner({ onSignedIn, onCodeSent, restart }: { onSignedIn: () => void; on
           }} />
       </label>
       {verified.error ? <p className="app-error" role="alert">{verified.error}</p> : null}
+      {sent.error ? <p className="app-error" role="alert">{sent.error}</p> : null}
       <button type="submit" className="app-btn" disabled={verifying || finishing} aria-busy={verifying || finishing}>
         {verifying || finishing ? <><span className="app-spinner" aria-hidden /> {finishing ? "Saving…" : "Checking…"}</> : "Continue"}
       </button>

@@ -35,6 +35,7 @@ function Steps({ initialError, restart }: { initialError?: string; restart: () =
         <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required readOnly={verifying} autoFocus />
       </label>
       {verified.error ? <p className="app-error" role="alert">{verified.error}</p> : null}
+      {sent.error ? <p className="app-error" role="alert">{sent.error}</p> : null}
       <button type="submit" className="app-btn" disabled={verifying} aria-busy={verifying}>
         {verifying ? <><span className="app-spinner" aria-hidden /> Checking…</> : "Sign in"}
       </button>
