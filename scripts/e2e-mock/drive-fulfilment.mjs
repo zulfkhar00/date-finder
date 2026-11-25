@@ -66,8 +66,13 @@ async function signIn(page, email, loginPath, button, landing) {
     await page.getByRole("button", { name: button }).click({ timeout: 3000 }).catch(() => {});
     if (await page.locator('input[name="code"]').waitFor({ timeout: 5000 }).then(() => true, () => false)) break;
   }
-  const mail = await mock("/__outbox");
-  const code = [...mail.email].reverse().find((m) => m.to.includes(email))?.text.match(/\b(\d{6,10})\b/)?.[1];
+  let code;
+  // /login answers before the mail goes out, so wait for it.
+  for (let i = 0; i < 40 && !code; i++) {
+    const mail = await mock("/__outbox");
+    code = [...mail.email].reverse().find((m) => m.to.includes(email))?.text.match(/\b(\d{6,10})\b/)?.[1];
+    if (!code) await new Promise((r) => setTimeout(r, 250));
+  }
   if (!code) throw new Error("no code in the mock outbox");
   await page.locator('input[name="code"]').fill(code);
   await page.getByRole("button", { name: "Sign in" }).click();

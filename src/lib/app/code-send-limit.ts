@@ -60,5 +60,5 @@ export function createSendLimiter(limit = SEND_LIMIT, windowMs = SEND_WINDOW_MS,
 export function sendLimitMessage(waitMs: number, hasCode: boolean): string {
   const minutes = Math.max(1, Math.ceil(waitMs / 60_000));
   const when = `about ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
-  return `Too many sign-in codes were requested from your network. Try again in ${when}${hasCode ? ", or enter the code we already sent" : ""}.`;
+  return `Too many sign-in codes were requested from your network. Try again in ${when}${hasCode ? ", or enter a code you already received" : ""}.`;
 }

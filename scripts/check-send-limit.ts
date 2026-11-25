@@ -48,13 +48,9 @@ assert.equal(networkKey("203.0.113.9"), "203.0.113.9");
 
 assert.match(sendLimitMessage(61_000, false), /about 2 minutes\.$/);
 assert.match(sendLimitMessage(1, false), /about 1 minute\.$/);
-assert.match(sendLimitMessage(60_000, true), /enter the code we already sent/);
+assert.match(sendLimitMessage(60_000, true), /enter a code you already received/);
 
-// Wiring: the limit is applied before an account is created or an email goes out, and both forms show the refusal.
-const action = readFileSync(new URL("../src/app/login/actions.ts", import.meta.url), "utf8");
-const at = (s: string) => { const i = action.indexOf(s); assert.ok(i > 0, `${s} is in the action`); return i; };
-assert.ok(at("networkSends.take(") < at("auth.admin.createUser("));
-assert.ok(at("networkSends.take(") < at("await sendAppEmail("));
+// Wiring: both forms show the refusal. The order (limit before any account or email) is driven in check-sign-in-code.ts.
 for (const file of ["../src/app/login/login-form.tsx", "../src/app/onboarding/account-step.tsx"]) {
   const form = readFileSync(new URL(file, import.meta.url), "utf8");
   assert.equal(form.split("{sent.error ?").length - 1, 2, `${file}: the send error shows on the email and the code screen`);

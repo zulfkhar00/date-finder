@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { requestCode, verifyCode, type LoginState } from "./actions";
+import type { LoginState } from "@/lib/app/sign-in-code";
+import { requestCode, verifyCode } from "./actions";
 
 export function LoginForm({ initialError }: { initialError?: string }) {
   const [attempt, setAttempt] = useState(0);
@@ -28,7 +29,7 @@ function Steps({ initialError, restart }: { initialError?: string; restart: () =
   }
   return (
     <form action={verifyAction} className="app-form">
-      <p className="app-sub" role="status">Code sent to <strong>{sent.email}</strong></p>
+      <p className="app-sub" role="status">If this email has a NoSwipe account, we sent a code to <strong>{sent.email}</strong></p>
       <input type="hidden" name="email" value={sent.email} />
       <label className="app-field">
         <span>Code</span>

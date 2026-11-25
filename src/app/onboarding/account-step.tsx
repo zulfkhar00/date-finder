@@ -2,7 +2,9 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { trackEvent } from "@/lib/attribution-client";
-import { requestCode, verifyCodeInline, type LoginState } from "@/app/login/actions";
+import { verifyCodeInline } from "@/app/login/actions";
+import type { LoginState } from "@/lib/app/sign-in-code";
+import { requestSignupCode } from "./actions";
 
 /**
  * The email-code sign-in, placed inside onboarding after the first questions so a visitor sees
@@ -14,7 +16,7 @@ export function AccountStep({ onSignedIn, onCodeSent }: { onSignedIn: () => void
 }
 
 function Inner({ onSignedIn, onCodeSent, restart }: { onSignedIn: () => void; onCodeSent?: (sent: boolean) => void; restart: () => void }) {
-  const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestCode, { step: "email" });
+  const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestSignupCode, { step: "email" });
   const [verified, verifyAction, verifying] = useActionState<LoginState, FormData>(verifyCodeInline, { step: "code" });
   const fired = useRef(false);
   const verifyForm = useRef<HTMLFormElement>(null);

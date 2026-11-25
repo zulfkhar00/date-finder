@@ -161,8 +161,9 @@ signal by reporting `status: "paused"`), and never put one user's session or pho
 ## Local development
 
 `.env.local` with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SITE_URL=http://localhost:3000`,
-`AUTOMATION_API_KEY` (32+ chars). Create a test user by signing in at `/login` with an `@example.test` address (it is
-flagged internal automatically; with no Resend key, create a sign-in link with the Supabase admin API instead), then:
+`AUTOMATION_API_KEY` (32+ chars). Create a test user by signing up at `/onboarding` with an `@example.test` address (it is
+flagged internal automatically; `/login` only mails existing accounts; with no Resend key, create a sign-in link with the
+Supabase admin API instead), then:
 ```sh
 curl -H "Authorization: Bearer $AUTOMATION_API_KEY" http://localhost:3000/api/automation/v1/clients
 ```
