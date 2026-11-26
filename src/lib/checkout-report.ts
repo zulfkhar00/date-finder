@@ -20,6 +20,8 @@ export type CheckoutEventRow = Partial<Pick<QualityEvent, "quality" | "utm_sourc
   device?: string | null;
   country?: string | null;
   detail?: CheckoutDetail | null;
+  user_id?: string | null;
+  account_internal?: boolean | null;
 };
 
 export type CheckoutStep = { key: "opened" | "ready" | "submitted" | "paid"; label: string; count: number; pctOfOpened: number | null; pctOfPrevious: number | null };
@@ -69,12 +71,12 @@ const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 :
 /** Reservations our own integration runs left behind: city "Integration test". Treated like any example.test address. */
 const INTEGRATION_CITY = /integration test/i;
 
-export function computeCheckoutReport(events: CheckoutEventRow[], reservationRows: (ReservationRow & { city?: string | null })[], now = new Date(), sinceDays = 30, options: { includeSuspect?: boolean } = {}): CheckoutReport {
+export function computeCheckoutReport(events: CheckoutEventRow[], reservationRows: (ReservationRow & { city?: string | null })[], now = new Date(), sinceDays = 30, options: { includeSuspect?: boolean; internalUserIds?: ReadonlySet<string> } = {}): CheckoutReport {
   const includeSuspect = options.includeSuspect ?? false;
   const sinceMs = now.getTime() - sinceDays * DAY;
   const allReservations = reservationRows.map((r) => (r.city && INTEGRATION_CITY.test(r.city) ? { ...r, email: "integration-test@example.test" } : r));
   const { real, badStripeSessions } = splitReservations(allReservations, null, null);
-  const internal = internalSessionIds(events, badStripeSessions);
+  const internal = internalSessionIds(events, badStripeSessions, options.internalUserIds);
   const excluded = { bots: 0, internal: 0, stripeTest: 0, suspect: 0 };
   const qualities = sessionQualities(events.filter((e) => !(e.session_id && internal.has(e.session_id))), now.getTime());
   const suspectIds = new Set<string>();

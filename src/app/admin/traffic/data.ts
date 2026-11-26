@@ -42,7 +42,7 @@ export async function getTrafficPage(range: RangeKey, sourceWindow: SourceWindow
   } catch {
     throw new AdminDataError("traffic", undefined);
   }
-  const model = buildTrafficModel(rows.events, rows.reservations, rows.firstTouchByStripe, { includeSuspect, nowMs });
+  const model = buildTrafficModel(rows.events, rows.reservations, rows.firstTouchByStripe, { includeSuspect, nowMs, internalUserIds: rows.internalUserIds });
   let earliest: number | null = null;
   for (const s of model.sessions.values()) earliest = earliest === null ? s.firstAt : Math.min(earliest, s.firstAt);
   const w = rangeWindows(range, nowMs, earliest);

@@ -12,13 +12,21 @@ import { PROBE_SESSION_PREFIX, reservationExclusion } from "@/lib/internal-traff
 //  - reservations created in Stripe test mode (cs_test_ sessions)
 //  - every funnel session that reached a checkout belonging to an excluded reservation
 //  - our own probe sessions (PROBE_SESSION_PREFIX)
+//  - every funnel session in which the browser was SIGNED IN to an internal account (a founder / test email
+//    at the time of the event, or a profile flagged `internal`), even if it never reached a checkout.
+//    The link is the server-read sign-in cookie (funnel_events.user_id / account_internal), the same session
+//    id covers the guest events before sign-in in that tab. Never inferred from IP, device or user agent.
+//    Rows from before supabase/2026-11-22-funnel-account-link.sql carry no account and cannot be classified.
 // Localhost and preview deployments are not recorded at all (see /api/event), so there is nothing to drop.
 
 const PAGE = 1000;
 const MAX_ROWS = 50_000;
 const DAY = 24 * 60 * 60 * 1000;
 
-type EventRow = Partial<Pick<QualityEvent, "device" | "quality" | "utm_source" | "referrer_host" | "in_app_source" | "landing_path" | "country">> & { created_at: string; event: string; session_id: string | null; variant: string | null; utm_campaign: string | null; dedupe_key: string | null };
+type EventRow = Partial<Pick<QualityEvent, "device" | "quality" | "utm_source" | "referrer_host" | "in_app_source" | "landing_path" | "country">> & { created_at: string; event: string; session_id: string | null; variant: string | null; utm_campaign: string | null; dedupe_key: string | null;
+  /** Signed-in account behind the event; absent/null for guests and for rows from before the account link. */
+  user_id?: string | null; account_internal?: boolean | null;
+};
 type ReservationRow = {
   created_at: string; email: string; status: string; paid_at: string | null;
   stripe_checkout_session_id: string | null; variant: string | null; utm_campaign: string | null;
@@ -46,6 +54,13 @@ export type RealFunnel = {
   paid7d: number;
 };
 
+/** A failed page read. `code` is the PostgREST/Postgres code only; never row contents. */
+export class FetchError extends Error {
+  constructor(readonly table: string, readonly code: string | undefined) {
+    super(`Real funnel query failed: ${table}`);
+  }
+}
+
 async function fetchAll<T>(table: string, columns: string, supabase: SupabaseClient, since: string | null, dateColumn: string): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; from < MAX_ROWS; from += PAGE) {
@@ -54,7 +69,7 @@ async function fetchAll<T>(table: string, columns: string, supabase: SupabaseCli
     const { data, error } = await query.range(from, from + PAGE - 1);
     if (error) {
       console.error("Real funnel query failed", table, error.code ?? "unknown");
-      throw new Error(`Real funnel query failed: ${table}`);
+      throw new FetchError(table, error.code);
     }
     out.push(...((data ?? []) as unknown as T[]));
     if (!data || data.length < PAGE) break;
@@ -64,20 +79,45 @@ async function fetchAll<T>(table: string, columns: string, supabase: SupabaseCli
 
 const utcDay = (iso: string) => iso.slice(0, 10);
 
+const EVENT_COLUMNS = "id, created_at, event, session_id, variant, utm_campaign, dedupe_key";
+const ACCOUNT_COLUMNS = "user_id, account_internal";
+
+export function isUndefinedColumnError(error: { code?: string | null } | null | undefined): boolean {
+  return error?.code === "42703" || error?.code === "PGRST204";
+}
+
+/**
+ * Ids of accounts flagged `internal` on their profile (founders, test accounts, anything an admin marked).
+ * Throws when unreadable: a funnel computed without it could count internal sessions, so callers show "n/a".
+ */
+export async function loadInternalUserIds(supabase: SupabaseClient): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (let from = 0; from < MAX_ROWS; from += PAGE) {
+    const { data, error } = await supabase.from("profiles").select("user_id").eq("internal", true).order("user_id", { ascending: true }).range(from, from + PAGE - 1);
+    if (error) {
+      console.error("Real funnel query failed", "profiles", error.code ?? "unknown");
+      throw new Error("Real funnel query failed: profiles");
+    }
+    for (const row of (data ?? []) as { user_id: string }[]) ids.add(row.user_id.toLowerCase());
+    if (!data || data.length < PAGE) break;
+  }
+  return ids;
+}
+
 /** `sinceDays` null = all time. Throws if a table cannot be read (callers show "n/a", never a made-up zero). */
 export async function getRealFunnel(supabase: SupabaseClient, sinceDays: number | null, now = new Date(), options: { includeSuspect?: boolean } = {}): Promise<RealFunnel> {
   const since = sinceDays === null ? null : new Date(now.getTime() - sinceDays * DAY).toISOString();
-  const [events, allReservations] = await Promise.all([
+  const [events, allReservations, internalUserIds] = await Promise.all([
     fetchEventsWithQuality(supabase, since),
     // All reservations, not just the window: a paid_at inside the window can belong to an older row.
-    fetchAll<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at")
+    fetchAll<ReservationRow>("reservations", RESERVATION_COLUMNS, supabase, null, "created_at"),
+    loadInternalUserIds(supabase)
   ]);
-  return computeRealFunnel(events, allReservations, sinceDays, now, undefined, options);
+  return computeRealFunnel(events, allReservations, sinceDays, now, undefined, { ...options, internalUserIds });
 }
 
-const EVENT_COLUMNS = "id, created_at, event, session_id, variant, utm_campaign, dedupe_key";
 // The quality columns exist only after supabase/2026-11-22-session-quality.sql (quality) and 2026-11-03 / 2026-11-21 (traffic).
-const QUALITY_EVENT_COLUMNS = [`${EVENT_COLUMNS}, device, country, utm_source, referrer_host, in_app_source, landing_path, quality`, `${EVENT_COLUMNS}, device, country, utm_source, referrer_host, landing_path`];
+const QUALITY_EVENT_COLUMNS = [`${EVENT_COLUMNS}, device, country, utm_source, referrer_host, in_app_source, landing_path, quality, ${ACCOUNT_COLUMNS}`, `${EVENT_COLUMNS}, device, country, utm_source, referrer_host, in_app_source, landing_path, quality`, `${EVENT_COLUMNS}, device, country, utm_source, referrer_host, landing_path`];
 
 async function fetchEventsWithQuality(supabase: SupabaseClient, since: string | null): Promise<EventRow[]> {
   for (const columns of QUALITY_EVENT_COLUMNS) {
@@ -98,11 +138,13 @@ export type { EventRow, ReservationRow };
  * Funnel sessions that belong to our own probes or to an excluded (founder / test / Stripe test)
  * checkout. Shared with the traffic report so every admin number drops the same sessions.
  */
-export function internalSessionIds(events: Pick<EventRow, "event" | "session_id" | "dedupe_key">[], badStripeSessions: Set<string>): Set<string> {
+export function internalSessionIds(events: Pick<EventRow, "event" | "session_id" | "dedupe_key" | "user_id" | "account_internal">[], badStripeSessions: Set<string>, internalUserIds: ReadonlySet<string> = new Set()): Set<string> {
   const stripeIdOf = (key: string | null) => (key ? key.slice(key.indexOf(":") + 1) : "");
   const internal = new Set<string>();
   for (const e of events) {
     if (e.session_id?.startsWith(PROBE_SESSION_PREFIX)) internal.add(e.session_id);
+    // Signed in as an internal account at any point of this tab session: the whole session (guest part too) is internal.
+    if (e.session_id && (e.account_internal === true || (e.user_id && internalUserIds.has(e.user_id.toLowerCase())))) internal.add(e.session_id);
     if (e.session_id && (e.event === "checkout_created" || e.event === "paid")) {
       const id = stripeIdOf(e.dedupe_key);
       if (badStripeSessions.has(id) || id.startsWith("cs_test_")) internal.add(e.session_id);
@@ -132,14 +174,14 @@ export function splitReservations(all: ReservationRow[], since: string | null, u
  * The pure half of getRealFunnel: takes rows already fetched (events may cover more than the window)
  * and computes the window [now - sinceDays, untilMs). `untilMs` is how the previous period is built.
  */
-export function computeRealFunnel(allEvents: EventRow[], allReservations: ReservationRow[], sinceDays: number | null, now = new Date(), untilMs?: number, options: { includeSuspect?: boolean } = {}): RealFunnel {
+export function computeRealFunnel(allEvents: EventRow[], allReservations: ReservationRow[], sinceDays: number | null, now = new Date(), untilMs?: number, options: { includeSuspect?: boolean; internalUserIds?: ReadonlySet<string> } = {}): RealFunnel {
   const includeSuspect = options.includeSuspect ?? false;
   const since = sinceDays === null ? null : new Date(now.getTime() - sinceDays * DAY).toISOString();
   const untilIso = untilMs === undefined ? null : new Date(untilMs).toISOString();
   const events = allEvents.filter((e) => (!since || e.created_at >= since) && (!untilIso || e.created_at < untilIso));
   const { real, badStripeSessions, excluded } = splitReservations(allReservations, since, untilIso);
   // Sessions are judged on ALL fetched events: the checkout that marks a session internal may sit outside the window.
-  const internalSessions = internalSessionIds(allEvents, badStripeSessions);
+  const internalSessions = internalSessionIds(allEvents, badStripeSessions, options.internalUserIds);
   const windowSessions = new Set(events.map((e) => e.session_id));
   excluded.internalSessions = [...internalSessions].filter((id) => windowSessions.has(id)).length;
 

@@ -1,7 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { reservationExclusion } from "@/lib/internal-traffic";
-import { getRealFunnel, type RealFunnel } from "@/lib/real-funnel";
+import { buildDigestText } from "@/lib/digest";
+import { getRealFunnel } from "@/lib/real-funnel";
+import { getConfirmedSignups } from "@/lib/signups";
 import { sendOps } from "@/lib/ops-notify";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -56,27 +58,14 @@ export async function GET(request: Request) {
   }
 
   const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-  const [day, month, refs] = await Promise.all([
+  // Each query fails on its own: a dead one shows n/a on its lines and leaves the rest of the digest intact.
+  const [day, month, signups, refs] = await Promise.all([
     getRealFunnel(supabase, 1, now).catch(() => null),
     getRealFunnel(supabase, 30, now).catch(() => null),
-    topPaidRefs(supabase, since)
+    getConfirmedSignups(supabase, now).catch(() => null),
+    topPaidRefs(supabase, since).catch(() => null)
   ]);
-
-  const show = (value: number | undefined) => (value === undefined ? "n/a" : String(value));
-  const line = (label: string, pick: (f: RealFunnel) => number) => `${label}: ${show(day ? pick(day) : undefined)} (30d ${show(month ? pick(month) : undefined)})`;
-  const date = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric" }).format(now);
-  const ex = month?.excluded;
-  const text = [
-    `📊 Daily digest, ${date} (last 24h, real traffic only)`,
-    line("Page views (visitors)", (f) => f.visitors),
-    line("Get started clicks", (f) => f.getStarted),
-    line("Onboarding opened", (f) => f.reserveStarts),
-    line("Onboarding done", (f) => f.onboardingComplete),
-    line("Checkout opened", (f) => f.checkouts),
-    line("Paid $1", (f) => f.paid),
-    `Paid by ref: ${refs ?? "n/a"}`,
-    ex ? `Excluded (30d): ${ex.founder} founder, ${ex.test_email} test email, ${ex.stripe_test} Stripe test checkouts, ${ex.internalSessions} internal sessions` : "Excluded: n/a"
-  ].join("\n");
+  const text = buildDigestText({ now, day, month, signups, refs });
 
   const sent = await sendOps("traffic", text);
   return NextResponse.json({ sent }, { headers: { "Cache-Control": "no-store" } });
