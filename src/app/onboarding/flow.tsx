@@ -11,7 +11,7 @@ import { adoptGuestAnswers, advanceStep, giveConsent, saveBasics, saveStep } fro
 import { CONSENT_STATEMENT, CONSENT_STEP, stepSchemas } from "@/lib/app/domain";
 import type { Photo } from "@/lib/app/data";
 import { captureAttribution, getFunnelSessionId, trackEvent } from "@/lib/attribution-client";
-import { GUEST_KEY, NETWORK_ERROR, accountCopy, ageForCheckout, primaryLabel, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
+import { GUEST_KEY, NETWORK_ERROR, PENDING_CODE_KEY, accountCopy, ageForCheckout, primaryLabel, basicsOf, mergeGuestBasics, parseGuestSaved, withTimeout } from "@/lib/app/onboarding-flow";
 import { decidePop, leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-history";
 import { AccountStep } from "./account-step";
 import { CountryNotice } from "@/components/country-notice";
@@ -32,7 +32,7 @@ type StepDef = { key: StepKey; title: string; sub?: string; event?: "ob_apps" | 
 // Everything but the consent box is optional. The questions that matter most come first; the photo upload is last
 // so nobody has to find photos before they have an account and a profile.
 const STEPS: StepDef[] = [
-  { key: "basics", title: "A bit about you", sub: "NoSwipe is only for adults 18 or older. Your birthday is required; everything else is optional." },
+  { key: "basics", title: "A bit about you", sub: "We create your dating profiles and run them for you. To start, we only need your birthday (18+). The rest is optional." },
   { key: "apps", title: "Which apps?", sub: "Optional. We create your profile on each one you pick and run it for you. You just show up.", event: "ob_apps" },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this.", event: "ob_about" },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no.", event: "ob_type" },
@@ -111,6 +111,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
+      // Signed in (the code step can be unmounted before it clears this itself).
+      if (!guest) window.sessionStorage.removeItem(PENDING_CODE_KEY);
       const saved = parseGuestSaved(window.sessionStorage.getItem(GUEST_KEY));
       if (guest) {
         if (saved) { setD(saved.d); setStep(Math.min(Math.max(saved.step, 0), GUEST_ACCOUNT_STEP)); }
@@ -284,8 +286,8 @@ export function OnboardingFlow({ guest, email, draft: initial, photos: initialPh
             </div>
            ) : <StepFields step={def.key} d={d} set={set} />}
         </div>
-        {error ? <p className="app-error" role="alert" style={{ marginTop: 14 }}>{error}</p> : null}
         <div className="ob-foot" style={{ marginTop: 26 }}>
+          {error ? <p className="app-error" role="alert">{error}</p> : null}
           {def.key === "pay" && countryBlocked ? (
             <button type="button" className="app-btn" onClick={() => router.replace("/home")}>Take me to my home</button>
           ) : def.key === "pay" ? (
