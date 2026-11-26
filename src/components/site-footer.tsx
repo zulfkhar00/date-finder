@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { businessIdentity } from "@/lib/business";
 
 export function SiteFooter() {
+  const business = businessIdentity();
   return (
     <footer className="site-footer shell">
       <div className="footer-row">
@@ -34,6 +36,9 @@ export function SiteFooter() {
       <p className="footer-small" style={{ marginTop: 18 }}>
         © {new Date().getFullYear()} NoSwipe. Not affiliated with Tinder, Hinge, Bumble or Badoo.
       </p>
+      {business ? (
+        <p className="footer-small">{[business.legalName, ...business.addressLines].join(", ")}</p>
+      ) : null}
     </footer>
   );
 }
