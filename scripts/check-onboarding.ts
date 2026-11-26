@@ -61,7 +61,8 @@ async function main() {
   assert.match(chip, /background:var\(--card\)/, "answer chips sit on the card colour");
   assert.doesNotMatch(chip, /(^|;)color:#fff/, "an unpicked answer chip must not be white on white");
   const account = readFileSync(new URL("../src/app/onboarding/account-step.tsx", import.meta.url), "utf8");
-  assert.match(account, /useActionState<LoginState, FormData>\(requestCode, initial\)/, "the code screen can be restored");
+  assert.match(account, /useActionState<LoginState, FormData>\(requestSignupCode, initial\)/, "the code screen can be restored");
+  assert.match(account, /sent === initial \|\| sent\.error \|\|/, "a refused resend does not restart the 60 minutes");
   assert.match(account, /restart=\{\(\) => \{ forgetPendingCode\(\)/, "Change email forgets the old address");
   assert.match(css, /\.ob-foot\{position:sticky;bottom:0/, "the main button stays on screen on phones");
   assert.match(flow, /ob-foot[^\n]*\n\s*\{error \?/, "a save error sits next to the button, not under the sticky footer");
