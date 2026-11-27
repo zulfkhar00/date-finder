@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { ensureKits } from "@/lib/operator/auto-kit";
 import { createAnthropicModel } from "./anthropic-model";
 import { claimPack, executePack, runPack, type LoadedPhotos, type ModelImage, type PackDeps, type RunOutcome } from "./generate";
 import { readLimits, utcDay } from "./limits";
@@ -73,7 +74,11 @@ export async function generatePackFor(userId: string, kind: RunKind = "auto"): P
 /** Fire and forget after the response, for onboarding completion. Never throws, never blocks the UI. */
 export function schedulePackAfterOnboarding(userId: string) {
   try {
-    after(async () => { await generatePackFor(userId, "auto"); });
+    after(async () => {
+      await generatePackFor(userId, "auto");
+      // A paid client's kit is made as soon as the pack is in, so nobody has to press "Generate kit". Never throws.
+      await ensureKits(getSupabaseAdmin(), userId).catch(() => undefined);
+    });
   } catch { /* outside a request scope: the sweep picks the user up within 10 minutes */ }
 }
 
