@@ -18,6 +18,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1 className="app-display">Welcome to NoSwipe.</h1>
         <p className="app-sub">Sign in with your email.</p>
         <LoginForm initialError={error === "link" ? "That sign-in link is invalid or has expired. Ask for a new one." : undefined} />
+        <p className="app-sub" style={{ textAlign: "center" }}>New here? <a href="/onboarding" className="app-link">Get started</a></p>
         <p className="app-fine">18+ · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
       </div>
     </main>

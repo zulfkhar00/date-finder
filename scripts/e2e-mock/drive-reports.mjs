@@ -205,8 +205,13 @@ async function signIn(page, email) {
   await page.locator('input[name="email"]').fill(email);
   await page.getByRole("button", { name: "Email me a code" }).click();
   await page.locator('input[name="code"]').waitFor({ timeout: 15000 });
-  const m = await mock("/__outbox");
-  const c = [...m.email].reverse().find((x) => x.to.includes(email))?.text.match(/\b(\d{6,10})\b/)?.[1];
+  let c;
+  // /login answers before the mail goes out, so wait for it.
+  for (let i = 0; i < 40 && !c; i++) {
+    const m = await mock("/__outbox");
+    c = [...m.email].reverse().find((x) => x.to.includes(email))?.text.match(/\b(\d{6,10})\b/)?.[1];
+    if (!c) await new Promise((r) => setTimeout(r, 250));
+  }
   await page.locator('input[name="code"]').fill(c);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/home", { timeout: 20000 });
