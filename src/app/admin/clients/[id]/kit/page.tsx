@@ -124,7 +124,7 @@ export default async function AdminKitPage({ params }: { params: Promise<{ id: s
             <h3 className={styles.subhead} style={{ marginTop: 14 }}>Kit</h3>
             {!kit ? (
               <OpForm action={generateKitAction.bind(null, id, app)} label="Generate kit" pendingLabel="Generating…">
-                <span className={styles.muted}>Built from onboarding and the starter pack. {gate.allowed ? "" : "Locked until the client has paid."}</span>
+                <span className={styles.muted}>Built from onboarding and the starter pack. {gate.allowed ? "Made automatically once the client has paid and settled; press to make it now." : "Locked until the client has paid."}</span>
               </OpForm>
             ) : (
               <div style={{ display: "grid", gap: 14 }}>

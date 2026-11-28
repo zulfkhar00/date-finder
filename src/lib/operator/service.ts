@@ -23,7 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ---------- who is a paying client ----------
 
 /** A real (non-test) paid reservation exists for the client's email. Internal accounts count as ready so the flow can be tested end to end. */
-export async function kitAllowed(sb: Admin, userId: string): Promise<{ allowed: boolean; paid: boolean; internal: boolean }> {
+export async function kitAllowed(sb: Admin, userId: string): Promise<{ allowed: boolean; paid: boolean; internal: boolean; email?: string }> {
   const [{ data: profile }, auth] = await Promise.all([sb.from("profiles").select("internal").eq("user_id", userId).maybeSingle(), sb.auth.admin.getUserById(userId)]);
   const internal = !!profile?.internal;
   const email = auth.data.user?.email?.toLowerCase();
@@ -32,7 +32,7 @@ export async function kitAllowed(sb: Admin, userId: string): Promise<{ allowed: 
     const { data } = await sb.from("reservations").select("status, stripe_checkout_session_id").eq("email", email).eq("status", "paid");
     paid = (data ?? []).some((r) => !isStripeTestSession(r.stripe_checkout_session_id as string | null));
   }
-  return { allowed: paid || internal, paid, internal };
+  return { allowed: paid || internal, paid, internal, email };
 }
 
 // ---------- kit ----------
@@ -61,8 +61,22 @@ export async function listKits(sb: Admin, userId: string): Promise<{ kits: Parti
   return { kits, setupNeeded: false };
 }
 
-/** Builds the whole kit for one app from the client's current data. Only for paid clients (or internal test accounts). */
-export async function generateKit(sb: Admin, actor: string, userId: string, app: string): Promise<{ ok: true } | Failure> {
+/** What the kit had to leave out because the client has not given it yet. Said in the kit's note so an operator knows to rebuild. */
+export function kitGaps(input: KitInput): string[] {
+  const gaps: string[] = [];
+  if (!input.pack) gaps.push("starter pack");
+  if (!input.photos.length) gaps.push("photos");
+  if (!input.prefs) gaps.push("preferences");
+  if (!input.profile.first_name) gaps.push("first name");
+  return gaps;
+}
+
+/**
+ * Builds the whole kit for one app from the client's current data. Only for paid clients (or internal test accounts).
+ * `onlyIfMissing` (the automatic path) inserts instead of replacing: a kit that exists is never touched, so an operator's edits survive,
+ * and two racing callers cannot both write (the unique key refuses the second, which then logs nothing).
+ */
+export async function generateKit(sb: Admin, actor: string, userId: string, app: string, opts: { onlyIfMissing?: boolean } = {}): Promise<{ ok: true; created: boolean } | Failure> {
   if (!UUID.test(userId) || !isApp(app)) return fail(400, "invalid", "Unknown client or app.");
   const gate = await kitAllowed(sb, userId);
   if (!gate.allowed) return fail(409, "not_paid", "The kit is made after the client has paid.");
@@ -71,13 +85,20 @@ export async function generateKit(sb: Admin, actor: string, userId: string, app:
   const input = await loadKitInput(sb, userId, app);
   if (!input) return fail(404, "not_found", "Unknown client.");
   const existing = await listKits(sb, userId);
+  if (opts.onlyIfMissing && existing.kits[app]) return { ok: true, created: false };
   const now = new Date().toISOString();
-  const { error } = await sb.from("account_kits").upsert({
+  const row = {
     user_id: userId, app, sections: buildKit(input), timezone: Object.values(existing.kits).find((k) => k?.timezone)?.timezone ?? null, generated_at: now, updated_at: now, updated_by: actor.slice(0, 254)
-  }, { onConflict: "user_id,app" });
-  if (error) { if (isUndefinedRelation(error)) return fail(503, "migration", `The kit is not set up. ${SETUP_HINT}`); console.error("Kit save failed", error.code); return fail(500, "db", "Could not save the kit."); }
-  await addNoteEvent(sb, actor, userId, "Kit generated.", app);
-  return { ok: true };
+  };
+  const { error } = opts.onlyIfMissing ? await sb.from("account_kits").insert(row) : await sb.from("account_kits").upsert(row, { onConflict: "user_id,app" });
+  if (error) {
+    if (opts.onlyIfMissing && error.code === "23505") return { ok: true, created: false };
+    if (isUndefinedRelation(error)) return fail(503, "migration", `The kit is not set up. ${SETUP_HINT}`);
+    console.error("Kit save failed", error.code); return fail(500, "db", "Could not save the kit.");
+  }
+  const gaps = opts.onlyIfMissing ? kitGaps(input) : [];
+  await addNoteEvent(sb, actor, userId, opts.onlyIfMissing ? `Kit generated automatically${gaps.length ? ` without: ${gaps.join(", ")}. Rebuild it once they are in` : ""}.` : "Kit generated.", app);
+  return { ok: true, created: true };
 }
 
 /** Rebuilds one section from current data and leaves the others as they are. */

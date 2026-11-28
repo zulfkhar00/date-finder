@@ -6,6 +6,7 @@ import { sendReservationConfirmation } from "@/lib/email";
 import { failureLabel, paymentFailureDetail, sessionEndDetail } from "@/lib/checkout-events";
 import { noteReservationFailure, recordPaidEvent, recordStripeCheckoutEvent } from "@/lib/funnel";
 import { errorMessage, notifyOps, notifyOpsError } from "@/lib/ops-notify";
+import { scheduleAutoKitForEmail } from "@/lib/operator/auto-kit";
 import { getStripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -36,6 +37,9 @@ async function completeSession(session: Stripe.Checkout.Session, event: Stripe.E
     notifyOps("payments", await paidText(supabase, id.data, session, event), event.id);
     if (countryReview.review) notifyOps("payments", `Needs review: paid from outside the paid-service countries (${countryReview.billing ?? "country unknown"})${modeTag(event)}. Not refunded.`, `${event.id}:country`);
   }
+  // Paid client with an account already: make the kit now (after the response; the sweep covers every miss). In-app only, never throws.
+  const paidEmail = session.customer_details?.email ?? session.customer_email;
+  if (paidEmail) scheduleAutoKitForEmail(paidEmail);
   // Last step, and never throws: an email failure must not turn this into a 500 and a Stripe retry.
   await sendReservationConfirmation(supabase, id.data, firstDelivery);
 }
