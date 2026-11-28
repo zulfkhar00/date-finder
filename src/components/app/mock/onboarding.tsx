@@ -15,7 +15,7 @@ import { leaveOnboardingTarget, stepFromState, stepState } from "@/lib/app/step-
 
 type Key = "basics" | "apps" | "about" | "type" | "photos" | "consent" | "done";
 const STEPS: { key: Key; title: string; sub?: string }[] = [
-  { key: "basics", title: "A bit about you", sub: "NoSwipe is only for adults 18 or older. Your birthday is required; everything else is optional." },
+  { key: "basics", title: "A bit about you", sub: "We create your dating profiles and run them for you. To start, we only need your birthday (18+). The rest is optional." },
   { key: "apps", title: "Which apps?", sub: "Optional. We create your profile on each one you pick and run it for you. You just show up." },
   { key: "about", title: "What do you do?", sub: "Optional. Your profile bio comes from this." },
   { key: "type", title: "What's your type?", sub: "Optional. Who you want to meet, and what's a no." },
@@ -138,8 +138,8 @@ function Flow({ initial }: { initial: MockState }) {
             </div>
           ) : <StepFields step={def.key} d={d} set={patch} />}
         </div>
-        {error ? <p className="app-error" role="alert" style={{ marginTop: 14 }}>{error}</p> : null}
         <div className="ob-foot" style={{ marginTop: 26 }}>
+          {error ? <p className="app-error" role="alert">{error}</p> : null}
           <button type="submit" className="app-btn" disabled={busy || !canContinue} aria-busy={busy}>
             {busy ? <><span className="app-spinner" aria-hidden /> Saving…</> : def.key === "done" ? "Take me to my home" : def.key === "consent" ? "Create my profiles" : isBlank ? "Skip for now" : "Continue"}
           </button>

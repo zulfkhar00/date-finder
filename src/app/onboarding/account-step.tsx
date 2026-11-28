@@ -3,6 +3,19 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { trackEvent } from "@/lib/attribution-client";
 import { requestCode, verifyCodeInline, type LoginState } from "@/app/login/actions";
+import { PENDING_CODE_KEY, parsePendingCode, pendingCodeValue } from "@/lib/app/onboarding-flow";
+
+// This step only ever mounts in the browser (the server renders the first questions), so storage can be read up front.
+function startState(): LoginState {
+  try {
+    const email = parsePendingCode(window.sessionStorage.getItem(PENDING_CODE_KEY));
+    if (email) return { step: "code", email };
+  } catch { /* storage unavailable */ }
+  return { step: "email" };
+}
+function forgetPendingCode() {
+  try { window.sessionStorage.removeItem(PENDING_CODE_KEY); } catch { /* storage unavailable */ }
+}
 
 /**
  * The email-code sign-in, placed inside onboarding after the first questions so a visitor sees
@@ -10,11 +23,13 @@ import { requestCode, verifyCodeInline, type LoginState } from "@/app/login/acti
  */
 export function AccountStep({ onSignedIn, onCodeSent }: { onSignedIn: () => void; onCodeSent?: (sent: boolean) => void }) {
   const [attempt, setAttempt] = useState(0);
-  return <Inner key={attempt} onSignedIn={onSignedIn} onCodeSent={onCodeSent} restart={() => { onCodeSent?.(false); setAttempt((n) => n + 1); }} />;
+  return <Inner key={attempt} onSignedIn={onSignedIn} onCodeSent={onCodeSent} restart={() => { forgetPendingCode(); onCodeSent?.(false); setAttempt((n) => n + 1); }} />;
 }
 
 function Inner({ onSignedIn, onCodeSent, restart }: { onSignedIn: () => void; onCodeSent?: (sent: boolean) => void; restart: () => void }) {
-  const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestCode, { step: "email" });
+  // Back from the mail app on a phone the tab is often reloaded: start on the code field if a code is still on its way.
+  const [initial] = useState(startState);
+  const [sent, sendAction, sending] = useActionState<LoginState, FormData>(requestCode, initial);
   const [verified, verifyAction, verifying] = useActionState<LoginState, FormData>(verifyCodeInline, { step: "code" });
   const fired = useRef(false);
   const verifyForm = useRef<HTMLFormElement>(null);
@@ -24,11 +39,16 @@ function Inner({ onSignedIn, onCodeSent, restart }: { onSignedIn: () => void; on
   // The server says "New code sent." for every send; only worth showing once the visitor asked for another one.
   const [resent, setResent] = useState(false);
   useEffect(() => {
-    if (verified.step === "done" && !fired.current) { fired.current = true; setFinishing(true); onSignedIn(); }
+    if (verified.step === "done" && !fired.current) { fired.current = true; forgetPendingCode(); setFinishing(true); onSignedIn(); }
   }, [verified.step, onSignedIn]);
 
   const codeSent = sent.step === "code" && Boolean(sent.email);
   useEffect(() => { onCodeSent?.(codeSent); if (codeSent) trackEvent("ob_code_sent", { oncePerSession: true }); }, [codeSent, onCodeSent]);
+  useEffect(() => {
+    // Only a real send is remembered; the restored state keeps its original time.
+    if (sent === initial || sent.step !== "code" || !sent.email) return;
+    try { window.sessionStorage.setItem(PENDING_CODE_KEY, pendingCodeValue(sent.email)); } catch { /* storage unavailable */ }
+  }, [sent, initial]);
 
   if (sent.step !== "code" || !sent.email) {
     return (

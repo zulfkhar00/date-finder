@@ -8,7 +8,7 @@ export function AppBadge({ app }: { app: App }) {
 
 /** The app a match came from, as a small coloured chip: Tinder, Hinge or Bumble. */
 export function AppChip({ app }: { app: App }) {
-  return <span className="app-chip" data-app={app}><b aria-hidden="true">{APP_LABELS[app][0]}</b>{APP_LABELS[app]}</span>;
+  return <span className="app-source" data-app={app}><b aria-hidden="true">{APP_LABELS[app][0]}</b>{APP_LABELS[app]}</span>;
 }
 
 export function Avatar({ name, url, large }: { name: string; url?: string | null; large?: boolean }) {
