@@ -210,8 +210,10 @@ async function auth(req, res, url) {
     return send(res, 200, userJson(u));
   }
   if (p === "/admin/generate_link") {
-    const u = [...users.values()].find((x) => x.email === body.email);
-    if (!u) return send(res, 404, { code: 404, error_code: "user_not_found", msg: "User not found" });
+    let u = [...users.values()].find((x) => x.email === body.email);
+    // Like GoTrue: a "magiclink" for an unknown address signs it up; "recovery" refuses and creates nothing.
+    if (!u && body.type === "magiclink") { u = { id: crypto.randomUUID(), email: body.email, created: new Date().toISOString() }; users.set(u.id, u); }
+    if (!u) return send(res, 404, { code: "user_not_found", error_code: "user_not_found", msg: "User with this email not found" });
     u.otp = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
     u.hash = rand(40);
     return send(res, 200, { ...userJson(u), action_link: `${APP}/auth/callback?token_hash=${u.hash}&type=email`, email_otp: u.otp, hashed_token: u.hash, verification_type: "magiclink", redirect_to: APP, properties: { action_link: "", email_otp: u.otp, hashed_token: u.hash, redirect_to: APP, verification_type: "magiclink" } });

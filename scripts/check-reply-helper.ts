@@ -328,10 +328,12 @@ async function main() {
   assert.ok(previous.size >= 30 && mine.size === previous.size + 2);
   for (const e of previous) assert.ok(mine.has(e), `migration keeps ${e}`);
   assert.ok(mine.has("reply_helper_used") && mine.has("reply_copied"));
-  for (const e of [...CLIENT_EVENTS, ...SERVER_EVENTS]) assert.ok(mine.has(e), `every event name in code is allowed by the constraint: ${e}`);
-  // the newest SQL file that defines the constraint is the one we copied from
+  // the newest SQL file that defines the constraint must allow every event name in code and keep all of this migration's
   const definers = readdirSync(sqlDir).filter((f) => f.endsWith(".sql") && /funnel_events_event_check\s+check/.test(readFileSync(new URL(f, sqlDir), "utf8"))).sort();
-  assert.equal(definers[definers.length - 1], "2026-11-21-reply-helper.sql");
+  const newest = list(readFileSync(new URL(definers[definers.length - 1], sqlDir), "utf8"));
+  for (const e of [...CLIENT_EVENTS, ...SERVER_EVENTS]) assert.ok(newest.has(e), `every event name in code is allowed by the newest constraint (${definers[definers.length - 1]}): ${e}`);
+  for (const e of mine) assert.ok(newest.has(e), `the newest constraint keeps ${e}`);
+  assert.equal(definers[definers.length - 1], "2026-11-22-funnel-account-link.sql");
   assert.ok(definers.includes("2026-11-20-paid-country-gate.sql"));
 
   // migration shape: idempotent, RLS on, browser roles revoked, own-read policy only

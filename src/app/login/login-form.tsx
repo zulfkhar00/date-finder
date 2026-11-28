@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { requestCode, verifyCode, type LoginState } from "./actions";
+import type { LoginState } from "@/lib/app/sign-in-code";
+import { requestCode, verifyCode } from "./actions";
 
 export function LoginForm({ initialError }: { initialError?: string }) {
   const [attempt, setAttempt] = useState(0);
@@ -28,13 +29,14 @@ function Steps({ initialError, restart }: { initialError?: string; restart: () =
   }
   return (
     <form action={verifyAction} className="app-form">
-      <p className="app-sub" role="status">Code sent to <strong>{sent.email}</strong></p>
+      <p className="app-sub" role="status">If this email has a NoSwipe account, we sent a code to <strong>{sent.email}</strong></p>
       <input type="hidden" name="email" value={sent.email} />
       <label className="app-field">
         <span>Code</span>
         <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" maxLength={10} required readOnly={verifying} autoFocus />
       </label>
       {verified.error ? <p className="app-error" role="alert">{verified.error}</p> : null}
+      {sent.error ? <p className="app-error" role="alert">{sent.error}</p> : null}
       <button type="submit" className="app-btn" disabled={verifying} aria-busy={verifying}>
         {verifying ? <><span className="app-spinner" aria-hidden /> Checking…</> : "Sign in"}
       </button>

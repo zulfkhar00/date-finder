@@ -38,6 +38,21 @@ export function parseGuestSaved(raw: string | null): GuestSaved | null {
   } catch { return null; }
 }
 
+/** The address a sign-in code was just sent to, kept for this tab so a reload comes back to the code field. */
+export const PENDING_CODE_KEY = "ns_ob_code";
+/** The emailed code does not outlive this, so an older entry is ignored. */
+export const PENDING_CODE_TTL_MS = 60 * 60_000;
+export const pendingCodeValue = (email: string, now = Date.now()) => JSON.stringify({ email, at: now });
+/** The address of a code that can still be typed in, or null (nothing stored, too old, or not the expected shape). */
+export function parsePendingCode(raw: string | null, now = Date.now()): string | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as { email?: unknown; at?: unknown } | null;
+    if (typeof v?.email !== "string" || !v.email.includes("@") || typeof v.at !== "number") return null;
+    return now - v.at >= 0 && now - v.at < PENDING_CODE_TTL_MS ? v.email : null;
+  } catch { return null; }
+}
+
 export type Basics = Pick<Draft, "firstName" | "birthday" | "gender" | "interestedIn">;
 export const basicsOf = (d: Draft): Basics => ({ firstName: d.firstName, birthday: d.birthday, gender: d.gender, interestedIn: d.interestedIn });
 export const basicsBlank = (b: Basics) => b.firstName.trim() === "" && b.birthday === "" && !b.gender && b.interestedIn.length === 0;

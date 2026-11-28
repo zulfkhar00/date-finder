@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { decideHero, heroLabel, isHeroLabel } from "../src/lib/hero-experiment";
 import { heroExperiment, heroVerdict, twoProportionP, HERO_MIN_PER_ARM } from "../src/lib/hero-report";
 import { buildTrafficModel, type TrafficEvent } from "../src/lib/traffic-report";
@@ -25,6 +26,13 @@ assert.equal(decideHero({ userAgent: IPHONE, cookie: undefined, queryV: null, ra
 assert.equal(heroLabel("a"), "hero-a");
 assert.equal(heroLabel("x"), null);
 assert.ok(isHeroLabel("hero-b") && !isHeroLabel("noswipe"));
+
+// ---- indexing: both variants are served on "/", so neither may opt it out of search ----
+for (const page of ["../src/app/page.tsx", "../src/app/exp/home-b/page.tsx"]) {
+  const source = readFileSync(new URL(page, import.meta.url), "utf8");
+  assert.match(source, /canonical: "\/"/, `${page} is canonical to "/"`);
+  assert.doesNotMatch(source, /robots\s*:/, `${page} must not override the indexable site default`);
+}
 
 // ---- statistics ----
 const p = twoProportionP(100, 500, 100, 500);

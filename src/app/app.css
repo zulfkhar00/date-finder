@@ -81,7 +81,10 @@ a.app-row:hover{border-color:var(--grape-3)}a.app-row:active{transform:scale(.99
 .ob-bar span{display:block;height:100%;background:var(--coral);border-radius:inherit;transition:width .3s ease}
 .ob-body{flex:1;padding-top:22px}
 .ob-body h1{font-family:var(--font-display),sans-serif;font-weight:400;font-size:36px;line-height:1.05}
-.ob-foot{padding-top:18px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+/* The main button stays on screen: on a phone the first screen is taller than the viewport. */
+.ob-foot{position:sticky;bottom:0;z-index:5;background:var(--paper);padding:12px 0 calc(10px + env(safe-area-inset-bottom));margin-bottom:-12px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.ob-body input,.ob-body textarea,.ob-body button{scroll-margin-bottom:120px}
+.ob-body .ob-foot button{scroll-margin-bottom:0}
 .ob-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
 .ob-photo{position:relative;aspect-ratio:3/4;border-radius:var(--r-lg);overflow:hidden;background:#EFE8F6;border:1.5px solid var(--line)}
 .ob-photo img{width:100%;height:100%;object-fit:cover;display:block}
@@ -281,9 +284,9 @@ details.sp-card[open]>summary::after{transform:rotate(-135deg)}
 details.sp-card:not([open]){gap:0}
 
 /* Source-app chip, unread badge, match profile page */
-.app-chip{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:2px 10px 2px 4px;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;line-height:1.5}
-.app-chip b{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:rgba(255,255,255,.28)}
-.app-chip[data-app=tinder]{background:var(--coral)}.app-chip[data-app=hinge]{background:var(--grape)}.app-chip[data-app=bumble]{background:#F5B400;color:var(--grape)}.app-chip[data-app=bumble] b{background:rgba(58,27,92,.14)}
+.app-source{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:2px 10px 2px 4px;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;line-height:1.5}
+.app-source b{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:rgba(255,255,255,.28)}
+.app-source[data-app=tinder]{background:var(--coral)}.app-source[data-app=hinge]{background:var(--grape)}.app-source[data-app=bumble]{background:#F5B400;color:var(--grape)}.app-source[data-app=bumble] b{background:rgba(58,27,92,.14)}
 .app-unread{min-width:22px;height:22px;border-radius:11px;background:var(--coral);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;padding:0 6px;flex:none}
 .app-row[data-unread] .app-row-title,.app-row[data-unread] .app-row-sub{color:var(--grape);font-weight:800}
 .app-ago{color:var(--grape-2);font-size:12.5px;font-weight:600}
