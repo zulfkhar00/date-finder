@@ -11,6 +11,7 @@ import { createAppClient, userOrNull } from "@/lib/app/session";
 import { ensureProfile } from "@/lib/app/actions-core";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { schedulePackAfterOnboarding } from "@/lib/starter-pack/service";
+import { clearConsentRequest } from "@/lib/operator/auto-kit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 const UNAUTH: ActionResult = { ok: false, error: "Your session ended. Sign in again." };
@@ -140,6 +141,8 @@ export async function giveConsent(confirmAdult: boolean): Promise<ActionResult> 
   const { error: doneError } = await sb.from("profiles").update({ onboarding_done_at: new Date().toISOString() }).eq("user_id", user.id).is("onboarding_done_at", null);
   // Starter pack: written after this response, never blocking it. A repeat call is a no-op (one pack per user per
   // version), and the 10-minute sweep covers anything that fails here.
+  // The consent the team asked for on their Home (an automatic kit for a client who never confirmed) is answered now.
+  await clearConsentRequest(sb, user.id).catch(() => 0);
   if (!doneError) schedulePackAfterOnboarding(user.id);
   return { ok: true };
 }
