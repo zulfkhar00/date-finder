@@ -3,11 +3,17 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/app/shell";
 import { CtaLink } from "@/components/cta-link";
 import { FunnelTracker } from "@/components/funnel-tracker";
+import { ogImages } from "@/lib/og";
+
+const title = "NoSwipe demo with sample data";
+const description = "A look inside NoSwipe with sample people and sample chats. Nothing here is a real person or a real result.";
 
 export const metadata: Metadata = {
   title: "Demo",
-  description: "A look inside NoSwipe with sample people and sample chats. Nothing here is a real person or a real result.",
-  alternates: { canonical: "/demo" }
+  description,
+  alternates: { canonical: "/demo" },
+  openGraph: { images: ogImages, type: "website", siteName: "NoSwipe", title, description, url: "/demo" },
+  twitter: { images: ogImages, card: "summary_large_image", title, description }
 };
 export const revalidate = 3600;
 
